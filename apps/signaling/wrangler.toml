@@ -6,6 +6,14 @@ compatibility_date = "2026-08-03"
 name = "ROOMS"
 class_name = "RoomDurableObject"
 
+[[durable_objects.bindings]]
+name = "ROOM_CREATION_RATE_LIMITER"
+class_name = "RoomCreationRateLimiter"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RoomDurableObject"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["RoomCreationRateLimiter"]

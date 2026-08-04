@@ -21,16 +21,50 @@ interface SocketAttachment {
 }
 
 const SESSION_KEY = "session";
+const ROOM_CREATION_LIMIT = 20;
+const ROOM_CREATION_WINDOW_MS = 60_000;
+const LOCAL_WEB_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200, corsOrigin?: string, extraHeaders?: HeadersInit): Response {
+  const headers = new Headers(extraHeaders);
+  headers.set("content-type", "application/json; charset=utf-8");
+  if (corsOrigin) addCorsHeaders(headers, corsOrigin);
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "content-type",
-    },
+    headers,
   });
+}
+
+function addCorsHeaders(headers: Headers, origin: string): void {
+  headers.set("access-control-allow-origin", origin);
+  headers.set("access-control-allow-headers", "content-type");
+  headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
+  headers.append("vary", "Origin");
+}
+
+function getAllowedCorsOrigin(request: Request, env: Env): string | undefined | null {
+  const requestOrigin = request.headers.get("origin");
+  if (!requestOrigin) return undefined;
+  const configuredOrigins = env.ALLOWED_WEB_ORIGINS?.split(",") ?? LOCAL_WEB_ORIGINS;
+  const allowedOrigins = configuredOrigins.map((origin) => normalizeConfiguredOrigin(origin.trim()));
+  return allowedOrigins.includes(requestOrigin) ? requestOrigin : null;
+}
+
+function normalizeConfiguredOrigin(value: string): string {
+  if (!value || value === "*") throw new Error("ALLOWED_WEB_ORIGINS must contain explicit HTTP(S) origins.");
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Invalid ALLOWED_WEB_ORIGINS entry: ${value}`);
+  }
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error(`ALLOWED_WEB_ORIGINS entry must use HTTP(S): ${value}`);
+  }
+  if (url.username || url.password || url.search || url.hash || (url.pathname && url.pathname !== "/")) {
+    throw new Error(`ALLOWED_WEB_ORIGINS entry must not contain credentials, a path, query, or fragment: ${value}`);
+  }
+  return url.origin;
 }
 
 function randomKey(): string {
@@ -347,12 +381,76 @@ export class RoomDurableObject implements DurableObject {
   }
 }
 
+interface RoomCreationWindow {
+  startedAtMs: number;
+  count: number;
+}
+
+export class RoomCreationRateLimiter implements DurableObject {
+  constructor(private readonly state: DurableObjectState) {}
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method !== "POST" || url.pathname !== "/consume") {
+      return json({ error: "NOT_FOUND" }, 404);
+    }
+
+    const nowMs = Date.now();
+    const result = await this.state.storage.transaction(async (transaction) => {
+      let window = await transaction.get<RoomCreationWindow>("window");
+      if (!window || nowMs - window.startedAtMs >= ROOM_CREATION_WINDOW_MS) {
+        window = { startedAtMs: nowMs, count: 0 };
+      }
+
+      if (window.count >= ROOM_CREATION_LIMIT) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(
+          (window.startedAtMs + ROOM_CREATION_WINDOW_MS - nowMs) / 1_000,
+        ));
+        return { allowed: false as const, retryAfterSeconds };
+      }
+
+      window.count += 1;
+      await transaction.put("window", window);
+      return { allowed: true as const, remaining: ROOM_CREATION_LIMIT - window.count };
+    });
+
+    if (!result.allowed) {
+      return json(result, 429, undefined, { "retry-after": String(result.retryAfterSeconds) });
+    }
+    return json(result);
+  }
+}
+
+async function enforceRoomCreationRateLimit(request: Request, env: Env, corsOrigin?: string): Promise<Response | null> {
+  const clientIp = request.headers.get("cf-connecting-ip")?.trim() || "unknown-client";
+  const id = env.ROOM_CREATION_RATE_LIMITER.idFromName(clientIp);
+  const response = await env.ROOM_CREATION_RATE_LIMITER.get(id).fetch("https://rate-limit.internal/consume", {
+    method: "POST",
+  });
+  if (response.ok) return null;
+
+  const retryAfter = response.headers.get("retry-after") ?? "60";
+  return json({ error: "RATE_LIMITED", message: "创建房间过于频繁，请稍后重试。" }, 429, corsOrigin, {
+    "retry-after": retryAfter,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") return json(null, 204);
+    const corsOrigin = getAllowedCorsOrigin(request, env);
+    if (corsOrigin === null) {
+      return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
+    }
+    if (request.method === "OPTIONS") {
+      const headers = new Headers();
+      if (corsOrigin) addCorsHeaders(headers, corsOrigin);
+      return new Response(null, { status: 204, headers });
+    }
 
     if (request.method === "POST" && url.pathname === "/api/rooms") {
+      const rateLimited = await enforceRoomCreationRateLimit(request, env, corsOrigin);
+      if (rateLimited) return rateLimited;
       const roomId = randomKey();
       const hostKey = randomKey();
       const inviteKey = randomKey();
@@ -364,7 +462,7 @@ export default {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(session),
       });
-      return json({ roomId, hostKey, inviteKey } satisfies CreateRoomResponse, 201);
+      return json({ roomId, hostKey, inviteKey } satisfies CreateRoomResponse, 201, corsOrigin);
     }
 
     const match = url.pathname.match(/^\/rooms\/([a-f0-9]{32})$/);
@@ -373,6 +471,6 @@ export default {
       return env.ROOMS.get(id).fetch(request);
     }
 
-    return json({ service: "tongkan-signaling", status: "ok" });
+    return json({ service: "tongkan-signaling", status: "ok" }, 200, corsOrigin);
   },
 };
