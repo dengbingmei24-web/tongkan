@@ -13,6 +13,8 @@
     "test:self": "pnpm --filter @tongkan/web test:self",
     "test:bridge": "pnpm --filter @tongkan/extension test:bridge",
     "test:integration": "node scripts/run-integration-tests.mjs",
+    "deps:report": "node scripts/generate-dependency-inventory.mjs --write",
+    "deps:check": "node scripts/generate-dependency-inventory.mjs --check",
     "dev:web": "pnpm --filter @tongkan/web dev",
     "dev:signaling": "pnpm --filter @tongkan/signaling dev"
   },
