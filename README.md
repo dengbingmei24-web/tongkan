@@ -70,6 +70,12 @@ VITE_RTC_ICE_SERVERS=[{"urls":"turn:turn.example.com:3478","username":"user","cr
 pnpm test:self
 ```
 
+也可以让脚本自动启动临时 Wrangler 信令服务，并依次执行底层 WebSocket smoke test 与上述七项双端验收。CI 使用的就是这条命令：
+
+```powershell
+pnpm test:integration
+```
+
 如果 Edge 无法被自动控制，可以直接运行扩展协议级联调。它会加载真实的网页桥接、扩展后台和 B站内容脚本，在本地模拟两个标签页，验证权威播放状态下发、双方播放/暂停/跳转/倍速、缓冲上报、换 BV 复用标签页，以及 Manifest V3 后台休眠重启后的自动恢复：
 
 ```bash
@@ -101,6 +107,9 @@ pnpm --filter @tongkan/extension build
 pnpm test
 pnpm typecheck
 pnpm build
+pnpm test:integration
 ```
+
+发布前还应按 [`QA_CHECKLIST.md`](./QA_CHECKLIST.md) 完成真实双浏览器、B站播放器和屏幕共享验收；自动化测试不能替代浏览器权限、标签页音频和跨网络 WebRTC 测试。
 
 信令服务部署前可运行 `pnpm --filter @tongkan/signaling build` 做 Wrangler dry-run；正式部署使用 `pnpm --filter @tongkan/signaling exec wrangler deploy`，然后将网页环境变量指向部署后的 HTTPS/WSS 地址。
