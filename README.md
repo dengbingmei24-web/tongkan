@@ -19,6 +19,7 @@
 
 ```powershell
 pnpm install
+Copy-Item .env.example apps\web\.env.local
 pnpm dev:signaling
 ```
 
@@ -48,11 +49,7 @@ pnpm dev:web
 3. 对方页面会自动建立 WebRTC P2P 连接并显示画面。
 4. 共享者点击“停止共享”，或使用浏览器原生的停止按钮，双方会回到 B站同步模式。
 
-默认使用公共 STUN，不部署媒体中继。部分公司网、校园网、移动网络或严格 NAT 可能无法直连；15 秒后页面会显示诊断。需要 TURN 时，可在 Web 环境变量中注入 JSON：
-
-```text
-VITE_RTC_ICE_SERVERS=[{"urls":"turn:turn.example.com:3478","username":"user","credential":"pass"}]
-```
+默认使用公共 STUN，不部署媒体中继。部分公司网、校园网、移动网络或严格 NAT 可能无法直连；15 秒后页面会显示诊断。需要 TURN 时，按仓库根目录的 [`.env.example`](./.env.example) 配置 Web 环境变量。环境变量名称、默认值和格式只在该文件维护，部署文档不再复制另一份配置清单。
 
 ### 单机双端自测
 
@@ -111,5 +108,7 @@ pnpm test:integration
 ```
 
 发布前还应按 [`QA_CHECKLIST.md`](./QA_CHECKLIST.md) 完成真实双浏览器、B站播放器和屏幕共享验收；自动化测试不能替代浏览器权限、标签页音频和跨网络 WebRTC 测试。
+
+每次验收的实际环境、结果和失败证据使用 [`qa/TEST_RUN_TEMPLATE.md`](./qa/TEST_RUN_TEMPLATE.md) 单独记录，避免直接修改通用清单。
 
 信令服务部署前可运行 `pnpm --filter @tongkan/signaling build` 做 Wrangler dry-run；正式部署使用 `pnpm --filter @tongkan/signaling exec wrangler deploy`，然后将网页环境变量指向部署后的 HTTPS/WSS 地址。

@@ -1,0 +1,75 @@
+name: 缺陷报告
+description: 报告可以稳定复现的功能、兼容性或稳定性问题
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: 请不要粘贴房主密钥、邀请密钥、TURN 凭据、`.env` 内容或扩展 `.pem` 私钥。
+
+  - type: input
+    id: commit
+    attributes:
+      label: Git 提交或版本
+      placeholder: 例如 4e93b3b
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题描述
+      description: 实际发生了什么？你原本期待什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 创建房间
+        2. 访客加入
+        3. 点击……
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 两端操作系统、浏览器及版本、扩展版本、网络组合。
+      placeholder: Windows 11 / Chrome 版本；macOS / Edge 版本；同一 Wi-Fi
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      options:
+        - 房间或邀请
+        - B站同步
+        - 直链视频
+        - 屏幕共享或音频
+        - 浏览器扩展
+        - 信令服务
+        - 构建、测试或 CI
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 日志与证据
+      description: 可附截图、录屏、控制台错误；请先移除密钥、URL 查询参数和私人聊天内容。
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已经移除所有密钥、凭据和私人内容。
+          required: true
+        - label: 我已经确认该问题可以重复出现，或注明它只出现过一次。
+          required: true

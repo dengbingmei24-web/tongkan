@@ -44,6 +44,18 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tongkan-build-${{ github.sha }}
+          path: |
+            apps/web/dist
+            apps/signaling/dist
+            apps/extension/dist
+            packages/protocol/dist
+          if-no-files-found: error
+          retention-days: 14
+
   integration:
     needs: verify
     runs-on: ubuntu-latest

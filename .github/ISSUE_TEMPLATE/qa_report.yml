@@ -1,0 +1,60 @@
+name: 验收或兼容性记录
+description: 记录一次真实双端、跨浏览器或跨网络验收结果
+title: "[QA] "
+body:
+  - type: markdown
+    attributes:
+      value: 建议先填写 `qa/TEST_RUN_TEMPLATE.md`，这里只提交结论和需要跟踪的问题。禁止提交房间密钥或 TURN 凭据。
+
+  - type: input
+    id: commit
+    attributes:
+      label: 被测 Git 提交
+      placeholder: 完整或短提交哈希
+    validations:
+      required: true
+
+  - type: textarea
+    id: matrix
+    attributes:
+      label: 设备与网络矩阵
+      placeholder: 设备 A、设备 B、浏览器版本、网络组合
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 本次覆盖范围
+      options:
+        - label: 房间创建、邀请和刷新恢复
+        - label: 真实 B站双端同步
+        - label: 直链视频
+        - label: 标签页、窗口或全屏共享
+        - label: 标签页音频
+        - label: 不同网络或 TURN
+        - label: 30 分钟或 2 小时稳定性
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: 验收结论
+      options:
+        - 通过
+        - 有已知限制，可继续测试
+        - 修复后复测
+        - 阻断发布
+    validations:
+      required: true
+
+  - type: textarea
+    id: failures
+    attributes:
+      label: 未通过项与证据
+      description: 列出清单编号、复现步骤、截图或日志，敏感内容必须脱敏。
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 其他观察
+      description: 包括漂移、延迟、浏览器权限提示、网络诊断准确性等。
