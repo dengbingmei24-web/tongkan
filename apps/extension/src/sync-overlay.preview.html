@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同看浮层 · 八状态预览</title>
+  <link rel="stylesheet" href="sync-overlay.css">
+  <style>
+    html, body { margin: 0; overflow-x: clip; }
+    body { min-width: 20rem; padding: var(--tk-space-lg); background: var(--tk-color-paper); color: var(--tk-color-ink); font-family: var(--tk-font-body); }
+    main { display: grid; gap: var(--tk-space-lg); width: min(100%, 48rem); margin-inline: auto; }
+    h1 { margin: 0; font-size: var(--tk-text-lg); font-style: normal; }
+    .preview-row { display: grid; gap: var(--tk-space-xs); }
+    .preview-row > span { color: var(--tk-color-muted); font-family: var(--tk-font-outlier); font-size: var(--tk-text-xs); }
+  </style>
+</head>
+<body class="tongkan-preview-scope">
+  <main>
+    <h1>同看同步浮层 · 八状态</h1>
+    <div id="states"></div>
+  </main>
+  <script>
+    const states = [
+      ["default", "waiting", "播放器已就绪", "等待房间连接"],
+      ["hover", "waiting", "播放器已就绪", "等待房间连接"],
+      ["focus", "waiting", "播放器已就绪", "等待房间连接"],
+      ["active", "waiting", "播放器已就绪", "等待房间连接"],
+      ["disabled", "waiting", "同步已暂停", "重新连接房间后恢复"],
+      ["loading", "loading", "正在校准", "应用服务序号 14"],
+      ["error", "error", "视频不匹配", "打开房间指定的 BV"],
+      ["success", "success", "已同步", "房间正在播放"],
+    ];
+    const target = document.querySelector("#states");
+    for (const [state, tone, status, detail] of states) {
+      const row = document.createElement("section");
+      row.className = "preview-row";
+      row.innerHTML = `<span>${state}</span><div class="tongkan-overlay" data-tone="${tone}" data-expanded="false"><button class="tongkan-overlay__toggle is-${state}" data-state="${tone === "waiting" ? "default" : tone}" ${state === "disabled" ? "disabled" : ""}><span class="tongkan-overlay__mark">同</span><span class="tongkan-overlay__summary"><strong class="tongkan-overlay__status">${status}</strong><small class="tongkan-overlay__compact-detail">${detail}</small></span><span class="tongkan-overlay__sequence">SEQ 14</span><span class="tongkan-overlay__disclosure">⌃</span></button><div class="tongkan-overlay__details"></div></div>`;
+      target.append(row);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+[
+  {
+    "date": "2026-08-03",
+    "macrostructure": "Split Studio",
+    "theme": "Midnight",
+    "enrichment": "none",
+    "brief": "同看 · 单页真实双端同步自测实验室",
+    "nav": "N5 Floating pill (shared product chrome)",
+    "footer": "Ft5 Statement (shared product chrome)"
+  },
+  {
+    "date": "2026-08-03",
+    "macrostructure": "Workbench",
+    "theme": "Midnight",
+    "enrichment": "none",
+    "brief": "同看 · 双人 B站同步观看工作台",
+    "nav": "N5 Floating pill",
+    "footer": "Ft5 Statement"
+  }
+]

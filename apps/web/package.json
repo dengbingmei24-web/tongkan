@@ -1,0 +1,29 @@
+{
+  "name": "@tongkan/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner",
+    "build": "tsc -b && vite build --configLoader runner",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --passWithNoTests --configLoader runner",
+    "test:self": "vitest run --config vitest.live.config.ts --configLoader runner"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.2.6",
+    "@fontsource/jetbrains-mono": "^5.2.6",
+    "@tongkan/protocol": "workspace:*",
+    "lucide-react": "^0.539.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.2",
+    "vitest": "^3.2.4"
+  }
+}

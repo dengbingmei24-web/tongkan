@@ -1,0 +1,295 @@
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+/* Hallmark · component: sync status overlay · genre: atmospheric · theme: Midnight
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * contrast: pass (40–41)
+ */
+
+:host,
+.tongkan-preview-scope {
+  --tk-color-paper: oklch(14% 0.012 255);
+  --tk-color-paper-2: oklch(18% 0.015 255);
+  --tk-color-paper-3: oklch(22% 0.017 255);
+  --tk-color-ink: oklch(95% 0.008 245);
+  --tk-color-ink-2: oklch(86% 0.012 245);
+  --tk-color-neutral: oklch(72% 0.014 250);
+  --tk-color-muted: oklch(63% 0.014 250);
+  --tk-color-rule: oklch(31% 0.018 255);
+  --tk-color-rule-strong: oklch(42% 0.025 250);
+  --tk-color-accent: oklch(75% 0.16 47);
+  --tk-color-focus: oklch(84% 0.13 190);
+  --tk-color-error: oklch(69% 0.18 25);
+  --tk-color-success: oklch(77% 0.13 150);
+  --tk-color-backdrop: oklch(8% 0.008 255 / 0.78);
+  --tk-font-display: "Geist Variable", "Segoe UI Variable", "Segoe UI", sans-serif;
+  --tk-font-body: "Geist Variable", "Segoe UI Variable", "Segoe UI", sans-serif;
+  --tk-font-outlier: "JetBrains Mono", "Cascadia Mono", monospace;
+  --tk-space-2xs: 0.25rem;
+  --tk-space-xs: 0.5rem;
+  --tk-space-sm: 0.75rem;
+  --tk-space-md: 1rem;
+  --tk-space-lg: 1.5rem;
+  --tk-text-xs: 0.875rem;
+  --tk-text-sm: 0.9375rem;
+  --tk-text-base: 1rem;
+  --tk-text-lg: 1.25rem;
+  --tk-radius-sm: 0.5rem;
+  --tk-radius-md: 0.875rem;
+  --tk-radius-pill: 999px;
+  --tk-rule-hair: 1px;
+  --tk-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --tk-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --tk-dur-micro: 120ms;
+  --tk-dur-short: 200ms;
+  --tk-z-overlay: 2147483000;
+  color-scheme: dark;
+  font-family: var(--tk-font-body);
+}
+
+:host {
+  position: fixed;
+  inset-inline-end: max(var(--tk-space-md), env(safe-area-inset-right));
+  inset-block-end: max(var(--tk-space-md), env(safe-area-inset-bottom));
+  z-index: var(--tk-z-overlay);
+  display: block;
+  max-inline-size: calc(100% - (var(--tk-space-md) * 2));
+  color: var(--tk-color-ink);
+  font-size: var(--tk-text-base);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+.tongkan-overlay,
+.tongkan-overlay * {
+  box-sizing: border-box;
+}
+
+.tongkan-overlay {
+  inline-size: min(20rem, calc(100vw - (var(--tk-space-md) * 2)));
+  overflow: clip;
+  border: var(--tk-rule-hair) solid var(--tk-color-rule-strong);
+  border-radius: var(--tk-radius-md);
+  background: var(--tk-color-paper-2);
+  color: var(--tk-color-ink);
+  box-shadow: 0 0.5rem 1.5rem -1rem var(--tk-color-backdrop);
+}
+
+.tongkan-overlay__toggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--tk-space-sm);
+  inline-size: 100%;
+  min-block-size: 3.5rem;
+  padding: var(--tk-space-xs) var(--tk-space-sm);
+  border: 0;
+  border-radius: calc(var(--tk-radius-md) - var(--tk-rule-hair));
+  background: var(--tk-color-paper-2);
+  color: var(--tk-color-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color var(--tk-dur-short) var(--tk-ease-out),
+    transform var(--tk-dur-micro) var(--tk-ease-out);
+}
+
+.tongkan-overlay__toggle:focus {
+  outline: none;
+}
+
+.tongkan-overlay__toggle:focus-visible,
+.tongkan-overlay__toggle.is-focus {
+  outline: 2px solid var(--tk-color-focus);
+  outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tongkan-overlay__toggle:hover,
+  .tongkan-overlay__toggle.is-hover {
+    background: var(--tk-color-paper-3);
+    color: var(--tk-color-ink);
+  }
+}
+
+.tongkan-overlay__toggle:active,
+.tongkan-overlay__toggle.is-active {
+  transform: translateY(1px);
+}
+
+.tongkan-overlay__toggle:disabled,
+.tongkan-overlay__toggle.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tongkan-overlay__toggle[data-state="loading"] {
+  cursor: progress;
+}
+
+.tongkan-overlay__toggle[data-state="error"] {
+  background: color-mix(in oklch, var(--tk-color-error) 12%, var(--tk-color-paper-2));
+  color: var(--tk-color-ink);
+}
+
+.tongkan-overlay__toggle[data-state="success"] {
+  background: color-mix(in oklch, var(--tk-color-success) 8%, var(--tk-color-paper-2));
+  color: var(--tk-color-ink);
+}
+
+.tongkan-overlay__mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: var(--tk-rule-hair) solid var(--tk-color-rule-strong);
+  border-radius: var(--tk-radius-sm);
+  color: var(--tk-color-accent);
+  font-family: var(--tk-font-display);
+  font-size: var(--tk-text-sm);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tongkan-overlay[data-tone="success"] .tongkan-overlay__mark {
+  border-color: var(--tk-color-success);
+  color: var(--tk-color-success);
+}
+
+.tongkan-overlay[data-tone="error"] .tongkan-overlay__mark {
+  border-color: var(--tk-color-error);
+  color: var(--tk-color-error);
+}
+
+.tongkan-overlay[data-tone="loading"] .tongkan-overlay__mark::after {
+  content: "";
+  position: absolute;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border: var(--tk-rule-hair) solid transparent;
+  border-block-start-color: var(--tk-color-accent);
+  border-radius: var(--tk-radius-pill);
+  animation: tongkan-overlay-spin 900ms linear infinite;
+}
+
+.tongkan-overlay__summary {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.tongkan-overlay__status,
+.tongkan-overlay__compact-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tongkan-overlay__status {
+  font-family: var(--tk-font-display);
+  font-size: var(--tk-text-sm);
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tongkan-overlay__compact-detail {
+  color: var(--tk-color-neutral);
+  font-size: var(--tk-text-xs);
+  line-height: 1.35;
+}
+
+.tongkan-overlay__sequence {
+  color: var(--tk-color-ink-2);
+  font-family: var(--tk-font-outlier);
+  font-size: var(--tk-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tongkan-overlay__disclosure {
+  color: var(--tk-color-muted);
+  font-size: var(--tk-text-sm);
+  line-height: 1;
+  transform: rotate(180deg);
+  transition: transform var(--tk-dur-short) var(--tk-ease-out);
+}
+
+.tongkan-overlay[data-expanded="true"] .tongkan-overlay__disclosure {
+  transform: rotate(0deg);
+}
+
+.tongkan-overlay__details {
+  display: grid;
+  gap: var(--tk-space-sm);
+  padding: var(--tk-space-sm);
+  border-block-start: var(--tk-rule-hair) solid var(--tk-color-rule);
+  background: var(--tk-color-paper);
+  color: var(--tk-color-ink);
+}
+
+.tongkan-overlay[data-expanded="false"] .tongkan-overlay__details {
+  display: none;
+}
+
+.tongkan-overlay__metrics {
+  display: grid;
+  gap: var(--tk-space-xs);
+  margin: 0;
+}
+
+.tongkan-overlay__metric {
+  display: grid;
+  grid-template-columns: minmax(0, 4rem) minmax(0, 1fr);
+  gap: var(--tk-space-sm);
+  align-items: baseline;
+}
+
+.tongkan-overlay__term,
+.tongkan-overlay__value {
+  margin: 0;
+  font-size: var(--tk-text-xs);
+  line-height: 1.4;
+}
+
+.tongkan-overlay__term {
+  color: var(--tk-color-muted);
+}
+
+.tongkan-overlay__value {
+  overflow: hidden;
+  color: var(--tk-color-ink-2);
+  font-family: var(--tk-font-outlier);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tongkan-overlay__message {
+  min-block-size: 1.5em;
+  margin: 0;
+  color: var(--tk-color-neutral);
+  font-size: var(--tk-text-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@keyframes tongkan-overlay-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (pointer: coarse) {
+  .tongkan-overlay__toggle {
+    min-block-size: 3.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tongkan-overlay__toggle,
+  .tongkan-overlay__disclosure {
+    transition-duration: 0ms;
+  }
+
+  .tongkan-overlay__mark::after {
+    animation-duration: 1500ms;
+  }
+}

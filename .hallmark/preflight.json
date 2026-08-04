@@ -1,0 +1,16 @@
+{
+  "date": "2026-08-04",
+  "signals": {
+    "framework": "React 19 + Vite 7 web app; Manifest V3 vanilla JavaScript extension",
+    "fontStack": "Geist Variable + JetBrains Mono",
+    "palette": "Midnight OKLCH tokens in tokens.css",
+    "motion": "motion-cut",
+    "spacing": "4pt semantic scale"
+  },
+  "preserved": [
+    "Geist and JetBrains Mono typography",
+    "Midnight OKLCH palette",
+    "4pt spacing scale",
+    "restrained motion stance"
+  ]
+}

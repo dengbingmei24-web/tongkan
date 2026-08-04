@@ -1,0 +1,11 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { width: 320px; margin: 0; background: #111315; color: #f2f0ea; }
+main { padding: 22px; }
+header { display: flex; align-items: center; gap: 9px; color: #b8c7bd; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #71d59b; box-shadow: 0 0 18px #71d59b; }
+h1 { margin: 26px 0 20px; font-size: 22px; line-height: 1.25; font-weight: 540; }
+ol { margin: 0; padding-left: 20px; color: #b6b8b5; line-height: 1.9; }
+#status { margin: 20px 0; padding-top: 16px; border-top: 1px solid #313537; color: #d6d7d3; }
+button { width: 100%; min-height: 42px; border: 1px solid #404647; border-radius: 999px; background: transparent; color: inherit; cursor: pointer; }
+button:hover { border-color: #71d59b; }

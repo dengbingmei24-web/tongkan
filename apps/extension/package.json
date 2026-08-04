@@ -1,0 +1,12 @@
+{
+  "name": "@tongkan/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node --check src/background.js && node --check src/web-bridge.js && node --check src/sync-overlay.js && node --check src/bilibili-content.js && node --check src/popup.js && node --check scripts/build.mjs",
+    "test": "node --test src/media.test.js src/bridge.integration.test.js src/sync-overlay.test.js",
+    "test:bridge": "node --test src/bridge.integration.test.js"
+  }
+}

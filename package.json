@@ -1,0 +1,22 @@
+{
+  "name": "tongkan",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "test:self": "pnpm --filter @tongkan/web test:self",
+    "test:bridge": "pnpm --filter @tongkan/extension test:bridge",
+    "dev:web": "pnpm --filter @tongkan/web dev",
+    "dev:signaling": "pnpm --filter @tongkan/signaling dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
