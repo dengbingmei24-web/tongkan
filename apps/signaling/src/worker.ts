@@ -12,6 +12,7 @@ import type {
   ServerEvent,
 } from "@tongkan/protocol";
 import type { Env } from "./env";
+import { MemberMessageRateLimiter } from "./message-rate-limit";
 import { parseClientMessage } from "./message-validation";
 import { RoomSession, type StoredRoomSession } from "./room-session";
 
@@ -78,6 +79,7 @@ function send(socket: WebSocket, event: ServerEvent): void {
 
 export class RoomDurableObject implements DurableObject {
   private session: RoomSession | null = null;
+  private readonly messageRateLimiter = new MemberMessageRateLimiter();
 
   constructor(private readonly state: DurableObjectState) {}
 
@@ -143,6 +145,10 @@ export class RoomDurableObject implements DurableObject {
     const slot = attachment.slot;
     if (!slot) return;
     const nowMs = Date.now();
+    if (!this.messageRateLimiter.allow(slot, message, nowMs)) {
+      send(socket, { type: "error", code: "RATE_LIMITED", message: "消息发送过于频繁，请稍后重试。" });
+      return;
+    }
     this.session.touch(slot, nowMs);
 
     switch (message.type) {
