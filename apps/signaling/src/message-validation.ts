@@ -176,7 +176,16 @@ function isMediaIdentity(value: unknown): value is MediaIdentity {
   if (hasOwn(value, "cid") && !isInteger(value.cid, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (hasOwn(value, "title") && !isString(value.title, 200)) return false;
   if (hasOwn(value, "unresolved") && typeof value.unresolved !== "boolean") return false;
-  if (/^BV[0-9A-Za-z]{10}$/.test(value.bvid) || /^av\d+$/.test(value.bvid)) return value.unresolved !== true;
+  if (/^BV[0-9A-Za-z]{10}$/.test(value.bvid)) return value.unresolved !== true;
+  const avidMatch = value.bvid.match(/^av([1-9]\d*)$/);
+  if (avidMatch) {
+    const avidDigits = avidMatch[1];
+    if (!avidDigits) return false;
+    const aid = Number.parseInt(avidDigits, 10);
+    return Number.isSafeInteger(aid)
+      && value.unresolved !== true
+      && (!hasOwn(value, "aid") || value.aid === aid);
+  }
   return /^b23:[0-9A-Za-z_-]{1,64}$/.test(value.bvid) && value.unresolved === true;
 }
 

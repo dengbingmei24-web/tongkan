@@ -73,6 +73,23 @@ describe("parseClientMessage", () => {
     }).ok).toBe(false);
   });
 
+  it("rejects an AV media identity whose aid disagrees with its av identifier", () => {
+    expect(parse({
+      type: "playback.command",
+      commandId: "command-av-mismatch",
+      kind: "media-change",
+      positionSeconds: 0,
+      media: {
+        type: "bilibili",
+        bvid: "av123",
+        aid: 456,
+        page: 1,
+        canonicalUrl: "https://www.bilibili.com/video/av456",
+      },
+      clientSentAtMs: 1_000,
+    }).ok).toBe(false);
+  });
+
   it("rejects non-finite playback values produced by extreme JSON numbers", () => {
     const result = parseClientMessage(
       '{"type":"playback.command","commandId":"c","kind":"seek","positionSeconds":1e400,"clientSentAtMs":1000}',

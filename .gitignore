@@ -10,7 +10,17 @@ coverage/
 .env.*
 !.env.example
 apps/extension/build/
-apps/android/
+apps/android/.gradle/
+apps/android/local.properties
+apps/android/.idea/
+apps/android/**/*.iml
+apps/android/.kotlin/
+apps/android/captures/
+apps/android/.externalNativeBuild/
+apps/android/.cxx/
+apps/android/app/build/
+apps/android/build/
+release/
 
 # Local Chrome/Edge extension signing and packaged artifacts.
 # Keep the private key local; load apps/extension/dist for development.

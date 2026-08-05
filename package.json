@@ -15,6 +15,12 @@
     "test:integration": "node scripts/run-integration-tests.mjs",
     "deps:report": "node scripts/generate-dependency-inventory.mjs --write",
     "deps:check": "node scripts/generate-dependency-inventory.mjs --check",
+    "release:prepare": "node scripts/prepare-production.mjs",
+    "deploy:cloudflare": "node scripts/deploy-cloudflare.mjs",
+    "android:test": "node scripts/run-android-gradle.mjs testDebugUnitTest",
+    "android:lint": "node scripts/run-android-gradle.mjs lintDebug",
+    "android:build": "node scripts/run-android-gradle.mjs assembleDebug",
+    "android:check": "node scripts/run-android-gradle.mjs testDebugUnitTest lintDebug assembleDebug",
     "dev:web": "pnpm --filter @tongkan/web dev",
     "dev:signaling": "pnpm --filter @tongkan/signaling dev"
   },

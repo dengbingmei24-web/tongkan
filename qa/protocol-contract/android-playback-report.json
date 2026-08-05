@@ -1,0 +1,18 @@
+{
+  "type": "playback.report",
+  "report": {
+    "sequenceApplied": 9,
+    "positionSeconds": 42.5,
+    "paused": false,
+    "readyState": 4,
+    "buffering": false,
+    "media": {
+      "type": "bilibili",
+      "bvid": "av170001",
+      "aid": 170001,
+      "page": 2,
+      "canonicalUrl": "https://www.bilibili.com/video/av170001?p=2"
+    },
+    "sentAtClientMs": 1700000000200
+  }
+}

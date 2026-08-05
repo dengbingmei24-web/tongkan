@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBilibiliUrl, planDriftCorrection, positionAt } from "./index";
+import { bilibiliEmbedUrl, parseBilibiliUrl, planDriftCorrection, positionAt } from "./index";
 import type { PlaybackAnchor } from "./types";
 
 const anchor: PlaybackAnchor = {
@@ -20,8 +20,56 @@ describe("Bilibili URL parsing", () => {
     });
   });
 
+  it("extracts a Bilibili URL from copied share text", () => {
+    expect(parseBilibiliUrl("分享一个视频 https://www.bilibili.com/video/BV1GJ411x7h7?p=2 好看！")).toMatchObject({
+      bvid: "BV1GJ411x7h7",
+      page: 2,
+    });
+  });
+
+  it("keeps b23 short links as unresolved Bilibili media", () => {
+    expect(parseBilibiliUrl("复制打开 https://b23.tv/AbCd123，看看视频")).toMatchObject({
+      type: "bilibili",
+      bvid: "b23:AbCd123",
+      canonicalUrl: "https://b23.tv/AbCd123",
+      unresolved: true,
+    });
+  });
+
   it("rejects unrelated domains", () => {
     expect(parseBilibiliUrl("https://example.com/video/BV1xx411c7mD")).toBeNull();
+    expect(parseBilibiliUrl("https://evilbilibili.com/video/BV1xx411c7mD")).toBeNull();
+    expect(parseBilibiliUrl("https://not-bilibili.com/video/BV1xx411c7mD")).toBeNull();
+  });
+
+  it("builds an official embedded player URL for a resolved BV video", () => {
+    const media = parseBilibiliUrl("https://www.bilibili.com/video/BV1xx411c7mD?p=3");
+    expect(media && bilibiliEmbedUrl(media)).toBe(
+      "https://player.bilibili.com/player.html?page=3&high_quality=1&danmaku=0&autoplay=0&as_wide=1&bvid=BV1xx411c7mD",
+    );
+  });
+
+  it("derives AV embed aid from the av identity and rejects mismatches", () => {
+    expect(bilibiliEmbedUrl({
+      type: "bilibili",
+      bvid: "av123",
+      page: 2,
+      canonicalUrl: "https://www.bilibili.com/video/av123?p=2",
+    })).toBe(
+      "https://player.bilibili.com/player.html?page=2&high_quality=1&danmaku=0&autoplay=0&as_wide=1&aid=123",
+    );
+    expect(bilibiliEmbedUrl({
+      type: "bilibili",
+      bvid: "av123",
+      aid: 456,
+      page: 1,
+      canonicalUrl: "https://www.bilibili.com/video/av456",
+    })).toBeNull();
+  });
+
+  it("does not embed an unresolved b23 share link", () => {
+    const media = parseBilibiliUrl("https://b23.tv/AbCd123");
+    expect(media && bilibiliEmbedUrl(media)).toBeNull();
   });
 });
 

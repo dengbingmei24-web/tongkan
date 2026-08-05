@@ -11,6 +11,7 @@ export interface BiliMediaIdentity {
   page: number;
   title?: string;
   canonicalUrl: string;
+  unresolved?: boolean;
 }
 
 export interface DirectMediaIdentity {

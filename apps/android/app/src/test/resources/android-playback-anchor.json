@@ -1,0 +1,15 @@
+{
+  "media": {
+    "type": "bilibili",
+    "bvid": "av170001",
+    "aid": 170001,
+    "page": 2,
+    "canonicalUrl": "https://www.bilibili.com/video/av170001?p=2"
+  },
+  "paused": false,
+  "positionSeconds": 12.5,
+  "playbackRate": 1.25,
+  "anchoredAtServerMs": 1700000000000,
+  "sequence": 9,
+  "actorId": null
+}

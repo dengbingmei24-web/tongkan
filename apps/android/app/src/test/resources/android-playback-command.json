@@ -1,0 +1,13 @@
+{
+  "type": "playback.command",
+  "commandId": "android-command-1",
+  "kind": "media-change",
+  "media": {
+    "type": "bilibili",
+    "bvid": "av170001",
+    "aid": 170001,
+    "page": 2,
+    "canonicalUrl": "https://www.bilibili.com/video/av170001?p=2"
+  },
+  "clientSentAtMs": 1700000000100
+}

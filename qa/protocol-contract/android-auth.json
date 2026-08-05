@@ -1,0 +1,12 @@
+{
+  "type": "auth",
+  "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nickname": "小明",
+  "capabilities": {
+    "platform": "android",
+    "canControlBilibili": true,
+    "canShareScreen": false,
+    "canShareSystemAudio": false,
+    "canUseMicrophone": false
+  }
+}
