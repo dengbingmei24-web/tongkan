@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthMessage, PlaybackCommandMessage, ScreenStartMessage } from "@tongkan/protocol";
-import { RoomSession } from "./room-session";
+import { ROOM_EMPTY_TTL_MS, RoomSession } from "./room-session";
 
 const capabilities = {
   platform: "web" as const,
@@ -61,6 +61,66 @@ describe("RoomSession", () => {
     expect(room.applyPlaybackCommand("host", command("seek", { positionSeconds: 1 }), 2_000)).not.toBe("RATE_LIMITED");
     expect(room.applyPlaybackCommand("host", command("seek", { positionSeconds: 2 }), 2_100)).not.toBe("RATE_LIMITED");
     expect(room.applyPlaybackCommand("host", command("seek", { positionSeconds: 3 }), 2_200)).toBe("RATE_LIMITED");
+  });
+
+  it("starts the ten-minute TTL only while both member slots are offline", () => {
+    const room = RoomSession.create("room", "host-key", "guest-key", 1_000);
+    expect(room.emptyExpiresAtMs()).toBe(1_000 + ROOM_EMPTY_TTL_MS);
+
+    room.authenticate(auth("host-key", "小明"), 2_000);
+    room.authenticate(auth("guest-key", "小夏"), 2_100);
+    expect(room.emptyExpiresAtMs()).toBeNull();
+
+    room.disconnect("host", 3_000);
+    expect(room.emptyExpiresAtMs()).toBeNull();
+    room.disconnect("guest", 3_100);
+    expect(room.emptyExpiresAtMs()).toBe(3_100 + ROOM_EMPTY_TTL_MS);
+
+    room.authenticate(auth("host-key", "小明"), 4_000);
+    expect(room.emptyExpiresAtMs()).toBeNull();
+  });
+
+  it("removes fragments from direct URLs and rejects credential query parameters", () => {
+    const room = RoomSession.create("room", "host-key", "guest-key", 1_000);
+    room.authenticate(auth("host-key", "小明"), 1_000);
+
+    const accepted = room.applyPlaybackCommand("host", command("media-change", {
+      media: {
+        type: "direct",
+        url: "https://media.example.com/movie.mp4?quality=hd#private-note",
+        title: "movie.mp4",
+      },
+    }), 2_000);
+    expect(accepted).toMatchObject({
+      media: { type: "direct", url: "https://media.example.com/movie.mp4?quality=hd" },
+    });
+
+    expect(room.applyPlaybackCommand("host", command("media-change", {
+      media: {
+        type: "direct",
+        url: "https://media.example.com/movie.mp4?access_token=secret",
+      },
+    }), 2_100)).toBe("INVALID_MEDIA");
+    expect(room.applyPlaybackCommand("host", command("media-change", {
+      media: {
+        type: "direct",
+        url: "https://user:password@media.example.com/movie.mp4",
+      },
+    }), 2_200)).toBe("INVALID_MEDIA");
+  });
+
+  it("purges a sensitive legacy direct URL when stored state is loaded", () => {
+    const stored = RoomSession.create("room", "host-key", "guest-key", 1_000).serialize();
+    stored.mode = "direct-video";
+    stored.playback = {
+      ...stored.playback,
+      media: { type: "direct", url: "https://media.example.com/movie.mp4?signature=secret" },
+    };
+
+    const restored = new RoomSession(stored);
+
+    expect(restored.snapshot(2_000)).toMatchObject({ mode: "bilibili", playback: { media: null, paused: true } });
+    expect(restored.serialize().playback.media).toBeNull();
   });
 
   it("allows only one active screen sharer and restores the previous media mode", () => {

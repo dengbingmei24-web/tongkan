@@ -3,6 +3,7 @@ import {
   type AuthMessage,
   type BiliMediaIdentity,
   type ClientPlaybackReport,
+  type DirectMediaIdentity,
   type MediaIdentity,
   type MemberRole,
   type MemberSlot,
@@ -15,6 +16,8 @@ import {
   type ScreenStartMessage,
 } from "@tongkan/protocol";
 
+export const ROOM_EMPTY_TTL_MS = 10 * 60 * 1_000;
+
 export interface StoredRoomSession {
   roomId: string;
   hostKey: string;
@@ -25,6 +28,7 @@ export interface StoredRoomSession {
   members: Partial<Record<MemberSlot, RoomMember>>;
   bufferingSlots: MemberSlot[];
   screenShare?: ScreenShareState | null;
+  emptySinceMs?: number | null;
 }
 
 export interface AuthResult {
@@ -42,18 +46,27 @@ export class RoomSession {
   private members: Partial<Record<MemberSlot, RoomMember>>;
   private bufferingSlots: Set<MemberSlot>;
   private screenShare: ScreenShareState | null;
+  private emptySinceMs: number | null;
   private seekWindows = new Map<string, number[]>();
 
   constructor(stored: StoredRoomSession) {
     this.roomId = stored.roomId;
     this.hostKey = stored.hostKey;
     this.inviteKey = stored.inviteKey;
-    this.mode = stored.mode;
+    const media = stored.playback.media ? normalizeMediaIdentity(stored.playback.media) : null;
+    this.mode = stored.mode === "direct-video" && !media ? "bilibili" : stored.mode;
     this.sequence = stored.sequence;
-    this.playback = stored.playback;
     this.members = stored.members;
+    this.playback = media === stored.playback.media ? stored.playback : {
+      ...stored.playback,
+      media,
+      paused: media ? stored.playback.paused : true,
+    };
     this.bufferingSlots = new Set(stored.bufferingSlots);
     this.screenShare = stored.screenShare ?? null;
+    this.emptySinceMs = this.hasConnectedMembers()
+      ? null
+      : stored.emptySinceMs ?? latestStoredActivityAt(stored);
   }
 
   static create(roomId: string, hostKey: string, inviteKey: string, nowMs: number): RoomSession {
@@ -75,6 +88,7 @@ export class RoomSession {
       members: {},
       bufferingSlots: [],
       screenShare: null,
+      emptySinceMs: nowMs,
     });
   }
 
@@ -97,6 +111,7 @@ export class RoomSession {
       lastSeenAt: nowMs,
     };
     this.members[slot] = member;
+    this.emptySinceMs = null;
     return { slot, member };
   }
 
@@ -106,6 +121,7 @@ export class RoomSession {
     const updated = { ...member, connected: false, lastSeenAt: nowMs };
     this.members[slot] = updated;
     this.bufferingSlots.delete(slot);
+    if (!this.hasConnectedMembers() && this.emptySinceMs === null) this.emptySinceMs = nowMs;
     return updated;
   }
 
@@ -151,12 +167,13 @@ export class RoomSession {
         break;
       case "media-change":
         if (!message.media) return "INVALID_MEDIA";
-        media = message.media;
+        media = normalizeMediaIdentity(message.media);
+        if (!media) return "INVALID_MEDIA";
         paused = true;
         positionSeconds = Math.max(0, message.positionSeconds ?? 0);
         playbackRate = 1;
         if (!this.screenShare) {
-          this.mode = message.media.type === "bilibili" ? "bilibili" : "direct-video";
+          this.mode = media.type === "bilibili" ? "bilibili" : "direct-video";
         }
         this.bufferingSlots.clear();
         break;
@@ -243,6 +260,10 @@ export class RoomSession {
     return Object.values(this.members).find((member) => member?.id === id);
   }
 
+  emptyExpiresAtMs(): number | null {
+    return this.emptySinceMs === null ? null : this.emptySinceMs + ROOM_EMPTY_TTL_MS;
+  }
+
   snapshot(nowMs: number): RoomSnapshot {
     return {
       roomId: this.roomId,
@@ -267,7 +288,12 @@ export class RoomSession {
       members: this.members,
       bufferingSlots: [...this.bufferingSlots],
       screenShare: this.screenShare,
+      emptySinceMs: this.emptySinceMs,
     };
+  }
+
+  private hasConnectedMembers(): boolean {
+    return Object.values(this.members).some((member) => member?.connected);
   }
 
   private allowSeek(memberId: string, nowMs: number): boolean {
@@ -284,4 +310,50 @@ export class RoomSession {
 
 export function isBilibiliMedia(media: MediaIdentity | null): media is BiliMediaIdentity {
   return media?.type === "bilibili";
+}
+
+function normalizeMediaIdentity(media: MediaIdentity): MediaIdentity | null {
+  return media.type === "direct" ? normalizeDirectMedia(media) : media;
+}
+
+function normalizeDirectMedia(media: DirectMediaIdentity): DirectMediaIdentity | null {
+  let url: URL;
+  try {
+    url = new URL(media.url);
+  } catch {
+    return null;
+  }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
+  for (const key of url.searchParams.keys()) {
+    if (isSensitiveQueryKey(key)) return null;
+  }
+  url.hash = "";
+  return { ...media, url: url.toString() };
+}
+
+function isSensitiveQueryKey(key: string): boolean {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (["auth", "key", "sig", "jwt"].includes(normalized)) return true;
+  return [
+    "token",
+    "signature",
+    "credential",
+    "password",
+    "secret",
+    "authorization",
+    "apikey",
+    "accesskey",
+    "authkey",
+    "keypairid",
+    "sessionid",
+    "cookie",
+    "policy",
+  ].some((value) => normalized.includes(value));
+}
+
+function latestStoredActivityAt(stored: StoredRoomSession): number {
+  return Math.max(
+    stored.playback.anchoredAtServerMs,
+    ...Object.values(stored.members).map((member) => member?.lastSeenAt ?? 0),
+  );
 }

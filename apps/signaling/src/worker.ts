@@ -88,10 +88,12 @@ export class RoomDurableObject implements DurableObject {
       const stored = await request.json<StoredRoomSession>();
       this.session = new RoomSession(stored);
       await this.persist();
+      await this.syncExpirationAlarm();
       return json({ initialized: true }, 201);
     }
 
     await this.ensureLoaded();
+    await this.expireOrSchedule(Date.now());
     if (!this.session) return json({ error: "ROOM_NOT_FOUND" }, 404);
 
     if (url.pathname === "/snapshot") {
@@ -112,6 +114,7 @@ export class RoomDurableObject implements DurableObject {
 
   async webSocketMessage(socket: WebSocket, raw: string | ArrayBuffer): Promise<void> {
     await this.ensureLoaded();
+    await this.expireOrSchedule(Date.now());
     if (!this.session || typeof raw !== "string") return;
 
     let message: ClientMessage;
@@ -177,9 +180,11 @@ export class RoomDurableObject implements DurableObject {
       return candidateAttachment?.authenticated && candidateAttachment.slot === attachment.slot;
     });
     if (replacement) return;
-    const member = this.session.disconnect(attachment.slot, Date.now());
+    const nowMs = Date.now();
+    const member = this.session.disconnect(attachment.slot, nowMs);
     const stoppedShare = this.session.stopScreenShareForSlot(attachment.slot);
     await this.persist();
+    await this.syncExpirationAlarm();
     if (member) this.broadcast({ type: "member.updated", member });
     if (stoppedShare) {
       this.broadcast({
@@ -188,8 +193,23 @@ export class RoomDurableObject implements DurableObject {
         reason: "disconnect",
         nextMode: stoppedShare.nextMode,
       });
-      this.broadcast({ type: "room.snapshot", snapshot: this.session.snapshot(Date.now()) });
+      this.broadcast({ type: "room.snapshot", snapshot: this.session.snapshot(nowMs) });
     }
+  }
+
+  async alarm(): Promise<void> {
+    await this.ensureLoaded();
+    if (!this.session) return;
+    const expiresAtMs = this.session.emptyExpiresAtMs();
+    if (expiresAtMs === null) {
+      await this.state.storage.deleteAlarm();
+      return;
+    }
+    if (Date.now() < expiresAtMs) {
+      await this.state.storage.setAlarm(expiresAtMs);
+      return;
+    }
+    await this.destroyExpiredRoom();
   }
 
   private async authenticateSocket(socket: WebSocket, message: AuthMessage): Promise<void> {
@@ -212,6 +232,7 @@ export class RoomDurableObject implements DurableObject {
     socket.serializeAttachment({ authenticated: true, slot: result.slot } satisfies SocketAttachment);
     const stoppedShare = replacedExisting ? this.session.stopScreenShareForSlot(result.slot) : null;
     await this.persist();
+    await this.state.storage.deleteAlarm();
     send(socket, {
       type: "auth.ok",
       member: result.member,
@@ -242,7 +263,7 @@ export class RoomDurableObject implements DurableObject {
       return;
     }
     if (anchor === "INVALID_MEDIA") {
-      send(socket, { type: "error", code: "INVALID_MESSAGE", message: "播放命令缺少必要数据。" });
+      send(socket, { type: "error", code: "INVALID_MESSAGE", message: "视频链接无效，或包含不能保存在房间中的敏感参数。" });
       return;
     }
     await this.persist();
@@ -373,11 +394,55 @@ export class RoomDurableObject implements DurableObject {
   private async ensureLoaded(): Promise<void> {
     if (this.session) return;
     const stored = await this.state.storage.get<StoredRoomSession>(SESSION_KEY);
-    if (stored) this.session = new RoomSession(stored);
+    if (!stored) return;
+    this.session = new RoomSession(stored);
+    const liveSlots = new Set<MemberSlot>();
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.authenticated && attachment.slot) liveSlots.add(attachment.slot);
+    }
+    const nowMs = Date.now();
+    for (const slot of ["host", "guest"] satisfies MemberSlot[]) {
+      if (this.session.getMember(slot)?.connected && !liveSlots.has(slot)) this.session.disconnect(slot, nowMs);
+    }
+    const normalized = this.session.serialize();
+    if (JSON.stringify(normalized) !== JSON.stringify(stored)) {
+      await this.state.storage.put(SESSION_KEY, normalized);
+    }
   }
 
   private async persist(): Promise<void> {
     if (this.session) await this.state.storage.put(SESSION_KEY, this.session.serialize());
+  }
+
+  private async syncExpirationAlarm(): Promise<void> {
+    if (!this.session) return;
+    const expiresAtMs = this.session.emptyExpiresAtMs();
+    if (expiresAtMs === null) {
+      await this.state.storage.deleteAlarm();
+      return;
+    }
+    await this.state.storage.setAlarm(expiresAtMs);
+  }
+
+  private async expireOrSchedule(nowMs: number): Promise<void> {
+    if (!this.session) return;
+    const expiresAtMs = this.session.emptyExpiresAtMs();
+    if (expiresAtMs === null) return;
+    if (nowMs >= expiresAtMs) {
+      await this.destroyExpiredRoom();
+      return;
+    }
+    await this.state.storage.setAlarm(expiresAtMs);
+  }
+
+  private async destroyExpiredRoom(): Promise<void> {
+    await this.state.storage.deleteAlarm();
+    await this.state.storage.deleteAll();
+    this.session = null;
+    for (const socket of this.state.getWebSockets()) {
+      if (socket.readyState === WebSocket.OPEN) socket.close(4004, "room expired");
+    }
   }
 }
 
