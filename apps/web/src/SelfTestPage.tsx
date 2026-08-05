@@ -340,7 +340,7 @@ function CorrectionBadge({ kind }: { kind: ParticipantView["correction"] }) {
 }
 
 function connectionLabel(connection: ParticipantView["connection"]): string {
-  return ({ connecting: "连接中", connected: "已连接", closed: "已断开", error: "连接错误" })[connection];
+  return ({ connecting: "连接中", connected: "已连接", reconnecting: "自动重连中", closed: "已断开", error: "连接错误" })[connection];
 }
 
 function formatTime(seconds: number): string {

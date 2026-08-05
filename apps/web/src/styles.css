@@ -361,6 +361,52 @@ a { color: inherit; }
 .direct-video-controls .round-control { width: 2.75rem; height: 2.75rem; }
 .direct-video-controls .button { border-color: color-mix(in oklch, #fff 38%, transparent); color: #fff; background: color-mix(in oklch, #000 45%, transparent); }
 .direct-video-controls__time { white-space: nowrap; font-size: var(--text-xs); }
+.bilibili-embed-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+}
+.bilibili-embed-stage__frame { width: 100%; height: 100%; border: 0; background: #000; }
+.bilibili-embed-stage__status {
+  position: absolute;
+  z-index: 2;
+  inset-inline: var(--space-sm);
+  inset-block-start: var(--space-sm);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  pointer-events: none;
+  font-size: var(--text-xs);
+}
+.bilibili-embed-stage__status > span,
+.bilibili-embed-stage__status > a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--rule-hair) solid color-mix(in oklch, #fff 24%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, #000 68%, transparent);
+  color: #fff;
+  backdrop-filter: blur(0.5rem);
+}
+.bilibili-embed-stage__status > a { pointer-events: auto; text-decoration: none; }
+.bilibili-embed-stage[data-bridge-state="missing"] .bilibili-embed-stage__status > span { color: var(--color-warning); }
+.capability-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: start;
+  padding: var(--space-md);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper-3);
+  color: var(--color-neutral);
+}
+.capability-notice > svg { color: var(--color-warning); }
+.capability-notice strong { display: block; color: var(--color-ink-2); }
+.capability-notice p { margin: var(--space-2xs) 0 0; font-size: var(--text-sm); line-height: 1.55; }
 .screen-share-stage {
   position: relative;
   display: grid;

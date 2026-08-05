@@ -18,7 +18,26 @@ export interface RoomClientOptions {
   nickname: string;
   capabilities: PeerCapabilities;
   onEvent: (event: ServerEvent) => void;
-  onConnectionChange: (state: "connecting" | "connected" | "closed" | "error") => void;
+  onConnectionChange: (state: ConnectionState) => void;
+}
+
+export type ConnectionState = "connecting" | "connected" | "reconnecting" | "closed" | "error";
+export type ExtensionDetectionState = "checking" | "installed" | "missing";
+
+const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000] as const;
+const CREATE_ROOM_TIMEOUT_MS = 8_000;
+
+export function reconnectDelayMs(attempt: number): number {
+  const index = Math.min(Math.max(0, attempt), RECONNECT_DELAYS_MS.length - 1);
+  return RECONNECT_DELAYS_MS[index] ?? RECONNECT_DELAYS_MS.at(-1) ?? 8_000;
+}
+
+export function roomClientCapabilities(
+  base: PeerCapabilities,
+  extensionState: ExtensionDetectionState,
+): PeerCapabilities | null {
+  if (extensionState === "checking") return null;
+  return { ...base, canControlBilibili: extensionState === "installed" };
 }
 
 const SIGNALING_HTTP = import.meta.env.VITE_SIGNALING_HTTP ?? "http://localhost:8787";
@@ -28,47 +47,110 @@ const SIGNALING_WS = import.meta.env.VITE_SIGNALING_WS
 export class RoomClient {
   private socket: WebSocket | null = null;
   private pingTimer: number | null = null;
+  private authTimer: number | null = null;
+  private reconnectTimer: number | null = null;
+  private reconnectAttempt = 0;
+  private shouldReconnect = false;
+  private listeningForOnline = false;
   private serverOffsetMs = 0;
 
   constructor(private readonly options: RoomClientOptions) {}
 
   connect(): void {
+    this.shouldReconnect = true;
+    if (!this.listeningForOnline) {
+      window.addEventListener("online", this.handleOnline);
+      this.listeningForOnline = true;
+    }
+    if (this.socket || this.reconnectTimer !== null) return;
+    this.openSocket();
+  }
+
+  reconnectNow(): void {
+    this.shouldReconnect = true;
+    if (!this.listeningForOnline) {
+      window.addEventListener("online", this.handleOnline);
+      this.listeningForOnline = true;
+    }
+    this.reconnectAttempt = 0;
+    this.clearReconnectTimer();
+    const previous = this.socket;
+    this.socket = null;
+    this.clearConnectionTimers();
+    previous?.close(4000, "manual reconnect");
+    this.openSocket();
+  }
+
+  private openSocket(): void {
     this.options.onConnectionChange("connecting");
-    this.socket = new WebSocket(`${SIGNALING_WS}/rooms/${this.options.roomId}`);
-    this.socket.addEventListener("open", () => {
-      this.options.onConnectionChange("connected");
-      this.send({
+    const socket = new WebSocket(`${SIGNALING_WS}/rooms/${this.options.roomId}`);
+    this.socket = socket;
+    socket.addEventListener("open", () => {
+      if (socket !== this.socket) return;
+      this.sendOn(socket, {
         type: "auth",
         key: this.options.key,
         nickname: this.options.nickname,
         capabilities: this.options.capabilities,
       } satisfies AuthMessage);
-      this.pingTimer = window.setInterval(() => {
-        this.send({ type: "ping", clientSentAtMs: Date.now() });
-      }, 5_000);
+      this.authTimer = window.setTimeout(() => {
+        if (socket === this.socket) socket.close(4000, "authentication timeout");
+      }, 8_000);
     });
-    this.socket.addEventListener("message", (event) => {
+    socket.addEventListener("message", (event) => {
+      if (socket !== this.socket) return;
       const message = JSON.parse(String(event.data)) as ServerEvent;
+      const receivedAt = Date.now();
       if (message.type === "pong") {
-        const receivedAt = Date.now();
         const midpoint = message.clientSentAtMs + (receivedAt - message.clientSentAtMs) / 2;
         this.serverOffsetMs = message.serverSentAtMs - midpoint;
       }
+      if (message.type === "auth.ok" || message.type === "room.snapshot") {
+        this.serverOffsetMs = message.snapshot.serverNowMs - receivedAt;
+      }
+      if (message.type === "auth.ok") {
+        this.clearAuthTimer();
+        this.reconnectAttempt = 0;
+        this.options.onConnectionChange("connected");
+        this.clearPingTimer();
+        this.pingTimer = window.setInterval(() => {
+          this.send({ type: "ping", clientSentAtMs: Date.now() });
+        }, 5_000);
+      }
       this.options.onEvent(message);
     });
-    this.socket.addEventListener("close", () => {
-      this.clearTimer();
-      this.options.onConnectionChange("closed");
+    socket.addEventListener("close", (event) => {
+      if (socket !== this.socket) return;
+      this.socket = null;
+      this.clearConnectionTimers();
+      if (!this.shouldReconnect) {
+        this.options.onConnectionChange("closed");
+        return;
+      }
+      if (event.code === 4001 || event.code === 4002) {
+        this.shouldReconnect = false;
+        this.options.onConnectionChange("error");
+        return;
+      }
+      this.scheduleReconnect();
     });
-    this.socket.addEventListener("error", () => {
-      this.options.onConnectionChange("error");
+    socket.addEventListener("error", () => {
+      if (socket !== this.socket) return;
+      this.options.onConnectionChange("reconnecting");
     });
   }
 
   close(): void {
-    this.clearTimer();
-    this.socket?.close(1000, "client closed");
+    this.shouldReconnect = false;
+    this.clearReconnectTimer();
+    this.clearConnectionTimers();
+    if (this.listeningForOnline) {
+      window.removeEventListener("online", this.handleOnline);
+      this.listeningForOnline = false;
+    }
+    const socket = this.socket;
     this.socket = null;
+    socket?.close(1000, "client closed");
   }
 
   sendCommand(message: Omit<PlaybackCommandMessage, "type" | "commandId" | "clientSentAtMs">): void {
@@ -124,9 +206,44 @@ export class RoomClient {
     }
   }
 
-  private clearTimer(): void {
+  private sendOn(socket: WebSocket, message: ClientMessage): void {
+    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.shouldReconnect || this.reconnectTimer !== null) return;
+    const delay = reconnectDelayMs(this.reconnectAttempt);
+    this.reconnectAttempt += 1;
+    this.options.onConnectionChange("reconnecting");
+    this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.shouldReconnect && !this.socket) this.openSocket();
+    }, delay);
+  }
+
+  private readonly handleOnline = () => {
+    if (!this.shouldReconnect || this.socket?.readyState === WebSocket.OPEN) return;
+    this.reconnectNow();
+  };
+
+  private clearPingTimer(): void {
     if (this.pingTimer !== null) window.clearInterval(this.pingTimer);
     this.pingTimer = null;
+  }
+
+  private clearAuthTimer(): void {
+    if (this.authTimer !== null) window.clearTimeout(this.authTimer);
+    this.authTimer = null;
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  private clearConnectionTimers(): void {
+    this.clearPingTimer();
+    this.clearAuthTimer();
   }
 }
 
@@ -135,9 +252,26 @@ export async function createRoom(): Promise<{
   hostKey: string;
   inviteKey: string;
 }> {
-  const response = await fetch(`${SIGNALING_HTTP}/api/rooms`, { method: "POST" });
-  if (!response.ok) throw new Error("房间服务没有响应，请确认信令服务已经启动。");
-  return response.json();
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), CREATE_ROOM_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${SIGNALING_HTTP}/api/rooms`, {
+      method: "POST",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error("房间服务没有响应，请确认信令服务已经启动。");
+    return await response.json();
+  } catch (reason) {
+    if (reason instanceof Error && reason.message === "房间服务没有响应，请确认信令服务已经启动。") {
+      throw reason;
+    }
+    if (controller.signal.aborted) {
+      throw new Error("创建房间超时，请确认本地信令服务已经启动。");
+    }
+    throw new Error("无法连接房间服务，请确认本地信令服务已经启动。");
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 
 export function inviteUrl(roomId: string, inviteKey: string): string {

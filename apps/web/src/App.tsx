@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  bilibiliEmbedUrl,
   parseBilibiliUrl,
   positionAt,
   type BiliMediaIdentity,
@@ -36,12 +37,16 @@ import {
   inviteUrl,
   loadIdentity,
   persistIdentity,
+  roomClientCapabilities,
   RoomClient,
   snapshotPartner,
+  type ConnectionState,
+  type ExtensionDetectionState,
 } from "./room-client";
 import { SelfTestPage } from "./SelfTestPage";
 import { applyDirectAnchorToVideo, parseDirectVideoUrl } from "./direct-video";
 import { ScreenSharePeer, type ScreenPeerState } from "./screen-share";
+import { isMobileWebEnvironment, unavailableBilibiliCopy } from "./mobile-web";
 
 const defaultCapabilities = {
   platform: "web" as const,
@@ -51,7 +56,7 @@ const defaultCapabilities = {
   canUseMicrophone: typeof navigator.mediaDevices?.getUserMedia === "function",
 };
 
-function Nav({ status = "本地开发" }: { status?: string }) {
+function Nav({ status = import.meta.env.PROD ? "公网版" : "本地开发" }: { status?: string }) {
   return (
     <nav className="nav-pill" aria-label="主导航">
       <a className="wordmark" href="/" aria-label="返回同看首页">同看</a>
@@ -81,11 +86,12 @@ function HomePage() {
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
   const media = useMemo(() => parseMediaInput(videoUrl), [videoUrl]);
+  const hasVideoInput = Boolean(videoUrl.trim());
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setTouched(true);
-    if (!nickname.trim() || !media) return;
+    if (!nickname.trim() || (hasVideoInput && !media)) return;
     setState("loading");
     setError("");
     try {
@@ -93,7 +99,7 @@ function HomePage() {
       localStorage.setItem("tongkan:nickname", nickname.trim());
       persistIdentity(room.roomId, "host", room.hostKey, nickname.trim());
       sessionStorage.setItem(`tongkan:${room.roomId}:invite`, room.inviteKey);
-      sessionStorage.setItem(`tongkan:${room.roomId}:media`, JSON.stringify(media));
+      if (media) sessionStorage.setItem(`tongkan:${room.roomId}:media`, JSON.stringify(media));
       window.location.assign(`/room/${room.roomId}#host=${room.hostKey}`);
     } catch (reason) {
       setState("error");
@@ -102,7 +108,7 @@ function HomePage() {
   }
 
   const nameError = touched && !nickname.trim();
-  const urlError = touched && !media;
+  const urlError = touched && hasVideoInput && !media;
 
   return (
     <>
@@ -147,7 +153,7 @@ function HomePage() {
             </label>
 
             <label className="field">
-              <span className="field__label">视频链接</span>
+              <span className="field__label">视频链接（可选）</span>
               <span className="field__control">
                 <input
                   value={videoUrl}
@@ -161,12 +167,14 @@ function HomePage() {
               </span>
               <span id="video-help" className={urlError ? "field__help field__help--error" : "field__help"}>
                 {urlError
-                  ? "没有识别到可用链接，请粘贴 B站视频页或 HTTP/HTTPS 视频直链。"
+                  ? "没有识别到可用链接，请粘贴 B站视频页、b23.tv 分享短链或 HTTP/HTTPS 视频直链。"
                   : media?.type === "bilibili"
-                    ? `${media.bvid} · 第 ${media.page} P`
+                    ? media.unresolved
+                      ? "B站分享短链 · 跳转后自动识别视频"
+                      : `${media.bvid} · 第 ${media.page} P`
                     : media?.type === "direct"
                       ? `直链视频 · ${media.title ?? new URL(media.url).hostname}`
-                      : "支持 B站视频页，以及浏览器可直接播放的 MP4/WebM 等地址。"}
+                      : "可以先创建房间，进入后再载入 B站链接或视频直链。"}
               </span>
             </label>
 
@@ -214,6 +222,14 @@ interface ChatItem {
   own: boolean;
 }
 
+interface EmbeddedBiliPlayerState {
+  media: BiliMediaIdentity;
+  durationSeconds: number;
+  positionSeconds: number;
+  paused: boolean;
+  ended: boolean;
+}
+
 function JoinGate({ roomId, credential }: { roomId: string; credential: { role: "host" | "guest"; key: string } | null }) {
   const [nickname, setNickname] = useState(localStorage.getItem("tongkan:nickname") ?? "");
   const [error, setError] = useState(false);
@@ -259,7 +275,8 @@ function RoomPage({ roomId }: { roomId: string }) {
 }
 
 function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role: "host" | "guest"; key: string; nickname: string } }) {
-  const [connection, setConnection] = useState<"connecting" | "connected" | "closed" | "error">("connecting");
+  const mobileWeb = isMobileWebEnvironment(navigator);
+  const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [self, setSelf] = useState<RoomMember | null>(null);
   const [notice, setNotice] = useState("正在连接房间…");
@@ -267,7 +284,10 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
   const [chatText, setChatText] = useState("");
   const [seekPosition, setSeekPosition] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [extensionState, setExtensionState] = useState<"checking" | "installed" | "missing">("checking");
+  const [extensionState, setExtensionState] = useState<ExtensionDetectionState>("checking");
+  const [extensionBridgeVersion, setExtensionBridgeVersion] = useState(0);
+  const [embeddedBiliReadyKey, setEmbeddedBiliReadyKey] = useState<string | null>(null);
+  const [embeddedBiliPlayerState, setEmbeddedBiliPlayerState] = useState<EmbeddedBiliPlayerState | null>(null);
   const [screenUiState, setScreenUiState] = useState<"idle" | "requesting" | "connecting" | "sharing" | "watching" | "stopping" | "error">("idle");
   const [screenPeerState, setScreenPeerState] = useState<ScreenPeerState>("idle");
   const [screenError, setScreenError] = useState("");
@@ -278,6 +298,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
   const [directPosition, setDirectPosition] = useState(0);
   const [directDuration, setDirectDuration] = useState(0);
   const [directError, setDirectError] = useState("");
+  const [directAutoplayBlocked, setDirectAutoplayBlocked] = useState(false);
   const clientRef = useRef<RoomClient | null>(null);
   const selfIdRef = useRef<string | null>(null);
   const screenPeerRef = useRef<ScreenSharePeer | null>(null);
@@ -290,6 +311,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
   const directSeekingRef = useRef(false);
   const directSeekPositionRef = useRef(0);
   const lastDirectTapAtRef = useRef(0);
+  const hasConnectedRef = useRef(false);
 
   function ensureScreenPeer(): ScreenSharePeer {
     screenPeerRef.current ??= new ScreenSharePeer({
@@ -310,6 +332,27 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
       },
     });
     return screenPeerRef.current;
+  }
+
+  function resetScreenShareRuntime(clearSnapshot: boolean) {
+    activeShareIdRef.current = null;
+    screenShareRef.current = null;
+    screenPeerRef.current?.close(true);
+    screenPeerRef.current = null;
+    for (const track of localScreenStreamRef.current?.getTracks() ?? []) track.stop();
+    localScreenStreamRef.current = null;
+    setLocalScreenStream(null);
+    setRemoteScreenStream(null);
+    setScreenUiState("idle");
+    setScreenPeerState("idle");
+    setScreenError("");
+    if (clearSnapshot) {
+      setSnapshot((current) => current ? {
+        ...current,
+        mode: current.playback.media?.type === "direct" ? "direct-video" : "bilibili",
+        screenShare: null,
+      } : current);
+    }
   }
 
   useEffect(() => () => {
@@ -334,6 +377,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
       if (event.data?.source !== "tongkan-extension") return;
       if (event.data.type === "PONG") {
         setExtensionState("installed");
+        setExtensionBridgeVersion(Number(event.data.bridgeVersion) || 1);
         window.postMessage({ source: "tongkan-web", type: "BIND_ROOM", roomId }, "*");
       }
       if (event.data.type === "LOCAL_PLAYBACK" && event.data.roomId === roomId) {
@@ -354,6 +398,20 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
       if (event.data.type === "LOCAL_REPORT" && event.data.roomId === roomId) {
         clientRef.current?.sendReport(event.data.report as ClientPlaybackReport);
       }
+      if (event.data.type === "EMBEDDED_BILI_READY" && event.data.roomId === roomId) {
+        setEmbeddedBiliReadyKey(biliIdentityKey(event.data.media as BiliMediaIdentity));
+        const state = event.data.state as EmbeddedBiliPlayerState | undefined;
+        if (state?.media && Number.isFinite(state.durationSeconds) && state.durationSeconds > 0) {
+          setEmbeddedBiliPlayerState(state);
+        }
+        setNotice("B站嵌入播放器已连接，可以直接在画面中操作。");
+      }
+      if (event.data.type === "EMBEDDED_BILI_STATE" && event.data.roomId === roomId) {
+        const state = event.data.state as EmbeddedBiliPlayerState;
+        if (state?.media && Number.isFinite(state.durationSeconds) && state.durationSeconds > 0) {
+          setEmbeddedBiliPlayerState(state);
+        }
+      }
     };
     window.addEventListener("message", onExtension);
     window.postMessage({ source: "tongkan-web", type: "PING_EXTENSION" }, "*");
@@ -366,14 +424,31 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
   }, [roomId]);
 
   useEffect(() => {
+    const capabilities = roomClientCapabilities(defaultCapabilities, extensionState);
+    if (!capabilities) return;
     const client = new RoomClient({
       roomId,
       key: identity.key,
       nickname: identity.nickname,
-      capabilities: { ...defaultCapabilities, canControlBilibili: extensionState === "installed" },
-      onConnectionChange: setConnection,
+      capabilities,
+      onConnectionChange: (state) => {
+        setConnection(state);
+        if (hasConnectedRef.current && (state === "reconnecting" || state === "closed" || state === "error")) {
+          resetScreenShareRuntime(true);
+        }
+        if (state === "connecting") {
+          setNotice(hasConnectedRef.current ? "正在恢复房间连接…" : "正在连接房间…");
+        } else if (state === "reconnecting") {
+          setNotice("连接暂时中断，正在自动恢复…");
+        } else if (state === "closed") {
+          setNotice("房间连接已关闭，可以点击下方按钮重试。");
+        } else if (state === "error") {
+          setNotice("房间连接无法自动恢复，请检查服务或邀请链接。");
+        }
+      },
       onEvent: (event: ServerEvent) => {
         if (event.type === "auth.ok") {
+          hasConnectedRef.current = true;
           setSelf(event.member);
           selfIdRef.current = event.member.id;
           screenShareRef.current = event.snapshot.screenShare;
@@ -381,7 +456,9 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
           setSeekPosition(event.snapshot.playback.positionSeconds);
           setNotice("房间已连接");
           sendAnchorToExtension(roomId, event.snapshot.playback, client.serverNow());
-          if (event.snapshot.screenShare && event.snapshot.screenShare.sharerMemberId !== event.member.id) {
+          if (!event.snapshot.screenShare) {
+            resetScreenShareRuntime(false);
+          } else if (event.snapshot.screenShare.sharerMemberId !== event.member.id) {
             activeShareIdRef.current = event.snapshot.screenShare.shareId;
             ensureScreenPeer().prepareViewer(event.snapshot.screenShare.shareId);
             setScreenUiState("connecting");
@@ -470,7 +547,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
     clientRef.current = client;
     client.connect();
     return () => client.close();
-  }, [identity.key, identity.nickname, roomId]);
+  }, [extensionState, identity.key, identity.nickname, roomId]);
 
   const playback = snapshot?.playback;
   const partner = snapshot && self ? snapshotPartner(snapshot, self.id) : "等待对方";
@@ -478,6 +555,28 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
   const biliMedia = playback?.media?.type === "bilibili" ? playback.media : null;
   const directMedia = playback?.media?.type === "direct" ? playback.media : null;
   const activeMedia = playback?.media ?? null;
+  const biliBridgeReady = extensionState === "installed";
+  const biliBridgeMissing = extensionState === "missing";
+  const biliUnavailableCopy = unavailableBilibiliCopy(mobileWeb);
+  const biliSyncUnavailable = Boolean(biliMedia && biliBridgeMissing);
+  const extensionSupportsEmbeddedDuration = extensionBridgeVersion >= 2;
+  const biliDisplayName = biliMedia?.unresolved ? "B站分享链接" : biliMedia?.bvid;
+  const biliEmbedSrc = biliMedia ? bilibiliEmbedUrl(biliMedia) : null;
+  const activeBiliKey = biliIdentityKey(biliMedia);
+  const embeddedBiliReady = Boolean(activeBiliKey && embeddedBiliReadyKey === activeBiliKey);
+  const embeddedBiliStateMatches = Boolean(activeBiliKey && biliIdentityKey(embeddedBiliPlayerState?.media) === activeBiliKey);
+  const embeddedBiliDuration = embeddedBiliStateMatches
+    ? Math.max(1, embeddedBiliPlayerState?.durationSeconds ?? 1)
+    : 7_200;
+  const connectionLabel = connection === "connected"
+    ? "已连接"
+    : connection === "connecting"
+      ? hasConnectedRef.current ? "正在恢复" : "正在连接"
+      : connection === "reconnecting"
+        ? "自动重连中"
+        : connection === "error"
+          ? "需要重试"
+          : "已断开";
   const screenShare = snapshot?.screenShare ?? null;
   const sharingSelf = Boolean(screenShare && screenShare.sharerMemberId === self?.id);
   const watchingOther = Boolean(screenShare && screenShare.sharerMemberId !== self?.id);
@@ -504,25 +603,58 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
         : "直连中";
 
   useEffect(() => {
+    if (extensionState !== "installed") return;
+    setEmbeddedBiliReadyKey(null);
+    setEmbeddedBiliPlayerState(null);
+    window.postMessage({
+      source: "tongkan-web",
+      type: "SET_EMBEDDED_BILI",
+      roomId,
+      media: biliEmbedSrc ? biliMedia : null,
+    }, "*");
+    return () => {
+      window.postMessage({ source: "tongkan-web", type: "SET_EMBEDDED_BILI", roomId, media: null }, "*");
+    };
+  }, [activeBiliKey, biliEmbedSrc, extensionState, roomId]);
+
+  useEffect(() => {
     if (!playback || playback.media?.type !== "direct") return;
     applyDirectPlayback(playback, clientRef.current?.serverNow() ?? Date.now());
   }, [playback?.sequence, directMedia?.url]);
+
+  useEffect(() => {
+    if (!playback || playback.media?.type !== "bilibili") return;
+    const updateProjectedPosition = () => {
+      setSeekPosition(positionAt(playback, clientRef.current?.serverNow() ?? Date.now()));
+    };
+    updateProjectedPosition();
+    if (playback.paused) return;
+    const timer = window.setInterval(updateProjectedPosition, 250);
+    return () => window.clearInterval(timer);
+  }, [playback?.anchoredAtServerMs, playback?.paused, playback?.playbackRate, playback?.positionSeconds, playback?.sequence]);
 
   function applyDirectPlayback(anchor: RoomSnapshot["playback"], serverNowMs: number) {
     const video = directVideoRef.current;
     if (!video || anchor.media?.type !== "direct") return;
     void applyDirectAnchorToVideo(video, anchor, serverNowMs)
       .then(() => {
+        setDirectAutoplayBlocked(false);
+        setDirectError("");
         directSeekPositionRef.current = video.currentTime;
         setDirectPosition(video.currentTime);
         if (Number.isFinite(video.duration)) setDirectDuration(video.duration);
       })
       .catch(() => {
+        setDirectAutoplayBlocked(true);
         setDirectError("浏览器阻止了自动播放，请先点击一次播放器中的播放按钮。");
       });
   }
 
   function sendPlayback(kind: "play" | "pause" | "seek", requestedPosition?: number) {
+    if (connection !== "connected") {
+      setNotice("连接恢复后才能同步操作，请稍候。");
+      return;
+    }
     const positionSeconds = kind === "seek"
       ? requestedPosition ?? seekPosition
       : playback
@@ -535,17 +667,41 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
     event.preventDefault();
     const nextMedia = parseMediaInput(mediaUrlInput);
     if (!nextMedia) {
-      setMediaInputError("没有识别到可播放链接。请粘贴 B站视频页或 HTTP/HTTPS 视频直链。");
+      setMediaInputError("没有识别到可播放链接。请粘贴 B站视频页、b23.tv 分享短链或 HTTP/HTTPS 视频直链。");
       return;
     }
     setMediaInputError("");
     setDirectError("");
     clientRef.current?.sendCommand({ kind: "media-change", media: nextMedia, positionSeconds: 0 });
     setMediaUrlInput("");
-    setNotice(nextMedia.type === "direct" ? "正在为双方载入直链视频" : "正在为双方切换 B站视频");
+    if (nextMedia.type === "direct") {
+      setNotice("正在为双方载入直链视频");
+      return;
+    }
+    if (!biliBridgeReady) {
+      window.open(nextMedia.canonicalUrl, "_blank", "noopener,noreferrer");
+      setNotice("B站页面已打开；安装并重新加载 Edge 扩展后才能双向同步播放器。");
+      return;
+    }
+    setNotice(nextMedia.unresolved ? "正在打开并解析 B站分享链接" : "正在为双方切换 B站视频");
   }
 
-  function toggleDirectPlayback() {
+  async function toggleDirectPlayback() {
+    if (connection !== "connected") {
+      setNotice("连接恢复后才能同步操作，请稍候。");
+      return;
+    }
+    if (directAutoplayBlocked && playback && !playback.paused && directVideoRef.current) {
+      try {
+        await directVideoRef.current.play();
+        setDirectAutoplayBlocked(false);
+        setDirectError("");
+        setNotice("已在本机继续播放，并保持房间同步。");
+      } catch {
+        setDirectError("浏览器仍未允许播放，请再次点击继续播放。");
+      }
+      return;
+    }
     sendPlayback(playback?.paused ? "play" : "pause", directPosition);
   }
 
@@ -657,13 +813,17 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
   function sendChat(event: React.FormEvent) {
     event.preventDefault();
     if (!chatText.trim()) return;
+    if (connection !== "connected") {
+      setNotice("连接恢复后才能发送消息。");
+      return;
+    }
     clientRef.current?.sendChat(chatText);
     setChatText("");
   }
 
   return (
     <>
-      <Nav status={connection === "connected" ? "房间已连接" : connection === "connecting" ? "连接中" : "连接断开"} />
+      <Nav status={connection === "connected" ? "房间已连接" : connection === "reconnecting" ? "自动重连中" : connection === "connecting" ? "连接中" : "连接断开"} />
       <main className="room-shell">
         <header className="room-heading">
           <div>
@@ -673,7 +833,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
               : directMedia
                 ? directMedia.title ?? "直链视频"
                 : biliMedia
-                  ? biliMedia.bvid
+                  ? biliDisplayName ?? "B站视频"
                   : "准备观看视频"}</h1>
           </div>
           <div className="room-heading__people">
@@ -684,7 +844,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
         <div className="room-grid">
           <section className="media-workbench">
             <div className="media-workbench__bar">
-              <span>{showingScreenStage ? <MonitorUp size={17} /> : <Video size={17} />}{showingScreenStage ? "屏幕共享" : directMedia ? "直链同步" : "B站同步"}</span>
+              <span>{showingScreenStage ? <MonitorUp size={17} /> : <Video size={17} />}{showingScreenStage ? "屏幕共享" : directMedia ? "直链同步" : biliSyncUnavailable ? biliUnavailableCopy.modeLabel : "B站同步"}</span>
               <span className="mono">{showingScreenStage ? screenPeerShortLabel : `序号 ${playback?.sequence ?? 0}`}</span>
             </div>
             {showingScreenStage ? (
@@ -737,14 +897,26 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                     setDirectPosition(event.currentTarget.currentTime);
                   }}
                   onDurationChange={(event) => setDirectDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+                  onEnded={(event) => {
+                    const endPosition = Number.isFinite(event.currentTarget.duration)
+                      ? event.currentTarget.duration
+                      : event.currentTarget.currentTime;
+                    directSeekPositionRef.current = endPosition;
+                    setDirectPosition(endPosition);
+                    setDirectAutoplayBlocked(false);
+                    setDirectError("");
+                    if (playback && !playback.paused && connection === "connected") {
+                      sendPlayback("pause", endPosition);
+                    }
+                  }}
                   onError={() => setDirectError("视频载入失败。地址可能过期、存在防盗链，或编码不受浏览器支持。")}
                   aria-label={directMedia.title ?? "同步直链视频"}
                 />
-                <div className="direct-video-stage__hint" aria-hidden="true">双击画面{playback?.paused ? "播放" : "暂停"}</div>
+                <div className="direct-video-stage__hint" aria-hidden="true">双击画面{directAutoplayBlocked ? "继续播放" : playback?.paused ? "播放" : "暂停"}</div>
                 {directError && <div className="direct-video-stage__error" role="alert">{directError}</div>}
                 <div className="direct-video-controls" onPointerUp={(event) => event.stopPropagation()}>
-                  <button className="round-control" type="button" onClick={toggleDirectPlayback} aria-label={playback?.paused ? "播放" : "暂停"}>
-                    {playback?.paused ? <Play fill="currentColor" /> : <Pause fill="currentColor" />}
+                  <button className="round-control" type="button" onClick={() => { void toggleDirectPlayback(); }} disabled={connection !== "connected"} aria-label={directAutoplayBlocked ? "继续播放" : playback?.paused ? "播放" : "暂停"}>
+                    {directAutoplayBlocked || playback?.paused ? <Play fill="currentColor" /> : <Pause fill="currentColor" />}
                   </button>
                   <label className="timeline-control">
                     <span className="sr-only">直链视频播放进度</span>
@@ -754,6 +926,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                       max={Math.max(1, directDuration)}
                       step="0.1"
                       value={Math.min(directPosition, Math.max(1, directDuration))}
+                      disabled={connection !== "connected"}
                       onPointerDown={() => { directSeekingRef.current = true; }}
                       onInput={(event) => previewDirectSeek(Number(event.currentTarget.value))}
                       onChange={(event) => previewDirectSeek(Number(event.currentTarget.value))}
@@ -769,13 +942,55 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                   <button className="button button--quiet" type="button" onClick={openDirectFullscreen}><Maximize2 size={17} />全屏</button>
                 </div>
               </div>
+            ) : biliMedia && biliEmbedSrc ? (
+              <div className="bilibili-embed-stage" data-bridge-state={biliBridgeMissing || !extensionSupportsEmbeddedDuration ? "missing" : embeddedBiliReady ? "ready" : "connecting"}>
+                <iframe
+                  key={activeBiliKey ?? biliEmbedSrc}
+                  className="bilibili-embed-stage__frame"
+                  src={biliEmbedSrc}
+                  title={`${biliDisplayName ?? "B站视频"} 嵌入播放器`}
+                  allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  onLoad={() => setNotice(biliBridgeMissing
+                    ? mobileWeb
+                      ? "B站画面已载入；手机网页只能本地观看，当前不会与房间同步。"
+                      : "B站画面已载入；安装扩展后才能与对方同步操作。"
+                    : "B站画面已载入，正在连接嵌入播放器。")}
+                />
+                <div className="bilibili-embed-stage__status" aria-live="polite">
+                  <span><span className={`status-dot ${embeddedBiliReady && extensionSupportsEmbeddedDuration ? "status-dot--ready" : ""}`} />{biliBridgeMissing ? biliUnavailableCopy.statusLabel : !extensionSupportsEmbeddedDuration ? "扩展版本过旧，请重新加载" : embeddedBiliReady ? "嵌入播放器已同步" : "正在连接嵌入播放器"}</span>
+                  <a href={biliMedia.canonicalUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} />独立打开</a>
+                </div>
+              </div>
             ) : (
               <div className="media-workbench__stage">
                 <div className="media-mark" aria-hidden="true"><span>同</span><span>一</span><span>秒</span></div>
                 <div className="media-workbench__copy">
-                  <h2>{biliMedia ? "视频已经绑定" : "先载入一个视频链接"}</h2>
-                  <p>{biliMedia ? `双方应打开 ${biliMedia.bvid} 的第 ${biliMedia.page} P。扩展会读取本地播放器并应用房间命令。` : "可载入 B站视频页，也可以直接载入 MP4/WebM 等视频地址。"}</p>
-                  {biliMedia && <a className="button button--quiet" href={biliMedia.canonicalUrl} target="_blank" rel="noreferrer"><ExternalLink size={17} />打开 B站</a>}
+                  <h2>{biliMedia
+                    ? biliBridgeMissing
+                      ? "B站链接已载入，等待浏览器扩展"
+                      : biliMedia.unresolved
+                        ? "正在解析 B站分享链接"
+                        : "B站播放器已经绑定"
+                    : "先载入一个视频链接"}</h2>
+                  <p>{biliMedia
+                    ? biliBridgeMissing
+                      ? "当前浏览器没有检测到同看扩展。你可以先打开 B站观看；要让双方播放、暂停和拖动同步，需要在 Edge 中加载扩展并重新打开房间。"
+                      : biliMedia.unresolved
+                        ? "扩展会打开分享短链；B站跳转完成后会自动识别真实 BV 号并更新房间。"
+                        : `双方应打开 ${biliDisplayName} 的第 ${biliMedia.page} P。扩展会读取本地播放器并应用房间命令。`
+                    : "可载入 B站视频页、b23.tv 分享短链，也可以直接载入 MP4/WebM 等视频地址。"}</p>
+                  {biliMedia && <a className="button button--quiet" href={biliMedia.canonicalUrl} target="_blank" rel="noreferrer"><ExternalLink size={17} />打开 B站视频</a>}
+                </div>
+              </div>
+            )}
+            {biliSyncUnavailable && !showingScreenStage && (
+              <div className="capability-notice" role="status" data-device={mobileWeb ? "mobile" : "desktop"}>
+                <CircleHelp size={20} aria-hidden="true" />
+                <div>
+                  <strong>{biliUnavailableCopy.title}</strong>
+                  <p>{biliUnavailableCopy.description}</p>
                 </div>
               </div>
             )}
@@ -789,7 +1004,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                     className="button button--quiet"
                     type="button"
                     onClick={() => sendPlayback(playback?.paused ? "play" : "pause")}
-                    disabled={!activeMedia || connection !== "connected"}
+                    disabled={!activeMedia || connection !== "connected" || Boolean(biliMedia && !biliBridgeReady)}
                   >
                     {playback?.paused ? <Play size={17} fill="currentColor" /> : <Pause size={17} fill="currentColor" />}
                     {playback?.paused ? "播放视频" : "暂停视频"}
@@ -798,9 +1013,9 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                   {sharingSelf && <button className="button button--quiet" type="button" onClick={() => stopScreenShare("user")} data-state={screenUiState === "stopping" ? "loading" : "default"}><MonitorUp size={17} />停止共享</button>}
                 </div>
               </div>
-            ) : directMedia ? null : (
+            ) : directMedia || biliSyncUnavailable ? null : (
               <div className="player-controls">
-                <button className="round-control" type="button" onClick={() => sendPlayback(playback?.paused ? "play" : "pause")} aria-label={playback?.paused ? "播放" : "暂停"}>
+                  <button className="round-control" type="button" onClick={() => sendPlayback(playback?.paused ? "play" : "pause")} disabled={connection !== "connected" || Boolean(biliMedia && !biliBridgeReady)} aria-label={playback?.paused ? "播放" : "暂停"}>
                   {playback?.paused ? <Play fill="currentColor" /> : <Pause fill="currentColor" />}
                 </button>
                 <label className="timeline-control">
@@ -808,15 +1023,16 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                   <input
                     type="range"
                     min="0"
-                    max="7200"
+                    max={embeddedBiliDuration}
                     step="1"
-                    value={seekPosition}
+                    value={Math.min(seekPosition, embeddedBiliDuration)}
+                    disabled={connection !== "connected" || Boolean(biliMedia && !biliBridgeReady)}
                     onChange={(event) => setSeekPosition(Number(event.target.value))}
                     onPointerUp={() => sendPlayback("seek")}
                     onKeyUp={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) sendPlayback("seek"); }}
                   />
                 </label>
-                <span className="mono">{formatTime(seekPosition)}</span>
+                <span className="mono">{formatTime(Math.min(seekPosition, embeddedBiliDuration))}{embeddedBiliStateMatches ? ` / ${formatTime(embeddedBiliDuration)}` : ""}</span>
               </div>
             )}
           </section>
@@ -825,10 +1041,11 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
             <div className="session-block">
               <div className="session-block__heading"><h2>连接状态</h2><Radio size={18} /></div>
               <dl className="status-list">
-                <div><dt>浏览器扩展</dt><dd data-tone={extensionState === "installed" ? "success" : "warning"}>{extensionState === "installed" ? "已连接" : extensionState === "checking" ? "检测中" : "未检测到"}</dd></div>
+                <div><dt>房间连接</dt><dd data-tone={connection === "connected" ? "success" : connection === "error" || connection === "closed" ? "warning" : undefined}>{connectionLabel}</dd></div>
+                <div><dt>{mobileWeb ? "B站控制" : "浏览器扩展"}</dt><dd data-tone={extensionState === "installed" && extensionSupportsEmbeddedDuration ? "success" : "warning"}>{extensionState === "installed" ? extensionSupportsEmbeddedDuration ? "已连接 · v0.2" : "版本过旧，请重新加载" : extensionState === "checking" ? "检测中" : biliMedia ? mobileWeb ? "手机网页不支持" : "未检测到（B站需要）" : mobileWeb ? "等待载入视频" : "未检测到"}</dd></div>
                 <div><dt>对方</dt><dd>{partner}</dd></div>
-                <div><dt>控制权</dt><dd>双方均可</dd></div>
-                <div><dt>当前模式</dt><dd>{screenShare ? "屏幕共享" : directMedia ? "直链视频" : "B站同步"}</dd></div>
+                <div><dt>控制权</dt><dd>{biliSyncUnavailable ? "当前设备不可控制" : "双方均可"}</dd></div>
+                <div><dt>当前模式</dt><dd>{screenShare ? "屏幕共享" : directMedia ? "直链视频" : biliSyncUnavailable ? biliUnavailableCopy.modeLabel : "B站同步"}</dd></div>
                 {showingScreenStage && <div><dt>P2P</dt><dd data-tone={screenPeerState === "connected" ? "success" : screenPeerState === "failed" ? "warning" : undefined}>{screenPeerState === "connected" ? "已直连" : screenPeerState === "failed" ? "连接失败" : "连接中"}</dd></div>}
               </dl>
             </div>
@@ -847,7 +1064,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
               </form>
               {mediaInputError
                 ? <p className="form-error" role="alert">{mediaInputError}</p>
-                : <p>双方都可以更换视频。直链必须允许浏览器直接访问。</p>}
+                : <p>{mobileWeb ? "手机网页可同步浏览器能直接播放的视频直链；B站画面目前只能本地观看。" : "支持完整 B站链接、b23.tv 分享短链和视频直链；B站同步需要浏览器扩展。"}</p>}
             </div>
 
             {identity.role === "host" && (
@@ -870,7 +1087,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
               <form className="chat-form" onSubmit={sendChat}>
                 <label className="sr-only" htmlFor="chat-input">发送消息</label>
                 <input id="chat-input" value={chatText} onChange={(event) => setChatText(event.target.value)} placeholder="说点什么" maxLength={500} />
-                <button type="submit" aria-label="发送消息"><Send size={17} /></button>
+                <button type="submit" aria-label="发送消息" disabled={connection !== "connected"}><Send size={17} /></button>
               </form>
             </div>
           </aside>
@@ -886,10 +1103,20 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
             data-state={screenUiState === "error" ? "error" : sharingSelf ? "success" : screenUiState === "requesting" || screenUiState === "connecting" || screenUiState === "stopping" ? "loading" : "default"}
           >
             <MonitorUp size={18} />
-            <span>{sharingSelf ? "停止屏幕共享" : watchingOther ? `${screenShare?.sharerNickname ?? "对方"} 正在共享` : "共享屏幕"}</span>
-            <strong>{sharingSelf ? "正在共享" : watchingOther ? "观看中" : defaultCapabilities.canShareScreen ? "现在可用" : "浏览器不支持"}</strong>
+            <span>{sharingSelf ? "停止屏幕共享" : watchingOther ? `${screenShare?.sharerNickname ?? "对方"} 正在共享` : mobileWeb ? "手机屏幕共享" : "共享屏幕"}</span>
+            <strong>{sharingSelf ? "正在共享" : watchingOther ? "观看中" : defaultCapabilities.canShareScreen ? "现在可用" : mobileWeb ? "只能观看电脑共享" : "浏览器不支持"}</strong>
           </button>
-          <button className="action-line" type="button" onClick={() => window.location.reload()}><RotateCcw size={18} /><span>重新连接</span><strong>现在可用</strong></button>
+          <button
+            className="action-line"
+            type="button"
+            onClick={() => clientRef.current?.reconnectNow()}
+            disabled={connection === "connected" || (connection === "connecting" && !hasConnectedRef.current)}
+            data-state={connection === "reconnecting" ? "loading" : connection === "error" || connection === "closed" ? "error" : "success"}
+          >
+            <RotateCcw size={18} />
+            <span>{connection === "connected" ? "断线自动恢复" : "立即重新连接"}</span>
+            <strong>{connection === "connected" ? "已开启" : connection === "reconnecting" ? "恢复中" : connection === "connecting" ? "连接中" : "点击重试"}</strong>
+          </button>
         </section>
       </main>
       <Footer />
@@ -909,8 +1136,20 @@ function parseMediaInput(input: string): MediaIdentity | null {
   return parseBilibiliUrl(input) ?? parseDirectVideoUrl(input);
 }
 
+function biliIdentityKey(media: BiliMediaIdentity | null | undefined): string | null {
+  return media && !media.unresolved ? `${media.bvid}:p${media.page}` : null;
+}
+
 function sendAnchorToExtension(roomId: string, anchor: RoomSnapshot["playback"], serverNowMs: number): void {
   if (anchor.media?.type !== "bilibili") return;
+  if (!anchor.media.unresolved) {
+    window.postMessage({
+      source: "tongkan-web",
+      type: "SET_EMBEDDED_BILI",
+      roomId,
+      media: anchor.media,
+    }, "*");
+  }
   window.postMessage({
     source: "tongkan-web",
     type: "APPLY_ANCHOR",

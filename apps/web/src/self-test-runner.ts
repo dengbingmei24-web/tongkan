@@ -9,10 +9,10 @@ import {
   type RoomSnapshot,
   type ServerEvent,
 } from "@tongkan/protocol";
-import { createRoom, RoomClient } from "./room-client";
+import { createRoom, RoomClient, type ConnectionState as RoomConnectionState } from "./room-client";
 
 export type SelfTestRole = MemberSlot;
-export type ConnectionState = "connecting" | "connected" | "closed" | "error";
+export type ConnectionState = RoomConnectionState;
 export type TestStatus = "pending" | "running" | "passed" | "failed";
 
 export interface ExternalPlaybackEvent {
