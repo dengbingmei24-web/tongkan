@@ -1,0 +1,7 @@
+name = "tongkan-personal"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-08-05"
+
+[[services]]
+binding = "SIGNALING"
+service = "tongkan-signaling"
