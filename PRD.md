@@ -554,6 +554,8 @@ interface PeerCapabilities {
 
 ## 12. 开发顺序
 
+> 当前进度（2026-08-05）：阶段一桌面 B站基础链路和桌面屏幕共享基础链路已完成；Android 1.0 已进入可安装 Alpha 阶段（原生 WebView + 房间协议桥接，支持 B站播放器双向控制），待双真机验收后进入 Release。Android MediaProjection 和跨网络 TURN 仍保留在后续阶段。
+
 ### 阶段一：B站核心链路
 
 - 房间服务和密钥体系。

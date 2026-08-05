@@ -6,12 +6,13 @@
 
 - React 房间网页：创建、邀请、加入、双方状态、公共播放控制、聊天。
 - Cloudflare Durable Objects 信令：固定两人槽位、私密密钥、权威序号、限流、播放锚点持久化。
-- Chrome / Edge Manifest V3 扩展：连接房间网页与 B站 HTML5 播放器，支持本地操作上报、远端命令抑制、视频和分 P 导航。
+- Chrome / Edge Manifest V3 扩展：连接房间网页与内嵌 B站 HTML5 播放器，支持本地操作上报、远端命令抑制、视频和分 P 导航。
 - 直链视频同步：将浏览器可直接播放的 HTTP/HTTPS 视频地址载入房间，双方在内置播放器中播放、暂停、拖动和双击切换状态。
+- 断线自动恢复：网页刷新、短暂掉线或网络切换后自动重新认证，并按服务端保存的视频、播放状态和当前进度重新对齐。
 - 桌面屏幕共享基础链路：Chrome / Edge 使用 `getDisplayMedia` 捕获标签页、窗口或屏幕，WebRTC 双人点对点传输画面与可用的共享声音。
 - 共享协议包：B站链接解析、时钟锚点、漂移校准策略。
 
-语音、Android 屏幕共享和 Android APK 位于后续开发阶段；它们不会阻塞 B站双人同步与桌面屏幕共享链路。
+语音和 Android 屏幕共享位于后续开发阶段；Android 1.0 已进入可安装 Alpha 阶段（见 `apps/android/`），不会阻塞 B站双人同步与桌面屏幕共享链路。
 
 ## 本地启动
 
@@ -31,6 +32,14 @@ pnpm dev:web
 
 打开 `http://localhost:5173`。
 
+### B站链接同步
+
+1. 支持完整 `bilibili.com/video/BV...` 链接、`b23.tv` 分享短链，以及包含链接的整段分享文案。
+2. 解析出 BV 号后，房间会载入 B站官方嵌入播放器；Edge / Chrome 扩展直接注入该播放器的 iframe，同步原生播放、暂停、进度和倍速操作。
+3. 两位参与者都需要加载 `apps/extension/dist`。扩展代码更新后，要在扩展管理页点击“重新加载”，然后刷新房间页。
+4. 房间显示“浏览器扩展：未检测到（B站需要）”时，嵌入画面仍可本地观看，但播放、暂停和拖动还不能双向同步。
+5. `b23.tv` 会先通过独立 B站页面完成跳转；扩展识别真实 BV 号并回写房间后，双方自动切换到房间内嵌播放器。
+
 ### 直链视频同步
 
 创建房间时或进入房间后，在“载入视频”中粘贴 MP4、WebM 等浏览器可直接访问的视频地址。双方会加载同一地址，并复用房间的权威播放锚点：
@@ -39,6 +48,14 @@ pnpm dev:web
 2. 双方都可以拖动播放器底部进度条；松开后最终位置同步给另一方。
 3. 地址需要允许浏览器直接访问。带登录 Cookie、防盗链、DRM 或已过期签名的地址可能无法播放，此时使用屏幕共享。
 4. 当前基础版本优先支持 MP4、WebM 等浏览器原生格式；HLS 是否可播取决于浏览器原生能力。
+
+### 断线重连与状态恢复
+
+- 网页连接中断后会按 0.5、1、2、4、8 秒逐步重试，恢复后重新读取房间权威快照。
+- 刷新页面或晚于对方进入房间时，会恢复当前视频、播放/暂停状态、倍速和按服务器时间推算的进度。
+- 重连期间播放器控制会暂时禁用，避免产生无法同步的本地操作；连接恢复后自动重新开放。
+- 网络恢复在线时会立即重试，也可以点击房间底部的“立即重新连接”。
+- 浏览器若阻止刷新后的自动播放，页面会保留正确进度并提示手动点击一次播放。这属于浏览器自动播放策略，不会丢失房间状态。
 
 ### 桌面屏幕共享
 
@@ -96,7 +113,7 @@ pnpm test:bridge
 pnpm --filter @tongkan/extension build
 ```
 
-在 Chrome 或 Edge 的扩展管理页开启开发者模式，选择“加载已解压的扩展程序”，目录为 `apps/extension/dist`。每位参与者都需要同时保留自己的房间页与对应 B站视频页。
+在 Chrome 或 Edge 的扩展管理页开启开发者模式，选择“加载已解压的扩展程序”，目录为 `apps/extension/dist`。完整 BV 链接会在房间内播放；只有解析 `b23.tv` 短链或使用“独立打开”后才需要额外保留 B站页面。
 
 ## 验证
 
@@ -112,3 +129,15 @@ pnpm test:integration
 每次验收的实际环境、结果和失败证据使用 [`qa/TEST_RUN_TEMPLATE.md`](./qa/TEST_RUN_TEMPLATE.md) 单独记录，避免直接修改通用清单。
 
 信令服务部署前可运行 `pnpm --filter @tongkan/signaling build` 做 Wrangler dry-run；正式部署使用 `pnpm --filter @tongkan/signaling exec wrangler deploy`，然后将网页环境变量指向部署后的 HTTPS/WSS 地址。
+
+## 公网部署和移动端方向
+
+生产构建、Cloudflare 一键部署、Edge 扩展打包，以及“手机网页 → Android App”的能力边界和开发顺序见 [`DEPLOYMENT.md`](./DEPLOYMENT.md)。
+
+只准备生产文件：
+
+```powershell
+pnpm release:prepare -- --web-origin https://你的网页地址 --signaling-origin https://你的网页地址
+```
+
+登录 Cloudflare 并确认正式地址后，可使用 `pnpm deploy:cloudflare` 完成 Worker、Pages 和扩展包构建。生产网页通过 Pages Service Binding 同域访问信令服务，不要求用户网络直接连接 `workers.dev`。手机网页不能安装桌面扩展；Android App（`1.0-alpha`）已通过原生 WebView + JS 桥接替代扩展，支持 B站播放器双向控制。
