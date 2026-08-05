@@ -3,6 +3,9 @@ import type { AuthMessage } from "@tongkan/protocol";
 import { ROOM_EMPTY_TTL_MS, RoomSession } from "./room-session";
 import { RoomDurableObject } from "./worker";
 
+const HOST_KEY = "a".repeat(32);
+const GUEST_KEY = "b".repeat(32);
+
 function createStateHarness() {
   const values = new Map<string, unknown>();
   let sockets: WebSocket[] = [];
@@ -42,7 +45,7 @@ function createSocket() {
 function authMessage(): AuthMessage {
   return {
     type: "auth",
-    key: "host-key",
+    key: HOST_KEY,
     nickname: "小明",
     capabilities: {
       platform: "web",
@@ -65,7 +68,7 @@ describe("RoomDurableObject lifecycle", () => {
     const nowMs = Date.now();
     const harness = createStateHarness();
     const room = new RoomDurableObject(harness.state);
-    const stored = RoomSession.create("room", "host-key", "guest-key", nowMs).serialize();
+    const stored = RoomSession.create("room", HOST_KEY, GUEST_KEY, nowMs).serialize();
 
     await room.fetch(new Request("https://room.internal/initialize", {
       method: "POST",
@@ -89,7 +92,7 @@ describe("RoomDurableObject lifecycle", () => {
     const socket = createSocket();
     harness.setSockets([socket]);
     const room = new RoomDurableObject(harness.state);
-    const stored = RoomSession.create("room", "host-key", "guest-key", Date.now()).serialize();
+    const stored = RoomSession.create("room", HOST_KEY, GUEST_KEY, Date.now()).serialize();
     await room.fetch(new Request("https://room.internal/initialize", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -109,7 +112,7 @@ describe("RoomDurableObject lifecycle", () => {
     vi.setSystemTime(new Date("2026-08-05T00:00:00Z"));
     const nowMs = Date.now();
     const harness = createStateHarness();
-    const stored = RoomSession.create("room", "host-key", "guest-key", nowMs - 5_000).serialize();
+    const stored = RoomSession.create("room", HOST_KEY, GUEST_KEY, nowMs - 5_000).serialize();
     const active = new RoomSession(stored);
     active.authenticate(authMessage(), nowMs - 4_000);
     const legacy = active.serialize();

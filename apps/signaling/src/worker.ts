@@ -1,7 +1,6 @@
 import type {
   AuthMessage,
   ChatMessage,
-  ClientMessage,
   CreateRoomResponse,
   MemberSlot,
   PlaybackCommandMessage,
@@ -13,6 +12,7 @@ import type {
   ServerEvent,
 } from "@tongkan/protocol";
 import type { Env } from "./env";
+import { parseClientMessage } from "./message-validation";
 import { RoomSession, type StoredRoomSession } from "./room-session";
 
 interface SocketAttachment {
@@ -115,15 +115,20 @@ export class RoomDurableObject implements DurableObject {
   async webSocketMessage(socket: WebSocket, raw: string | ArrayBuffer): Promise<void> {
     await this.ensureLoaded();
     await this.expireOrSchedule(Date.now());
-    if (!this.session || typeof raw !== "string") return;
+    if (!this.session) return;
 
-    let message: ClientMessage;
-    try {
-      message = JSON.parse(raw) as ClientMessage;
-    } catch {
-      send(socket, { type: "error", code: "INVALID_MESSAGE", message: "消息格式无法识别。" });
+    const parsed = parseClientMessage(raw);
+    if (!parsed.ok) {
+      send(socket, {
+        type: "error",
+        code: "INVALID_MESSAGE",
+        message: parsed.reason === "MESSAGE_TOO_LARGE"
+          ? "消息超过 64 KiB 上限。"
+          : "消息字段、类型或长度不符合协议。",
+      });
       return;
     }
+    const message = parsed.message;
 
     const attachment = socket.deserializeAttachment() as SocketAttachment | null;
     if (!attachment?.authenticated) {
