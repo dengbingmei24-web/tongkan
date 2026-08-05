@@ -24,6 +24,7 @@ test("real extension sources route authoritative state to the Bilibili player", 
 
   harness.webWindow.postMessage({ source: "tongkan-web", type: "PING_EXTENSION" }, "*");
   assert.equal(harness.extensionMessages().at(-1)?.type, "PONG");
+  assert.equal(harness.extensionMessages().at(-1)?.bridgeVersion, 2);
 
   harness.bindRoom("room-protocol-test");
   await harness.attachBilibiliTab(media.canonicalUrl);
@@ -58,6 +59,225 @@ test("real extension sources route authoritative state to the Bilibili player", 
   });
   assert.equal(harness.createdTabs.length, 0);
   assert.equal(harness.extensionMessages().filter((message) => message.type === "LOCAL_PLAYBACK").length, 0);
+});
+
+test("an embedded Bilibili player stays inside the room tab and receives room commands", async () => {
+  const harness = await createBridgeHarness();
+  harness.bindRoom("room-embedded-test");
+  await harness.flush();
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "SET_EMBEDDED_BILI",
+    roomId: "room-embedded-test",
+    media,
+  }, "*");
+  await harness.attachBilibiliTab(
+    "https://player.bilibili.com/player.html?page=1&bvid=BV1xx411c7mD",
+    1,
+  );
+  await harness.flush();
+
+  const anchor = {
+    media,
+    paused: false,
+    positionSeconds: 18,
+    playbackRate: 1,
+    anchoredAtServerMs: 12_000,
+    sequence: 9,
+    actorId: "host-member",
+  };
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "APPLY_ANCHOR",
+    roomId: "room-embedded-test",
+    anchor,
+    serverNowMs: 12_000,
+  }, "*");
+  await harness.flush();
+
+  assert.equal(harness.video.paused, false);
+  assert.equal(harness.video.currentTime, 18);
+  assert.equal(harness.updatedTabs.length, 0);
+  assert.equal(harness.createdTabs.length, 0);
+  assert.equal(
+    harness.extensionMessages().some((message) => message.type === "EMBEDDED_BILI_READY" && message.roomId === "room-embedded-test"),
+    true,
+  );
+  const embeddedState = harness.extensionMessages().findLast((message) => message.type === "EMBEDDED_BILI_STATE")?.state;
+  assert.equal(embeddedState?.durationSeconds, 1058);
+  assert.equal(embeddedState?.media?.bvid, media.bvid);
+});
+
+test("switching an embedded BV reuses only an independent matching player tab", async () => {
+  const harness = await createBridgeHarness();
+  const otherRoomWindow = await harness.attachRoomTab(3);
+  const nextMedia = {
+    type: "bilibili",
+    bvid: "BV1GJ411x7h7",
+    page: 2,
+    canonicalUrl: "https://www.bilibili.com/video/BV1GJ411x7h7?p=2",
+  };
+
+  harness.bindRoom("room-embedded-switch-test");
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "SET_EMBEDDED_BILI",
+    roomId: "room-embedded-switch-test",
+    media,
+  }, "*");
+  await harness.attachBilibiliTab(
+    "https://player.bilibili.com/player.html?page=1&bvid=BV1xx411c7mD",
+    1,
+  );
+
+  otherRoomWindow.postMessage({ source: "tongkan-web", type: "BIND_ROOM", roomId: "room-other-embedded-test" }, "*");
+  otherRoomWindow.postMessage({
+    source: "tongkan-web",
+    type: "SET_EMBEDDED_BILI",
+    roomId: "room-other-embedded-test",
+    media: nextMedia,
+  }, "*");
+  await harness.attachBilibiliTab(
+    "https://player.bilibili.com/player.html?page=2&bvid=BV1GJ411x7h7",
+    3,
+  );
+  await harness.attachBilibiliTab(nextMedia.canonicalUrl, 2);
+  await harness.flush();
+
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "APPLY_ANCHOR",
+    roomId: "room-embedded-switch-test",
+    anchor: {
+      media: nextMedia,
+      paused: false,
+      positionSeconds: 37,
+      playbackRate: 1,
+      anchoredAtServerMs: 14_000,
+      sequence: 13,
+      actorId: "host-member",
+    },
+    serverNowMs: 14_000,
+  }, "*");
+  await harness.flush();
+
+  assert.equal(
+    harness.messagesSentToTab(3).some((message) => message.type === "APPLY_ANCHOR"),
+    false,
+  );
+  assert.equal(
+    harness.messagesSentToTab(2).some((message) => message.type === "APPLY_ANCHOR"),
+    true,
+  );
+  assert.equal(harness.updatedTabs.some(({ tabId }) => tabId === 1 || tabId === 3), false);
+  assert.equal(harness.createdTabs.length, 0);
+});
+
+test("switching an embedded BV to B23 creates a resolver tab without navigating the room", async () => {
+  const harness = await createBridgeHarness();
+  const shortMedia = {
+    type: "bilibili",
+    bvid: "b23:AbCd123",
+    page: 1,
+    title: "Bilibili shared video",
+    canonicalUrl: "https://b23.tv/AbCd123",
+    unresolved: true,
+  };
+
+  harness.bindRoom("room-embedded-b23-test");
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "SET_EMBEDDED_BILI",
+    roomId: "room-embedded-b23-test",
+    media,
+  }, "*");
+  await harness.attachBilibiliTab(
+    "https://player.bilibili.com/player.html?page=1&bvid=BV1xx411c7mD",
+    1,
+  );
+  await harness.flush();
+
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "APPLY_ANCHOR",
+    roomId: "room-embedded-b23-test",
+    anchor: {
+      media: shortMedia,
+      paused: true,
+      positionSeconds: 0,
+      playbackRate: 1,
+      anchoredAtServerMs: 15_000,
+      sequence: 14,
+      actorId: "host-member",
+    },
+    serverNowMs: 15_000,
+  }, "*");
+  await harness.flush();
+
+  assert.equal(harness.updatedTabs.some(({ tabId }) => tabId === 1), false);
+  assert.deepEqual(toPlainObject(harness.createdTabs.at(-1)), {
+    url: shortMedia.canonicalUrl,
+    active: true,
+  });
+});
+
+test("two embedded room tabs in one browser profile keep independent extension routes", async () => {
+  const harness = await createBridgeHarness();
+  const secondRoomWindow = await harness.attachRoomTab(3);
+
+  harness.bindRoom("room-two-tabs-test");
+  await harness.flush();
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "SET_EMBEDDED_BILI",
+    roomId: "room-two-tabs-test",
+    media,
+  }, "*");
+  const firstPlayer = await harness.attachBilibiliTab(
+    "https://player.bilibili.com/player.html?page=1&bvid=BV1xx411c7mD",
+    1,
+  );
+
+  secondRoomWindow.postMessage({ source: "tongkan-web", type: "BIND_ROOM", roomId: "room-two-tabs-test" }, "*");
+  await harness.flush();
+  secondRoomWindow.postMessage({
+    source: "tongkan-web",
+    type: "SET_EMBEDDED_BILI",
+    roomId: "room-two-tabs-test",
+    media,
+  }, "*");
+  const secondPlayer = await harness.attachBilibiliTab(
+    "https://player.bilibili.com/player.html?page=1&bvid=BV1xx411c7mD",
+    3,
+  );
+  await harness.flush();
+
+  const anchor = {
+    media,
+    paused: false,
+    positionSeconds: 64,
+    playbackRate: 1,
+    anchoredAtServerMs: 13_000,
+    sequence: 12,
+    actorId: "host-member",
+  };
+  for (const roomWindow of [harness.webWindow, secondRoomWindow]) {
+    roomWindow.postMessage({
+      source: "tongkan-web",
+      type: "APPLY_ANCHOR",
+      roomId: "room-two-tabs-test",
+      anchor,
+      serverNowMs: 13_000,
+    }, "*");
+  }
+  await harness.flush();
+
+  assert.equal(firstPlayer.paused, false);
+  assert.equal(firstPlayer.currentTime, 64);
+  assert.equal(secondPlayer.paused, false);
+  assert.equal(secondPlayer.currentTime, 64);
+  assert.equal(harness.createdTabs.length, 0);
+  assert.equal(harness.updatedTabs.length, 0);
 });
 
 test("an immediate user play after binding is not swallowed by remote suppression", async () => {
@@ -188,6 +408,37 @@ test("a Manifest V3 background restart restores both routing directions", async 
   assert.equal(messagesAfterRestart.at(-1)?.roomId, "room-restart-test");
 });
 
+test("the same authoritative sequence recalibrates a player that drifted while disconnected", async () => {
+  const harness = await createBridgeHarness();
+  harness.bindRoom("room-same-sequence-test");
+  await harness.attachBilibiliTab(media.canonicalUrl);
+
+  const message = {
+    source: "tongkan-web",
+    type: "APPLY_ANCHOR",
+    roomId: "room-same-sequence-test",
+    anchor: {
+      media,
+      paused: true,
+      positionSeconds: 40,
+      playbackRate: 1,
+      anchoredAtServerMs: 28_000,
+      sequence: 6,
+      actorId: "host-member",
+    },
+    serverNowMs: 28_000,
+  };
+  harness.webWindow.postMessage(message, "*");
+  await harness.flush();
+  harness.video.currentTime = 94;
+
+  harness.webWindow.postMessage(message, "*");
+  await harness.flush();
+
+  assert.equal(harness.video.currentTime, 40);
+  assert.equal(harness.video.paused, true);
+});
+
 test("a different Bilibili media anchor reuses the existing video tab", async () => {
   const harness = await createBridgeHarness();
   harness.bindRoom("room-media-test");
@@ -223,6 +474,59 @@ test("a different Bilibili media anchor reuses the existing video tab", async ()
   assert.equal(harness.createdTabs.length, 0);
 });
 
+test("a b23 short link resolves to the redirected Bilibili media", async () => {
+  const harness = await createBridgeHarness();
+  harness.bindRoom("room-short-link-test");
+  await harness.attachBilibiliTab(media.canonicalUrl);
+
+  const shortMedia = {
+    type: "bilibili",
+    bvid: "b23:AbCd123",
+    page: 1,
+    title: "B站分享视频",
+    canonicalUrl: "https://b23.tv/AbCd123",
+    unresolved: true,
+  };
+  harness.webWindow.postMessage({
+    source: "tongkan-web",
+    type: "APPLY_ANCHOR",
+    roomId: "room-short-link-test",
+    anchor: {
+      media: shortMedia,
+      paused: true,
+      positionSeconds: 0,
+      playbackRate: 1,
+      anchoredAtServerMs: 40_000,
+      sequence: 8,
+      actorId: "host-member",
+    },
+    serverNowMs: 40_000,
+  }, "*");
+  await harness.flush();
+
+  assert.deepEqual(toPlainObject(harness.updatedTabs.at(-1)), {
+    tabId: 2,
+    update: { url: shortMedia.canonicalUrl, active: true },
+  });
+
+  const resolvedMedia = {
+    type: "bilibili",
+    bvid: "BV1GJ411x7h7",
+    page: 1,
+    canonicalUrl: "https://www.bilibili.com/video/BV1GJ411x7h7",
+  };
+  await harness.attachBilibiliTab(resolvedMedia.canonicalUrl);
+  await harness.flush();
+
+  const resolution = harness.extensionMessages().findLast((message) => message.type === "LOCAL_PLAYBACK");
+  assert.equal(resolution?.roomId, "room-short-link-test");
+  assert.deepEqual(toPlainObject(resolution?.event), {
+    kind: "media-change",
+    media: resolvedMedia,
+    positionSeconds: 0,
+  });
+});
+
 async function createBridgeHarness() {
   const bus = createChromeBus();
   const webWindow = createMessageWindow();
@@ -236,6 +540,7 @@ async function createBridgeHarness() {
   await runSource("web-bridge.js", { chrome: webChrome, window: webWindow });
 
   let player = null;
+  const players = new Map();
   let playerClock = null;
 
   return {
@@ -246,6 +551,14 @@ async function createBridgeHarness() {
       assert.ok(player, "Bilibili tab has not been attached");
       return player;
     },
+    videoForTab(tabId) {
+      return players.get(tabId) ?? null;
+    },
+    async attachRoomTab(tabId) {
+      const roomWindow = createMessageWindow();
+      await runSource("web-bridge.js", { chrome: bus.chromeForTab(tabId), window: roomWindow });
+      return roomWindow;
+    },
     bindRoom(roomId) {
       webWindow.postMessage({ source: "tongkan-web", type: "BIND_ROOM", roomId }, "*");
     },
@@ -253,9 +566,10 @@ async function createBridgeHarness() {
       bus.clearBackgroundListeners();
       await loadBackground();
     },
-    async attachBilibiliTab(url) {
+    async attachBilibiliTab(url, tabId = 2) {
       playerClock = { now: 0 };
       player = new FakeVideo();
+      players.set(tabId, player);
       const timerRegistry = createTimerRegistry();
       const contentWindow = {
         setInterval: timerRegistry.setInterval,
@@ -264,7 +578,7 @@ async function createBridgeHarness() {
         clearTimeout: timerRegistry.clearTimeout,
       };
       await runSource("bilibili-content.js", {
-        chrome: bus.chromeForTab(2),
+        chrome: bus.chromeForTab(tabId),
         document: {
           documentElement: {},
           querySelectorAll: (selector) => selector === "video" ? [player] : [],
@@ -278,6 +592,7 @@ async function createBridgeHarness() {
         clearTimeout: timerRegistry.clearTimeout,
         window: contentWindow,
       });
+      return player;
     },
     advancePlayerClock(milliseconds) {
       assert.ok(playerClock, "Bilibili tab has not been attached");
@@ -288,6 +603,9 @@ async function createBridgeHarness() {
     },
     messagesSentToTab(tabId) {
       return bus.tabMessages.filter((entry) => entry.tabId === tabId).map((entry) => entry.message);
+    },
+    sendRuntimeMessage(tabId, message) {
+      return bus.dispatchToBackground(tabId, message);
     },
     flush: bus.flush,
   };
@@ -363,6 +681,7 @@ function createChromeBus() {
     createdTabs,
     updatedTabs,
     tabMessages,
+    dispatchToBackground,
     clearBackgroundListeners() {
       backgroundListeners.length = 0;
     },
@@ -387,8 +706,10 @@ function createChromeBus() {
 class FakeVideo {
   constructor() {
     this.currentTime = 0;
+    this.duration = 1058;
     this.playbackRate = 1;
     this.paused = true;
+    this.ended = false;
     this.readyState = 4;
     this.listeners = new Map();
   }

@@ -1,12 +1,18 @@
 const ROOM_ID_PATTERN = /^[0-9A-Za-z_-]{1,64}$/;
 const BVID_PATTERN = /^BV[0-9A-Za-z]{10}$/;
+const AVID_PATTERN = /^av([1-9]\d*)$/;
 const B23_ID_PATTERN = /^[0-9A-Za-z_-]{1,64}$/;
 
 window.addEventListener("message", (event) => {
   if (!isTrustedPageEvent(event) || event.data?.source !== "tongkan-web") return;
 
   if (event.data.type === "PING_EXTENSION") {
-    postToPage({ source: "tongkan-extension", type: "PONG" });
+    postToPage({
+      source: "tongkan-extension",
+      type: "PONG",
+      bridgeVersion: 2,
+      capabilities: { embeddedDuration: true, multiRoomTabs: true },
+    });
     return;
   }
 
@@ -20,6 +26,14 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  if (event.data.type === "SET_EMBEDDED_BILI" && isValidRoomId(event.data.roomId)) {
+    const media = event.data.media === null ? null : normalizeBilibiliMedia(event.data.media);
+    if (event.data.media === null || (media && media.unresolved !== true)) {
+      chrome.runtime.sendMessage({ type: "ROOM_EMBED_MEDIA", roomId: event.data.roomId, media });
+    }
+    return;
+  }
+
   if (event.data.type === "APPLY_ANCHOR") {
     const message = normalizeAnchorMessage(event.data);
     if (message) chrome.runtime.sendMessage(message);
@@ -27,7 +41,7 @@ window.addEventListener("message", (event) => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  if ((message?.type === "LOCAL_PLAYBACK" || message?.type === "LOCAL_REPORT") && isValidRoomId(message.roomId)) {
+  if ((message?.type === "LOCAL_PLAYBACK" || message?.type === "LOCAL_REPORT" || message?.type === "EMBEDDED_BILI_READY" || message?.type === "EMBEDDED_BILI_STATE") && isValidRoomId(message.roomId)) {
     postToPage({ source: "tongkan-extension", ...message });
   }
 });
@@ -75,17 +89,23 @@ function normalizeAnchorMessage(message) {
 function normalizeBilibiliMedia(media) {
   if (!media || media.type !== "bilibili") return null;
   if (media.unresolved === true) return normalizeB23Media(media);
-  if (typeof media.bvid !== "string" || !BVID_PATTERN.test(media.bvid)) return null;
+  if (typeof media.bvid !== "string") return null;
   const page = Number(media.page);
   if (!Number.isInteger(page) || page < 1 || page > 10_000) return null;
+  const avidMatch = media.bvid.match(AVID_PATTERN);
+  const aid = avidMatch ? Number.parseInt(avidMatch[1], 10) : null;
+  if (!BVID_PATTERN.test(media.bvid) && (!Number.isSafeInteger(aid) || aid <= 0)) return null;
+  if (aid !== null && Object.prototype.hasOwnProperty.call(media, "aid") && media.aid !== aid) return null;
+  const bvid = aid === null ? media.bvid : `av${aid}`;
   const normalized = {
     type: "bilibili",
-    bvid: media.bvid,
+    bvid,
     page,
-    canonicalUrl: `https://www.bilibili.com/video/${media.bvid}${page > 1 ? `?p=${page}` : ""}`,
+    canonicalUrl: `https://www.bilibili.com/video/${bvid}${page > 1 ? `?p=${page}` : ""}`,
   };
   if (typeof media.title === "string" && media.title.length <= 200) normalized.title = media.title;
-  if (Number.isFinite(media.aid) && media.aid >= 0) normalized.aid = media.aid;
+  if (aid !== null) normalized.aid = aid;
+  else if (Number.isFinite(media.aid) && media.aid >= 0) normalized.aid = media.aid;
   if (Number.isFinite(media.cid) && media.cid >= 0) normalized.cid = media.cid;
   return normalized;
 }

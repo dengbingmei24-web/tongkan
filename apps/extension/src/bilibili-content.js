@@ -39,8 +39,11 @@ window.setInterval(() => {
 }, 700);
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type !== "APPLY_ANCHOR" || !message.anchor) return;
-  void applyAnchor(message);
+  if (message?.type === "APPLY_ANCHOR" && message.anchor) {
+    void applyAnchor(message);
+    return;
+  }
+  if (message?.type === "REQUEST_BILI_PLAYER_STATE") emitPlayerState();
 });
 
 function attachToActiveVideo() {
@@ -75,6 +78,9 @@ function attachToActiveVideo() {
     ["ratechange", () => emitLocal("rate")],
     ["waiting", () => emitReport(true)],
     ["playing", () => emitReport(false)],
+    ["loadedmetadata", () => emitPlayerState()],
+    ["durationchange", () => emitPlayerState()],
+    ["ended", () => emitPlayerState()],
   ];
   for (const [name, listener] of listeners) video.addEventListener(name, listener);
   detachPlayer = () => {
@@ -89,6 +95,7 @@ function attachToActiveVideo() {
     positionSeconds: video.currentTime,
   });
   announceReady();
+  emitPlayerState();
 }
 
 async function applyAnchor(message) {
@@ -107,7 +114,6 @@ async function applyAnchor(message) {
     });
     return;
   }
-  if (anchor.sequence <= lastAppliedSequence) return;
   const localMedia = parseBilibiliLocation(location.href);
   if (!sameMedia(localMedia, anchor.media)) {
     syncOverlay?.update({
@@ -125,6 +131,14 @@ async function applyAnchor(message) {
     return;
   }
 
+  const elapsed = anchor.paused ? 0 : Math.max(0, serverNowMs - anchor.anchoredAtServerMs) / 1000;
+  const target = Math.max(0, anchor.positionSeconds + elapsed * anchor.playbackRate);
+  const drift = target - video.currentTime;
+  const playbackMismatch = anchor.paused !== video.paused;
+  const rateMismatch = Math.abs(video.playbackRate - anchor.playbackRate) > 0.001;
+  if (anchor.sequence < lastAppliedSequence) return;
+  if (anchor.sequence === lastAppliedSequence && !playbackMismatch && !rateMismatch && Math.abs(drift) < 0.3) return;
+
   syncOverlay?.update({
     tone: "loading",
     status: "正在校准",
@@ -138,9 +152,6 @@ async function applyAnchor(message) {
 
   lastAppliedSequence = anchor.sequence;
   suppressReportsUntil = performance.now() + 850;
-  const elapsed = anchor.paused ? 0 : Math.max(0, serverNowMs - anchor.anchoredAtServerMs) / 1000;
-  const target = Math.max(0, anchor.positionSeconds + elapsed * anchor.playbackRate);
-  const drift = target - video.currentTime;
 
   if (Math.abs(drift) > 1.5) {
     suppressEvent("seek");
@@ -195,6 +206,7 @@ async function applyAnchor(message) {
     sequence: anchor.sequence,
     positionSeconds: video.currentTime,
   });
+  emitPlayerState();
 }
 
 function emitLocal(kind) {
@@ -244,6 +256,28 @@ function emitReport(buffering) {
   });
 }
 
+function emitPlayerState() {
+  const state = currentPlayerState();
+  if (!state) return;
+  chrome.runtime.sendMessage({
+    type: "BILI_PLAYER_STATE",
+    state,
+  });
+}
+
+function currentPlayerState() {
+  if (!video) return null;
+  const media = parseBilibiliLocation(location.href);
+  if (!media || !Number.isFinite(video.duration) || video.duration <= 0) return null;
+  return {
+    media,
+    durationSeconds: video.duration,
+    positionSeconds: video.currentTime,
+    paused: video.paused,
+    ended: video.ended,
+  };
+}
+
 function suppressEvent(kind, durationMs = 850) {
   suppressedEvents.set(kind, performance.now() + durationMs);
 }
@@ -256,7 +290,7 @@ function consumeSuppressedEvent(kind) {
 
 function announceReady() {
   const media = parseBilibiliLocation(location.href);
-  chrome.runtime.sendMessage({ type: "BILI_READY", media });
+  chrome.runtime.sendMessage({ type: "BILI_READY", media, state: currentPlayerState() });
   if (!activeRoomId && video) {
     syncOverlay?.update({
       tone: "waiting",
@@ -276,6 +310,29 @@ function commandLabel(kind) {
 function parseBilibiliLocation(value) {
   try {
     const url = new URL(value);
+    if (url.hostname === "player.bilibili.com" && url.pathname === "/player.html") {
+      const embeddedBvid = url.searchParams.get("bvid");
+      const embeddedAid = Number.parseInt(url.searchParams.get("aid") ?? "", 10);
+      const embeddedPage = Math.max(1, Number(url.searchParams.get("page") || 1));
+      if (embeddedBvid && /^BV[0-9A-Za-z]{10}$/.test(embeddedBvid)) {
+        return {
+          type: "bilibili",
+          bvid: embeddedBvid,
+          page: embeddedPage,
+          canonicalUrl: `https://www.bilibili.com/video/${embeddedBvid}${embeddedPage > 1 ? `?p=${embeddedPage}` : ""}`,
+        };
+      }
+      if (Number.isFinite(embeddedAid) && embeddedAid > 0) {
+        return {
+          type: "bilibili",
+          bvid: `av${embeddedAid}`,
+          aid: embeddedAid,
+          page: embeddedPage,
+          canonicalUrl: `https://www.bilibili.com/video/av${embeddedAid}${embeddedPage > 1 ? `?p=${embeddedPage}` : ""}`,
+        };
+      }
+      return null;
+    }
     const match = url.pathname.match(/\/video\/(BV[0-9A-Za-z]+|av(\d+))/i);
     if (!match) return null;
     const token = match[1];

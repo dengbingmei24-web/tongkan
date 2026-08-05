@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "同看 · B站同步桥接",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "把同看房间的双向控制命令连接到 B站 HTML5 播放器。",
   "incognito": "split",
   "permissions": ["storage", "tabs"],
-  "host_permissions": ["*://*.bilibili.com/video/*"],
+  "host_permissions": ["*://*.bilibili.com/video/*", "https://player.bilibili.com/player.html*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -20,9 +20,10 @@
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.bilibili.com/video/*"],
+      "matches": ["*://*.bilibili.com/video/*", "https://player.bilibili.com/player.html*"],
       "js": ["sync-overlay.js", "bilibili-content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [
