@@ -17,6 +17,8 @@ public class BilibiliMediaTest {
         assertEquals("BV1Qxuc62E1y", media.bvid);
         assertEquals(3, media.page);
         assertEquals("https://www.bilibili.com/video/BV1Qxuc62E1y?p=3", media.canonicalUrl);
+        assertTrue(media.embedUrl().startsWith("https://player.bilibili.com/player.html?"));
+        assertTrue(media.embedUrl().contains("danmaku=1"));
         assertTrue(media.embedUrl().contains("bvid=BV1Qxuc62E1y"));
     }
 
@@ -27,6 +29,7 @@ public class BilibiliMediaTest {
         assertEquals("av170001", media.bvid);
         assertEquals(Long.valueOf(170001), media.aid);
         assertEquals("https://www.bilibili.com/video/av170001?p=2", media.canonicalUrl);
+        assertTrue(media.embedUrl().contains("danmaku=1"));
         assertTrue(media.embedUrl().contains("aid=170001"));
     }
 

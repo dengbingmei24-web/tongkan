@@ -78,7 +78,12 @@ public final class BilibiliMedia {
         if (json == null || !"bilibili".equals(json.optString("type"))) return null;
         String bvid = json.getString("bvid");
         Long derivedAid = aidFromBvid(bvid);
-        Long aid = json.has("aid") ? json.getLong("aid") : derivedAid;
+        Long aid = derivedAid;
+        try {
+            if (json.has("aid")) {
+                aid = json.getLong("aid");
+            }
+        } catch (Exception ignored) {}
         if (derivedAid != null && !derivedAid.equals(aid)) throw new JSONException("AV aid does not match bvid");
         int page = Math.max(1, json.optInt("page", 1));
         String canonicalUrl = json.optString("canonicalUrl", canonicalUrl(bvid, page));
@@ -107,7 +112,7 @@ public final class BilibiliMedia {
             return null;
         }
         return "https://player.bilibili.com/player.html?page=" + page
-            + "&high_quality=1&danmaku=0&autoplay=0&as_wide=1&" + identifier;
+            + "&high_quality=1&danmaku=1&autoplay=0&as_wide=1&" + identifier;
     }
 
     public boolean sameIdentity(BilibiliMedia other) {

@@ -4,7 +4,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 final class RoomProtocol {
-    private static final long[] RECONNECT_DELAYS_MS = {500, 1000, 2000, 4000, 8000};
+    private static final long[] RECONNECT_DELAYS_MS = {2000, 5000, 10000, 20000, 30000, 30000};
 
     private RoomProtocol() {}
 

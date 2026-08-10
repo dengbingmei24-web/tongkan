@@ -10,6 +10,29 @@
   let restoreRateTimer = null;
   const suppressed = new Map();
 
+
+  function installPlayerGuards() {
+    try { window.open = function () { return null; }; } catch (_) {}
+    document.addEventListener('click', function (event) {
+      const target = event.target;
+      const link = target && target.closest ? target.closest('a[href]') : null;
+      if (!link) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }, true);
+    const style = document.createElement('style');
+    style.textContent = [
+      '.bpx-player-top-wrap',
+      '.bpx-player-video-info',
+      '.bpx-player-relation-wrap',
+      '.bpx-player-ending-wrap',
+      '.bpx-player-electric-panel',
+      '.bpx-player-toast-wrap'
+    ].join(',') + '{display:none!important;pointer-events:none!important;}';
+    document.documentElement.appendChild(style);
+  }
+
   function activeVideo() {
     return Array.from(document.querySelectorAll('video')).sort(function (a, b) {
       const ar = a.getBoundingClientRect();
@@ -145,6 +168,43 @@
     attach();
     if (video && Number.isFinite(seconds)) video.currentTime = Math.max(0, seconds);
   };
+
+  window.__tongkanSetPlaybackRate = function (rate) {
+    attach();
+    if (!video || !Number.isFinite(rate)) return false;
+    video.playbackRate = Math.max(0.5, Math.min(2, rate));
+    return true;
+  };
+
+  function danmakuSwitch() {
+    return document.querySelector('.bpx-player-dm-switch')
+      || document.querySelector('.bui-danmaku-switch')
+      || document.querySelector('[aria-label="弹幕显示隐藏"]');
+  }
+
+  function danmakuInput() {
+    return document.querySelector('.bui-danmaku-switch-input')
+      || document.querySelector('.bpx-player-dm-switch input');
+  }
+
+  window.__tongkanSetDanmakuVisible = function (visible) {
+    const input = danmakuInput();
+    const control = danmakuSwitch();
+    if (!control) return false;
+    const current = input ? Boolean(input.checked) : !control.classList.contains('bui-danmaku-switch-off');
+    if (current !== Boolean(visible)) (input || control).click();
+    return true;
+  };
+
+  window.__tongkanToggleDanmaku = function () {
+    const control = danmakuSwitch();
+    if (!control) return false;
+    const input = danmakuInput();
+    (input || control).click();
+    return true;
+  };
+
+  installPlayerGuards();
 
   new MutationObserver(attach).observe(document.documentElement, { childList: true, subtree: true });
   setInterval(function () { attach(); emitState(); }, 500);

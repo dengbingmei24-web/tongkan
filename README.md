@@ -2,6 +2,22 @@
 
 给两个人自用的同步观看工具。房间不要求注册，B站是基础媒体链路，双方都能播放、暂停、拖动进度、改变倍速或切换视频；所有控制命令由服务端分配递增序号，后到达服务端的命令覆盖先到达的命令。
 
+[![CI](https://github.com/dengbingmei24-web/tongkan/actions/workflows/ci.yml/badge.svg)](https://github.com/dengbingmei24-web/tongkan/actions/workflows/ci.yml)
+[![Android CI](https://github.com/dengbingmei24-web/tongkan/actions/workflows/android.yml/badge.svg)](https://github.com/dengbingmei24-web/tongkan/actions/workflows/android.yml)
+
+## 项目上下文与 AI 入口
+
+长期开发和换对话时，从以下文件进入：
+
+1. [`CONTEXT.md`](./CONTEXT.md)：当前版本、正在进行的工作、已知问题和下一步。
+2. [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md)：产品目标、完整目录地图、架构、关键文件和文档导航。
+3. [`DECISIONS.md`](./DECISIONS.md)：已经确认的长期产品、设计和技术决策。
+4. [`AGENTS.md`](./AGENTS.md)：AI 的强制工作规则、构建方式和安全约束。
+
+任务文档入口：Android 后续开发看 [`ANDROID_FOLLOWUP_PRD.md`](./ANDROID_FOLLOWUP_PRD.md)，整体产品范围看 [`PRD.md`](./PRD.md)，Alpha 9 设计看 [`design/alpha9-ui/SELECTED_DESIGN.md`](./design/alpha9-ui/SELECTED_DESIGN.md)。
+
+> `CONTEXT.md` 是动态交接真源；不要根据 README 中的历史描述判断当前版本。
+
 ## 当前可运行范围
 
 - React 房间网页：创建、邀请、加入、双方状态、公共播放控制、聊天。
@@ -10,9 +26,38 @@
 - 直链视频同步：将浏览器可直接播放的 HTTP/HTTPS 视频地址载入房间，双方在内置播放器中播放、暂停、拖动和双击切换状态。
 - 断线自动恢复：网页刷新、短暂掉线或网络切换后自动重新认证，并按服务端保存的视频、播放状态和当前进度重新对齐。
 - 桌面屏幕共享基础链路：Chrome / Edge 使用 `getDisplayMedia` 捕获标签页、窗口或屏幕，WebRTC 双人点对点传输画面与可用的共享声音。
+- Android 1.0 Alpha：两部 Android 手机加入同一 Cloudflare 房间，在 App 内载入 B站播放器，双方均可播放、暂停、拖动，显示真实时长，并在断线后恢复服务端最新状态。
 - 共享协议包：B站链接解析、时钟锚点、漂移校准策略。
 
 语音和 Android 屏幕共享位于后续开发阶段；Android 1.0 已进入可安装 Alpha 阶段（见 `apps/android/`），不会阻塞 B站双人同步与桌面屏幕共享链路。
+
+### Android 1.0 Alpha
+
+Android 工程位于 [`apps/android`](./apps/android)，使用原生 Java、受控 WebView 和 JavaScript Bridge，直接复用现有 Cloudflare Durable Objects 房间服务与播放协议。Android 1.0 不包含手机屏幕共享、语音、聊天和桌面扩展互通验收。
+
+当前通过真机测试的版本是 **Android `1.0.0-alpha.9.2`（versionCode 11）**。
+
+- [下载 Alpha 9.2 APK](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
+- [查看全部 GitHub Releases](https://github.com/dengbingmei24-web/tongkan/releases)
+- [查看版本变更记录](./CHANGELOG.md)
+
+最低系统版本为 Android 8.0（API 26）。Debug APK 使用 Android 调试证书签名，只用于个人安装测试；以后发布正式版时需要改用长期保存的 Release 签名。
+
+本地完整检查：
+
+```powershell
+pnpm android:check
+```
+
+该命令依次运行 Android 单元/协议测试、Lint 和 APK 构建。详细环境与输出位置见 [`apps/android/README.md`](./apps/android/README.md)。
+
+### 版本与发布方式
+
+- 源码和文档保存在 Git 提交历史中，不删除或覆盖旧提交。
+- APK 不直接提交到仓库，统一放在 GitHub Releases 中。
+- 每个版本使用不可重复的标签，例如 `v1.0.0-alpha.9.2`。
+- 推送 `v*` 标签后，GitHub Actions 会自动测试、构建 APK、生成 SHA-256 并创建预发布版。
+- 完整发布步骤见 [`RELEASING.md`](./RELEASING.md)。
 
 ## 本地启动
 

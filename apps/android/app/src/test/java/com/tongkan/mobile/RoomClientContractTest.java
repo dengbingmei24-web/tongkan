@@ -56,6 +56,6 @@ public class RoomClientContractTest {
         for (int attempt = 0; attempt < delays.length; attempt += 1) {
             delays[attempt] = RoomProtocol.reconnectDelayMs(attempt);
         }
-        assertArrayEquals(new long[] {500, 1000, 2000, 4000, 8000, 8000, 8000}, delays);
+        assertArrayEquals(new long[] {2000, 5000, 10000, 20000, 30000, 30000, 30000}, delays);
     }
 }

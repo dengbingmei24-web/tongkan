@@ -22,6 +22,13 @@ apps/android/app/build/
 apps/android/build/
 release/
 
+# Local debugging notes and one-off browser probes.
+.crash-analysis.md
+.roomclient-loss-analysis.md
+scripts/.tmp-*
+scripts/fix_java.js
+qa/bilibili-player-probe-*/
+
 # Local Chrome/Edge extension signing and packaged artifacts.
 # Keep the private key local; load apps/extension/dist for development.
 apps/extension/*.pem

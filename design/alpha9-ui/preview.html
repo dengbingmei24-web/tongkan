@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>同看 Alpha 9 · UI 方向预览</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page-bg: #0b0b10;
+      --page-panel: #12121a;
+      --page-border: #292936;
+      --page-text: #f5f5f7;
+      --page-muted: #9999a8;
+      font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(139,124,255,.12), transparent 28%),
+        radial-gradient(circle at 85% 80%, rgba(255,180,84,.08), transparent 30%),
+        var(--page-bg);
+      color: var(--page-text);
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 3px solid rgba(123,145,255,.55); outline-offset: 2px; }
+    .workspace { width: min(1240px, 100%); margin: 0 auto; padding: 28px; }
+    .workspace-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+    .eyebrow { color: #a9a7b8; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 8px 0 8px; font-size: clamp(26px, 4vw, 42px); line-height: 1.08; letter-spacing: -.04em; }
+    .intro { margin: 0; max-width: 680px; color: var(--page-muted); line-height: 1.7; }
+    .prototype-note { padding: 12px 14px; border: 1px solid var(--page-border); border-radius: 14px; background: rgba(18,18,26,.78); color: #c8c6d0; font-size: 13px; line-height: 1.55; max-width: 320px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+    .segmented { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--page-border); background: #111118; border-radius: 12px; }
+    .segmented button { min-height: 44px; border: 0; border-radius: 8px; padding: 0 16px; color: #a8a7b2; background: transparent; transition: background .2s ease, color .2s ease; }
+    .segmented button[aria-pressed="true"] { background: #292839; color: white; }
+    .stage { display: grid; grid-template-columns: minmax(430px, 1fr) minmax(300px, 410px); gap: 28px; align-items: center; }
+    .phone-zone { min-height: 900px; display: grid; place-items: center; padding: 24px; border: 1px solid var(--page-border); border-radius: 28px; background: rgba(14,14,20,.72); overflow: hidden; }
+    .phone {
+      --bg: #08080f; --surface: #14131d; --surface2: #1d1b28; --text: #f7f5fa; --muted: #a5a1b0;
+      --primary: #ffb454; --on-primary: #2b1700; --accent: #8b7cff; --border: #312e3f; --danger: #ff6b6b;
+      width: 390px; height: 844px; border-radius: 42px; padding: 10px; background: #020204;
+      box-shadow: 0 32px 100px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08);
+      position: relative; transition: width .28s ease, height .28s ease, border-radius .28s ease;
+    }
+    .phone.theme-warm { --bg:#1a1317; --surface:#2a1d23; --surface2:#37262d; --text:#fff8f4; --muted:#c9adb6; --primary:#ff9273; --on-primary:#321007; --accent:#f1c8a8; --border:#563843; --danger:#ff6d72; }
+    .phone.theme-minimal { --bg:#f3f3f0; --surface:#ffffff; --surface2:#e9e9e4; --text:#171817; --muted:#70726d; --primary:#20211f; --on-primary:#ffffff; --accent:#5e7162; --border:#d9d9d2; --danger:#b42318; }
+    .phone.theme-minimal.dark-mode { --bg:#0b0c0d; --surface:#171819; --surface2:#242528; --text:#f4f4f2; --muted:#a5a6aa; --primary:#f1f1ef; --on-primary:#151515; --accent:#94969b; --border:#303236; --danger:#ff8879; }
+    .device-screen { width: 100%; height: 100%; border-radius: 34px; overflow: hidden; background: var(--bg); color: var(--text); position: relative; transition: background .22s ease, color .22s ease; }
+    .phone.theme-cinema .device-screen { background: radial-gradient(circle at 50% -10%, rgba(139,124,255,.16), transparent 34%), var(--bg); }
+    .phone.theme-warm .device-screen { background: radial-gradient(circle at 75% 0%, rgba(255,146,115,.13), transparent 36%), var(--bg); }
+    .statusbar { height: 30px; padding: 8px 20px 0; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; position: relative; z-index: 3; }
+    .status-icons { display: flex; align-items: center; gap: 5px; }
+    .signal { width: 14px; height: 8px; border: 1.5px solid currentColor; border-top: 0; border-radius: 0 0 7px 7px; opacity: .85; }
+    .battery { width: 18px; height: 9px; border: 1.5px solid currentColor; border-radius: 3px; position: relative; }
+    .battery::after { content:""; position:absolute; right:-3px; top:2px; width:2px; height:4px; background:currentColor; border-radius:1px; }
+    .screen { display: none; height: calc(100% - 30px); overflow: auto; scrollbar-width: none; }
+    .screen.active { display: block; animation: screenIn .22s ease both; }
+    .screen::-webkit-scrollbar { display:none; }
+    @keyframes screenIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    .content { min-height: 100%; padding: 24px 22px 28px; display: flex; flex-direction: column; }
+    .entry-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:22px; }
+    .brand { display:flex; align-items:center; gap:12px; min-width:0; }
+    .brand-mark { width: 46px; height: 46px; position: relative; }
+    .brand-mark::before, .brand-mark::after { content:""; position:absolute; width:28px; height:28px; border:2px solid var(--primary); border-radius:50%; top:8px; }
+    .brand-mark::before { left:3px; }
+    .brand-mark::after { right:3px; border-color:var(--accent); }
+    .brand-copy strong { display:block; font-size:24px; letter-spacing:-.04em; }
+    .brand-copy span { color:var(--muted); font-size:12px; }
+    .hero-copy { margin: 42px 0 28px; }
+    .hero-copy h2 { margin:0 0 10px; font-size:32px; line-height:1.15; letter-spacing:-.045em; }
+    .hero-copy p { margin:0; color:var(--muted); font-size:14px; line-height:1.65; }
+    .field { margin-bottom: 18px; }
+    .field label { display:block; margin-bottom:8px; color:var(--muted); font-size:12px; font-weight:700; letter-spacing:.04em; }
+    .input-shell { min-height: 52px; display:flex; align-items:center; gap:10px; padding:0 15px; background:var(--surface); border:1px solid var(--border); border-radius:12px; transition:border .2s ease, background .2s ease; }
+    .input-shell svg { width:20px; height:20px; color:var(--muted); flex:none; }
+    .input-shell input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:var(--text); font-size:15px; }
+    .input-shell input::placeholder { color:var(--muted); opacity:.7; }
+    .input-action { flex:none; min-width:48px; min-height:36px; border:0; border-radius:8px; padding:0 8px; background:transparent; color:var(--accent); font-weight:800; }
+    .input-action:active { background:var(--surface2); }
+    .cta { min-height:54px; border:0; border-radius:12px; padding:0 18px; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:800; transition:transform .12s ease, opacity .2s ease, background .2s ease; }
+    .cta:active { transform:scale(.985); }
+    .cta svg { width:21px; height:21px; }
+    .cta.primary { background:var(--primary); color:var(--on-primary); box-shadow:0 12px 34px color-mix(in srgb, var(--primary) 18%, transparent); }
+    .cta.secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+    .divider { display:flex; align-items:center; gap:12px; margin:22px 0; color:var(--muted); font-size:12px; }
+    .divider::before, .divider::after { content:""; height:1px; background:var(--border); flex:1; }
+    .privacy { margin-top:auto; padding-top:24px; display:flex; justify-content:center; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+    .privacy svg { width:15px; height:15px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
+    .icon-button { width:48px; height:48px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:grid; place-items:center; flex:none; transition:background .2s ease, transform .12s ease; }
+    .icon-button:active { transform:scale(.96); }
+    .icon-button svg { width:21px; height:21px; }
+    .top-actions { display:flex; align-items:center; gap:8px; flex:none; }
+    .theme-toggle .sun-icon { display:none; }
+    .theme-toggle .moon-icon { display:block; }
+    .phone.dark-mode .theme-toggle .sun-icon { display:block; }
+    .phone.dark-mode .theme-toggle .moon-icon { display:none; }
+    .phone:not(.theme-minimal) .theme-toggle { visibility:hidden; }
+    .room-title { min-width:0; flex:1; }
+    .room-title strong { display:block; font-size:16px; }
+    .room-title span { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; margin-top:4px; }
+    .online-dot { width:7px; height:7px; border-radius:50%; background:#45d483; box-shadow:0 0 0 4px rgba(69,212,131,.12); }
+    .peer-card { padding:18px; border:1px solid var(--border); border-radius:16px; background:var(--surface); margin-bottom:24px; }
+    .peer-row { display:flex; align-items:center; gap:12px; }
+    .avatar-stack { display:flex; }
+    .avatar { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; border:3px solid var(--surface); background:var(--surface2); font-size:13px; font-weight:800; }
+    .avatar + .avatar { margin-left:-10px; background:var(--accent); color:var(--bg); }
+    .peer-copy strong { display:block; font-size:14px; }
+    .peer-copy span { display:block; color:var(--muted); font-size:12px; margin-top:4px; }
+    .section-title { font-size:22px; letter-spacing:-.035em; margin:4px 0 8px; }
+    .section-note { color:var(--muted); font-size:13px; line-height:1.6; margin:0 0 22px; }
+    .progress-card { margin-top:18px; padding:16px; border-radius:16px; background:var(--surface); border:1px solid var(--border); }
+    .progress-row { display:flex; align-items:center; gap:11px; color:var(--muted); font-size:12px; padding:7px 0; }
+    .progress-row.active { color:var(--text); font-weight:700; }
+    .step-dot { width:18px; height:18px; border:1px solid var(--border); border-radius:50%; display:grid; place-items:center; font-size:10px; }
+    .progress-row.done .step-dot { background:#45d483; color:#071a0f; border-color:#45d483; }
+    .progress-row.active .step-dot { border-color:var(--primary); box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent); }
+    .watch-content { min-height:100%; padding:14px 14px 18px; display:flex; flex-direction:column; gap:12px; }
+    .watch-head { display:flex; align-items:center; gap:10px; padding:0 2px; }
+    .watch-head .room-title strong { font-size:14px; }
+    .video-stage { aspect-ratio:16/9; border-radius:16px; overflow:hidden; position:relative; background:
+      radial-gradient(circle at 70% 20%, rgba(255,180,84,.38), transparent 18%),
+      linear-gradient(135deg, #161429, #34233e 48%, #0c1720); border:1px solid rgba(255,255,255,.08); }
+    .theme-warm .video-stage { background:radial-gradient(circle at 70% 20%, rgba(255,146,115,.45), transparent 18%), linear-gradient(135deg,#291820,#5b2b33 48%,#171018); }
+    .theme-minimal .video-stage { background:radial-gradient(circle at 70% 20%, rgba(174,178,186,.18), transparent 20%), linear-gradient(135deg,#0c0d0f,#272a2f 50%,#08090a); }
+    .video-stage::before { content:""; position:absolute; width:180px; height:180px; border-radius:50%; border:1px solid rgba(255,255,255,.12); left:-45px; bottom:-95px; box-shadow:60px -10px 0 -40px rgba(255,255,255,.08); }
+    .video-stage::after { content:"两个人 · 同一个进度"; position:absolute; left:18px; bottom:16px; color:white; font-weight:800; font-size:15px; letter-spacing:.02em; text-shadow:0 2px 16px rgba(0,0,0,.7); }
+    .sync-pill { position:absolute; top:13px; left:13px; display:flex; align-items:center; gap:7px; padding:7px 10px; border-radius:99px; background:rgba(5,5,9,.72); color:white; font-size:11px; backdrop-filter:blur(12px); }
+    .center-play { position:absolute; inset:0; margin:auto; width:58px; height:58px; border-radius:50%; border:1px solid rgba(255,255,255,.35); background:rgba(0,0,0,.35); color:white; display:grid; place-items:center; backdrop-filter:blur(10px); }
+    .center-play svg { width:24px; height:24px; margin-left:3px; }
+    .timeline { padding:15px 4px 4px; }
+    .track { height:4px; background:var(--surface2); border-radius:99px; overflow:hidden; }
+    .track span { display:block; width:34%; height:100%; background:var(--primary); border-radius:inherit; }
+    .time-row { display:flex; justify-content:space-between; margin-top:8px; color:var(--muted); font-size:11px; }
+    .control-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .control { min-height:52px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center; gap:8px; font-size:12px; font-weight:700; }
+    .control svg { width:20px; height:20px; }
+    .control.main { background:var(--primary); color:var(--on-primary); border-color:transparent; }
+    .reaction-anchor { position:relative; min-width:0; }
+    .reaction-anchor > .control { width:100%; }
+    .reaction-panel {
+      position:absolute; z-index:14; right:0; bottom:calc(100% + 10px); width:236px;
+      padding:10px; border:1px solid color-mix(in srgb, var(--border) 72%, white 10%);
+      border-radius:16px; background:color-mix(in srgb, var(--surface) 94%, transparent);
+      box-shadow:0 14px 38px rgba(0,0,0,.3); backdrop-filter:blur(16px);
+      display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;
+      transform:translateY(8px) scale(.96); transform-origin:bottom right;
+      opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease;
+    }
+    .reaction-panel.open { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+    .reaction-option {
+      width:38px; height:38px; padding:0; border:0; border-radius:11px;
+      display:grid; place-items:center; background:transparent; font-size:23px;
+      transition:background .12s ease, transform .12s ease;
+    }
+    .reaction-option:hover, .reaction-option:focus-visible { background:var(--surface2); transform:translateY(-1px); }
+    .reaction-option:active { transform:scale(.9); background:var(--primary); }
+    .reaction-bubble {
+      position:absolute; z-index:7; right:16px; top:22%; min-width:48px; height:48px; padding:0 10px;
+      border-radius:24px; display:grid; place-items:center; background:rgba(16,16,18,.82);
+      border:1px solid rgba(255,255,255,.18); box-shadow:0 10px 28px rgba(0,0,0,.28);
+      font-size:28px; opacity:0; pointer-events:none;
+    }
+    .reaction-bubble.show { animation:reactionFly 2.5s ease-out both; }
+    @keyframes reactionFly {
+      0% { opacity:0; transform:translate3d(28px,18px,0) scale(.72); }
+      14% { opacity:1; transform:translate3d(0,0,0) scale(1.05); }
+      75% { opacity:1; transform:translate3d(-56px,-8px,0) scale(1); }
+      100% { opacity:0; transform:translate3d(-105px,-16px,0) scale(.92); }
+    }
+    .now-card { display:flex; align-items:center; gap:12px; padding:14px; border-radius:16px; background:var(--surface); border:1px solid var(--border); }
+    .now-card .avatar { width:36px; height:36px; flex:none; }
+    .now-copy { min-width:0; flex:1; }
+    .now-copy strong { display:block; font-size:13px; }
+    .now-copy span { display:block; color:var(--muted); font-size:11px; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sync-number { color:#45d483; font-size:12px; font-weight:800; }
+    .style-card { border:1px solid var(--page-border); background:rgba(18,18,26,.86); border-radius:24px; padding:24px; }
+    .style-kicker { color:#aaa7bc; font-size:12px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .style-card h2 { margin:8px 0 10px; font-size:28px; letter-spacing:-.04em; }
+    .style-card p { color:#a9a7b3; line-height:1.7; margin:0 0 20px; }
+    .swatches { display:flex; gap:10px; margin:18px 0 24px; }
+    .swatch { width:42px; height:42px; border-radius:13px; border:1px solid rgba(255,255,255,.12); }
+    .facts { display:grid; gap:12px; }
+    .fact { padding:14px; border-radius:15px; background:#191923; border:1px solid #292936; }
+    .fact strong { display:block; font-size:13px; margin-bottom:5px; }
+    .fact span { color:#9694a2; font-size:12px; line-height:1.55; }
+    .tip { margin-top:18px; padding:14px; border-left:3px solid #ffb454; background:#171720; color:#c8c6d0; font-size:12px; line-height:1.65; }
+    .phone.immersive { position:fixed; z-index:100; inset:16px; margin:auto; width:min(420px, calc(100vw - 32px)); height:calc(100vh - 32px); border-radius:28px; }
+    .phone.immersive .device-screen { border-radius:20px; background:#000; }
+    .phone.immersive .watch-head, .phone.immersive .watch-side, .phone.immersive .immersive-back { transition:opacity .2s ease; }
+    .phone.immersive.controls-hidden .watch-head, .phone.immersive.controls-hidden .watch-side, .phone.immersive.controls-hidden .immersive-back { opacity:0; pointer-events:none; }
+    .phone.immersive.landscape { width:min(900px, calc(100vw - 32px)); height:min(480px, calc(100vh - 32px)); }
+    .phone.immersive.landscape .watch-content { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(240px,.8fr); grid-template-rows:auto 1fr; gap:12px; }
+    .phone.immersive.landscape .watch-head { grid-column:1 / -1; }
+    .phone.immersive.landscape .video-stage { height:100%; aspect-ratio:auto; }
+    .phone.immersive.landscape .watch-side { display:flex; flex-direction:column; gap:10px; overflow:auto; }
+    .phone.immersive.landscape .control-row { grid-template-columns:1fr 1fr; }
+    .phone.immersive .statusbar { display:none; }
+    .phone.immersive .screen { height:100%; }
+    .immersive-back { display:none; position:absolute; z-index:8; top:18px; right:18px; background:rgba(0,0,0,.62); border-color:rgba(255,255,255,.18); color:white; }
+    .phone.immersive .immersive-back { display:grid; }
+    .page-scrim { display:none; position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.72); backdrop-filter:blur(12px); }
+    body.has-immersive .page-scrim { display:block; }
+    @media (max-width: 900px) {
+      .workspace { padding:18px; }
+      .workspace-header { display:block; }
+      .prototype-note { margin-top:18px; max-width:none; }
+      .stage { grid-template-columns:1fr; }
+      .phone-zone { min-height:880px; padding:10px; }
+      .style-card { order:-1; }
+    }
+    @media (max-width: 460px) {
+      .workspace { padding:12px; }
+      .phone-zone { border:0; padding:0; background:transparent; min-height:820px; }
+      .phone { width:min(390px, calc(100vw - 24px)); height:min(844px, calc(100vh - 80px)); }
+      .style-card { border-radius:18px; padding:18px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="page-scrim" aria-hidden="true"></div>
+  <main class="workspace">
+    <header class="workspace-header">
+      <div>
+        <div class="eyebrow">Tongkan · Alpha 9 Design Workshop</div>
+        <h1>三套手机界面方向预览</h1>
+        <p class="intro">这是用于讨论的网页原型，不是最终 Web 版本。选择风格和交互后，会把规范转换成原生 Android Java 界面。</p>
+      </div>
+      <div class="prototype-note">可以切换风格和页面。C 方向支持浅色/深色选择，默认浅色；进入“观看页”后还可测试全屏和手动横屏。</div>
+    </header>
+
+    <section class="controls" aria-label="预览控制">
+      <div class="segmented" id="themeTabs" aria-label="视觉方向">
+        <button type="button" data-theme="cinema" aria-pressed="true">A 影院感</button>
+        <button type="button" data-theme="warm" aria-pressed="false">B 温暖双人</button>
+        <button type="button" data-theme="minimal" aria-pressed="false">C 简洁工具</button>
+      </div>
+      <div class="segmented" id="screenTabs" aria-label="界面状态">
+        <button type="button" data-screen="entry" aria-pressed="true">房间入口</button>
+        <button type="button" data-screen="room" aria-pressed="false">视频加载</button>
+        <button type="button" data-screen="watch" aria-pressed="false">共同观看</button>
+      </div>      <div class="segmented" id="appearanceTabs" aria-label="C 方向应用外观">
+        <button type="button" data-appearance="light" aria-pressed="true">浅色</button>
+        <button type="button" data-appearance="dark" aria-pressed="false">深色</button>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="phone-zone">
+        <div class="phone theme-cinema" id="phone">
+          <div class="device-screen">
+            <div class="statusbar"><span>9:41</span><span class="status-icons"><span class="signal"></span><span>5G</span><span class="battery"></span></span></div>
+            <button type="button" class="icon-button immersive-back" id="immersiveBack" aria-label="退出全屏">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+
+            <section class="screen active" data-panel="entry">
+              <div class="content">
+                <div class="entry-head">
+                  <div class="brand"><div class="brand-mark" aria-hidden="true"></div><div class="brand-copy"><strong>同看</strong><span>两个人，同一个进度</span></div></div>
+                  <button type="button" class="icon-button theme-toggle" data-toggle-appearance aria-label="切换到深色模式" title="切换到深色模式">
+  <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A8.5 8.5 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+  <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+</button>
+                </div>
+                <div class="hero-copy"><h2>今晚，<br>一起看点什么？</h2><p>不用注册。创建一个只有你们两个人的房间。</p></div>
+                <div class="field"><label for="nickname">你的昵称</label><div class="input-shell">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>
+                  <input id="nickname" value="小梅" aria-label="你的昵称" />
+                </div></div>
+                <button type="button" class="cta primary" data-go="room">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>创建房间
+                </button>
+                <div class="divider">或者</div>
+                <div class="field"><label for="invite">朋友发来的邀请链接</label><div class="input-shell">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 007.07.07l2-2a5 5 0 00-7.07-7.07l-1.15 1.15"/><path d="M14 11a5 5 0 00-7.07-.07l-2 2A5 5 0 0012 20l1.15-1.15"/></svg>
+                  <input id="invite" placeholder="粘贴邀请链接" aria-label="朋友发来的邀请链接" />
+                  <button type="button" class="input-action" aria-label="从剪贴板粘贴邀请链接">粘贴</button>
+                </div></div>
+                <button type="button" class="cta secondary" data-go="room">加入房间</button>
+                <div class="privacy">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+                  临时私人房间 · 最多两个人
+                </div>
+              </div>
+            </section>
+
+            <section class="screen" data-panel="room">
+              <div class="content">
+                <div class="topbar">
+                  <button type="button" class="icon-button" id="leaveRoomBack" aria-label="离开房间"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+                  <div class="room-title"><strong>房间 TK-9A2F</strong><span><i class="online-dot"></i>双方在线</span></div>
+                  <div class="top-actions">
+                    <button type="button" class="icon-button" aria-label="分享邀请"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l6.8-4M8.6 13.4l6.8 4"/></svg></button>
+                    <button type="button" class="icon-button theme-toggle" data-toggle-appearance aria-label="切换到深色模式" title="切换到深色模式">
+  <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A8.5 8.5 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+  <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+</button>
+                  </div>
+                </div>
+                <div class="peer-card"><div class="peer-row"><div class="avatar-stack"><div class="avatar">梅</div><div class="avatar">TA</div></div><div class="peer-copy"><strong>你们都到了</strong><span>现在可以载入同一个 B站视频</span></div></div></div>
+                <h2 class="section-title">开始同看</h2><p class="section-note">粘贴 BV、AV 或 b23.tv 链接，视频信息会同步给对方。</p>
+                <div class="field"><label for="videoLink">B站视频链接</label><div class="input-shell">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6l4 4 4-4M5 10h14v9H5z"/><path d="M9 14h.01M15 14h.01"/></svg>
+                  <input id="videoLink" value="https://b23.tv/example" aria-label="B站视频链接" />
+                </div></div>
+                <button type="button" class="cta primary" data-go="watch">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14l11-7z"/></svg>准备视频
+                </button>
+                <div class="progress-card" aria-label="加载进度">
+                  <div class="progress-row done"><span class="step-dot">✓</span><span>房间连接成功</span></div>
+                  <div class="progress-row done"><span class="step-dot">✓</span><span>对方已经加入</span></div>
+                  <div class="progress-row active"><span class="step-dot"></span><span>等待载入视频</span></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="screen" data-panel="watch">
+              <div class="watch-content">
+                <div class="watch-head">
+                  <button type="button" class="icon-button" data-go="room" aria-label="返回视频加载页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+                  <div class="room-title"><strong>正在同看</strong><span><i class="online-dot"></i>双方同步中</span></div>
+                  <div class="top-actions">
+                    <button type="button" class="icon-button" aria-label="更多选项"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+                    <button type="button" class="icon-button theme-toggle" data-toggle-appearance aria-label="切换到深色模式" title="切换到深色模式">
+  <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A8.5 8.5 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+  <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+</button>
+                  </div>
+                </div>
+                <div class="video-stage" id="videoStage"><div class="sync-pill"><i class="online-dot"></i>同步偏差 0.2 秒</div><button class="center-play" type="button" aria-label="播放"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button><div class="reaction-bubble" id="reactionPreview" aria-hidden="true">👍</div></div>
+                <div class="watch-side">
+                  <div class="timeline"><div class="track"><span></span></div><div class="time-row"><span>12:08</span><span>35:42</span></div></div>
+                  <div class="control-row">
+                    <button type="button" class="control main"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>暂停</button>
+                    <button type="button" class="control" id="danmakuButton" aria-pressed="true">弹幕 开</button>
+                    <button type="button" class="control" id="speedButton" title="点击循环预览倍速">1.0×</button>
+                    <button type="button" class="control" id="fullscreenButton"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>全屏</button>
+                    <button type="button" class="control" id="landscapeButton"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 3l-2 3 3 1"/></svg>横屏</button>
+                    <div class="reaction-anchor">
+                      <button type="button" class="control" id="reactionButton" aria-expanded="false" aria-controls="reactionPanel">☺ 互动</button>
+                      <div class="reaction-panel" id="reactionPanel" role="menu" aria-label="发送互动表情">
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="😂" aria-label="哈哈">😂</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="😮" aria-label="震惊">😮</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="🙌" aria-label="好耶">🙌</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="👍" aria-label="点赞">👍</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="👏" aria-label="鼓掌">👏</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="❤️" aria-label="爱心">❤️</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="🤗" aria-label="抱抱">🤗</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="🥺" aria-label="委屈">🥺</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="😠" aria-label="生气">😠</button>
+                        <button class="reaction-option" type="button" role="menuitem" data-reaction="😴" aria-label="困了">😴</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="now-card"><div class="avatar">TA</div><div class="now-copy"><strong>对方正在观看</strong><span>刚刚同步了你的暂停操作</span></div><div class="sync-number">在线</div></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <aside class="style-card" aria-live="polite">
+        <div class="style-kicker">当前方向</div>
+        <h2 id="styleName">A · 沉浸式影院感</h2>
+        <p id="styleDescription">深色、克制、夜间观看友好。视频是绝对主体，用暖金色强调主要操作。</p>
+        <div class="swatches" id="swatches">
+          <span class="swatch" style="background:#08080f"></span><span class="swatch" style="background:#14131d"></span><span class="swatch" style="background:#ffb454"></span><span class="swatch" style="background:#8b7cff"></span>
+        </div>
+        <div class="facts">
+          <div class="fact"><strong>共同规则</strong><span>48dp 触控区、8dp 节奏、可见表单标签、加载反馈、返回键可预测。</span></div>
+          <div class="fact"><strong>原生实现</strong><span>预览确认后翻译成 Android Java View，不引入 Compose，也不把网页嵌入 App 当 UI。</span></div>
+          <div class="fact"><strong>全屏方向</strong><span>点击全屏保持当前方向，只有点击“横屏”才改变方向。</span></div>
+        </div>
+        <div class="tip" id="styleTip">适合长期夜间观看；注意入口页不能过暗过冷。</div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const phone = document.getElementById('phone');
+    const themeTabs = [...document.querySelectorAll('#themeTabs button')];
+    const screenTabs = [...document.querySelectorAll('#screenTabs button')];
+    const appearanceGroup = document.getElementById('appearanceTabs');
+    const appearanceTabs = [...document.querySelectorAll('#appearanceTabs button')];
+    const themeToggleButtons = [...document.querySelectorAll('[data-toggle-appearance]')];
+    let currentAppearance = 'light';
+    const panels = [...document.querySelectorAll('[data-panel]')];
+    const styleName = document.getElementById('styleName');
+    const styleDescription = document.getElementById('styleDescription');
+    const styleTip = document.getElementById('styleTip');
+    const swatches = document.getElementById('swatches');
+    const styles = {
+      cinema: { name:'A · 沉浸式影院感', description:'深色、克制、夜间观看友好。视频是绝对主体，用暖金色强调主要操作。', tip:'适合长期夜间观看；注意入口页不能过暗过冷。', colors:['#08080f','#14131d','#ffb454','#8b7cff'] },
+      warm: { name:'B · 温暖双人感', description:'暖黑与珊瑚色，强调“我们正在一起看”，亲密但不做成粉色恋爱软件。', tip:'适合强调双人关系；暖色只用于状态和操作，避免干扰视频。', colors:['#1a1317','#2a1d23','#ff9273','#f1c8a8'] },
+      minimal: { name:'C · 简洁工具感', description:'米白、石墨与中性灰，信息最清楚，学习成本最低；深色模式使用纯黑和炭灰。', tip:'适合追求直接易用；需要避免过于普通或像系统设置页。', colors:['#f3f3f0','#ffffff','#20211f','#5e7162'] }
+    };
+    function setAppearance(appearance) {
+      currentAppearance = appearance;
+      phone.classList.toggle('dark-mode', phone.classList.contains('theme-minimal') && appearance === 'dark');
+      appearanceTabs.forEach(button => button.setAttribute('aria-pressed', button.dataset.appearance === appearance));
+      const nextAppearanceLabel = appearance === 'dark' ? '浅色' : '深色';
+      themeToggleButtons.forEach(button => {
+        const label = `切换到${nextAppearanceLabel}模式`;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('title', label);
+      });
+      if (phone.classList.contains('theme-minimal')) {
+        const palette = appearance === 'dark'
+          ? ['#0b0c0d','#171819','#f1f1ef','#94969b']
+          : styles.minimal.colors;
+        swatches.innerHTML = palette.map(color => `<span class="swatch" style="background:${color}"></span>`).join('');
+      }
+    }
+    function setTheme(theme) {
+      phone.classList.remove('theme-cinema','theme-warm','theme-minimal','dark-mode');
+      phone.classList.add(`theme-${theme}`);
+      appearanceGroup.hidden = theme !== 'minimal';
+      if (theme === 'minimal') setAppearance(currentAppearance);
+      themeTabs.forEach(button => button.setAttribute('aria-pressed', button.dataset.theme === theme));
+      const config = styles[theme];
+      styleName.textContent = config.name; styleDescription.textContent = config.description; styleTip.textContent = config.tip;
+      swatches.innerHTML = config.colors.map(color => `<span class="swatch" style="background:${color}"></span>`).join('');
+    }
+    function setScreen(screen) {
+      panels.forEach(panel => panel.classList.toggle('active', panel.dataset.panel === screen));
+      screenTabs.forEach(button => button.setAttribute('aria-pressed', button.dataset.screen === screen));
+      if (screen !== 'watch') exitImmersive();
+    }
+    let immersiveControlsTimer;
+    function showImmersiveControls() {
+      clearTimeout(immersiveControlsTimer);
+      phone.classList.remove('controls-hidden');
+      if (phone.classList.contains('immersive')) immersiveControlsTimer = setTimeout(() => phone.classList.add('controls-hidden'), 3000);
+    }
+    function enterImmersive() { phone.classList.add('immersive'); document.body.classList.add('has-immersive'); showImmersiveControls(); }
+    function exitImmersive() { clearTimeout(immersiveControlsTimer); phone.classList.remove('immersive','landscape','controls-hidden'); document.body.classList.remove('has-immersive'); }
+    themeTabs.forEach(button => button.addEventListener('click', () => setTheme(button.dataset.theme)));
+    screenTabs.forEach(button => button.addEventListener('click', () => setScreen(button.dataset.screen)));
+    appearanceTabs.forEach(button => button.addEventListener('click', () => setAppearance(button.dataset.appearance)));
+    themeToggleButtons.forEach(button => button.addEventListener('click', () => setAppearance(currentAppearance === 'light' ? 'dark' : 'light')));
+    document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => setScreen(button.dataset.go)));
+    document.getElementById('fullscreenButton').addEventListener('click', enterImmersive);
+    document.getElementById('landscapeButton').addEventListener('click', () => { if (!phone.classList.contains('immersive')) enterImmersive(); phone.classList.toggle('landscape'); });
+    const danmakuButton = document.getElementById('danmakuButton');
+    danmakuButton.addEventListener('click', () => {
+      const enabled = danmakuButton.getAttribute('aria-pressed') !== 'true';
+      danmakuButton.setAttribute('aria-pressed', String(enabled));
+      danmakuButton.textContent = enabled ? '弹幕 开' : '弹幕 关';
+    });
+    const reactionButton = document.getElementById('reactionButton');
+    const reactionPanel = document.getElementById('reactionPanel');
+    const reactionPreview = document.getElementById('reactionPreview');
+    function setReactionPanel(open) {
+      reactionPanel.classList.toggle('open', open);
+      reactionButton.setAttribute('aria-expanded', String(open));
+      clearTimeout(immersiveControlsTimer);
+      phone.classList.remove('controls-hidden');
+      if (!open && phone.classList.contains('immersive')) showImmersiveControls();
+    }
+    reactionButton.addEventListener('click', event => {
+      event.stopPropagation();
+      setReactionPanel(!reactionPanel.classList.contains('open'));
+    });
+    document.querySelectorAll('.reaction-option').forEach(option => option.addEventListener('click', event => {
+      event.stopPropagation();
+      reactionPreview.textContent = option.dataset.reaction;
+      reactionPreview.classList.remove('show');
+      void reactionPreview.offsetWidth;
+      reactionPreview.classList.add('show');
+      setReactionPanel(false);
+    }));
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.reaction-anchor')) setReactionPanel(false);
+    });
+    const speedRates = ['0.5×','0.75×','1.0×','1.25×','1.5×','2.0×'];
+    let speedIndex = 2;
+    document.getElementById('speedButton').addEventListener('click', event => {
+      speedIndex = (speedIndex + 1) % speedRates.length;
+      event.currentTarget.textContent = speedRates[speedIndex];
+      showImmersiveControls();
+    });
+    document.getElementById('immersiveBack').addEventListener('click', exitImmersive);
+    document.getElementById('videoStage').addEventListener('click', () => {
+      if (!phone.classList.contains('immersive')) return;
+      if (phone.classList.contains('controls-hidden')) showImmersiveControls();
+      else { clearTimeout(immersiveControlsTimer); phone.classList.add('controls-hidden'); }
+    });
+    document.getElementById('leaveRoomBack').addEventListener('click', () => { if (window.confirm('确定离开房间吗？')) setScreen('entry'); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') exitImmersive(); });
+    setTheme('minimal');
+    setAppearance('light');
+  </script>
+</body>
+</html>
