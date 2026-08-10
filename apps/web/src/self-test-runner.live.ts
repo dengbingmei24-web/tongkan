@@ -4,7 +4,11 @@ import { SelfTestRunner } from "./self-test-runner";
 let runner: SelfTestRunner;
 
 beforeAll(() => {
-  Object.assign(globalThis, { window: globalThis });
+  Object.assign(globalThis, {
+    window: globalThis,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  });
   runner = new SelfTestRunner();
 });
 

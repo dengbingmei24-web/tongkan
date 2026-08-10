@@ -12,7 +12,7 @@
     "typecheck": "pnpm -r typecheck",
     "test:self": "pnpm --filter @tongkan/web test:self",
     "test:bridge": "pnpm --filter @tongkan/extension test:bridge",
-    "test:integration": "node scripts/run-integration-tests.mjs",
+    "test:integration": "pnpm --filter @tongkan/protocol build && node scripts/run-integration-tests.mjs",
     "deps:report": "node scripts/generate-dependency-inventory.mjs --write",
     "deps:check": "node scripts/generate-dependency-inventory.mjs --check",
     "release:prepare": "node scripts/prepare-production.mjs",
