@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-10T11:21:15.5716344+08:00
+last_updated: 2026-08-10T11:45:20.6350205+08:00
 current_version: 1.0.0-alpha.9.2 (versionCode 11; physical-device test passed; published as GitHub prerelease v1.0.0-alpha.9.2)
 target_version: Collect normal-use feedback, then choose Alpha 9.3 stabilization or Alpha 10 playlist work
-status: Alpha 9.2 passed physical-device testing and is published as GitHub prerelease v1.0.0-alpha.9.2. The repository description, homepage and topics are updated; the release contains the GitHub-built APK and SHA-256 asset. General CI is green after fixing dependency inventory discovery for native directories and making live integration tests self-contained in clean Node environments.
+status: Alpha 9.2 passed physical-device testing and is published as GitHub prerelease v1.0.0-alpha.9.2. The repository description, homepage, topics and README are updated; the GitHub homepage now leads with Android screenshots, APK/Web entry points, usage instructions and a platform capability table. General CI remains green.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -81,6 +81,7 @@ status: Alpha 9.2 passed physical-device testing and is published as GitHub prer
 - [x] Published GitHub prerelease `v1.0.0-alpha.9.2` from commit `4312b10`; Release APK SHA-256 is `F43FA9513C364FA85D7899ADE514483F6E625A9A9532138E630C867F67CA600F`
 - [x] Updated GitHub repository description, homepage and topics for Android, Bilibili, Cloudflare Workers, watch-party and WebSocket discovery
 - [x] Fixed general CI in commits `4f4ded7` and `a53c9a4`; GitHub Actions run `31352245118` completed successfully
+- [x] Reworked the GitHub README into a user-first homepage with four Alpha 9.2 preview images, online Web/APK entry points, Android and Web usage steps, and an explicit platform capability table
 
 ## In Progress
 
@@ -386,6 +387,8 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 - 2026-08-10 (92): Published commit `4312b10` and tag `v1.0.0-alpha.9.2` as the first GitHub prerelease, uploaded the automatically built APK plus SHA-256, and updated repository description, homepage and topics. The published GitHub APK SHA-256 is `F43FA9513C364FA85D7899ADE514483F6E625A9A9532138E630C867F67CA600F`.
 
 - 2026-08-10 (93): Repaired the general GitHub CI without changing the immutable Alpha 9.2 tag or Release. Commit `4f4ded7` skips native/non-JS directories when discovering package manifests; commit `a53c9a4` builds `@tongkan/protocol` before live integration tests and supplies Node-only window event shims. Local dependency inventory, typecheck, 80 ordinary tests and live signaling integration passed; GitHub CI run `31352245118` completed successfully.
+
+- 2026-08-10 (94): Updated the GitHub repository homepage for end users. Added prominent online Web and Android APK entry points, four documentation-only Alpha 9.2 screenshots covering entry/light/dark/immersive landscape states, step-by-step Android and Web instructions, and a capability table clarifying that mobile Web Bilibili playback is local-only while full phone Bilibili sync uses the Android App. Verified all relative README paths and confirmed the deployed Web page returns HTTP 200.
 
 ---
 

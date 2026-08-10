@@ -5,6 +5,62 @@
 [![CI](https://github.com/dengbingmei24-web/tongkan/actions/workflows/ci.yml/badge.svg)](https://github.com/dengbingmei24-web/tongkan/actions/workflows/ci.yml)
 [![Android CI](https://github.com/dengbingmei24-web/tongkan/actions/workflows/android.yml/badge.svg)](https://github.com/dengbingmei24-web/tongkan/actions/workflows/android.yml)
 
+## 立即使用
+
+- [🌐 打开在线网页版](https://tongkan-personal.pages.dev)
+- [📱 下载 Android 1.0.0-alpha.9.2](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
+- [📝 查看版本更新](./CHANGELOG.md)
+- [🚀 查看后续发布方式](./RELEASING.md)
+
+> 推荐选择：两部 Android 手机同步看 B站时使用 App；电脑端临时创建房间、聊天、屏幕共享或同步视频直链时可以直接使用网页版。
+
+## Android 界面
+
+以下图片是根据当前 **Android 1.0.0-alpha.9.2** 原生界面与已确认 V3 交互生成的高保真预览，只展示当前已经实现的入口、观看控制和横屏沉浸能力。实际播放器中的视频画面和 B站弹幕会随所选视频变化。
+
+<p align="center">
+  <img src="./docs/images/android-alpha9.2-entry-light.png" alt="同看 Android 创建或加入房间页面" width="260" />
+  <img src="./docs/images/android-alpha9.2-watch-light.png" alt="同看 Android 浅色观看页面" width="260" />
+  <img src="./docs/images/android-alpha9.2-watch-dark.png" alt="同看 Android 深色观看页面" width="260" />
+</p>
+
+<p align="center"><sub>创建或加入房间 · 浅色观看 · 深色观看</sub></p>
+
+<p align="center">
+  <img src="./docs/images/android-alpha9.2-landscape.png" alt="同看 Android 横屏沉浸观看页面" width="820" />
+</p>
+
+<p align="center"><sub>手动进入横屏后，只保留点击唤出的播放器控制层</sub></p>
+
+## 怎么使用
+
+### Android App：两部手机同步看 B站
+
+1. 两个人分别从 [GitHub Release](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2) 下载并安装 APK；最低支持 Android 8.0。
+2. 房主填写昵称并点击“创建房间”，App 会自动弹出系统分享面板。
+3. 朋友打开同看 App，把收到的邀请链接粘贴到“加入朋友的房间”，然后点击“加入房间”。
+4. 任意一方在“准备视频”页面粘贴 B站完整链接、BV 链接或 b23.tv 分享链接，再点击“准备视频”。
+5. 视频准备成功后会自动进入观看页，并停在 0 秒等待手动播放。
+6. 双方均可播放、暂停、拖动进度和切换倍速；弹幕开关保存在各自手机上。
+7. 需要横屏时手动点击“横屏”；横屏控制栏会自动隐藏，点击画面可再次显示。
+
+### 在线网页版：无需安装 App
+
+1. 打开 [tongkan-personal.pages.dev](https://tongkan-personal.pages.dev)，填写昵称并创建房间。
+2. 把页面生成的邀请链接发给朋友；朋友打开链接并填写昵称加入。
+3. 浏览器可以直接播放的 MP4/WebM 等视频直链，不安装扩展也能同步播放、暂停和进度。
+4. 两台电脑使用 Chrome 或 Edge 时，可以聊天和发起屏幕共享；共享标签页时可选择共享标签页音频。
+5. 电脑网页要完整同步 B站播放器，需要加载本仓库的浏览器扩展；手机网页中的 B站画面目前只能本地观看，不会与房间同步。
+
+### 各版本能力
+
+| 使用方式 | B站双向同步 | 视频直链 | 聊天 | 屏幕共享 | 推荐场景 |
+| --- | --- | --- | --- | --- | --- |
+| Android App | 支持 | 暂不作为主要入口 | 暂未加入 | 暂未加入 | 两部手机一起看 B站 |
+| 电脑网页 + 扩展 | 支持 | 支持 | 支持 | 支持 | 电脑双人观看与共享屏幕 |
+| 电脑网页（无扩展） | 不支持 B站控制 | 支持 | 支持 | 支持 | 直链视频、聊天、屏幕共享 |
+| 手机网页 | B站仅本地观看 | 支持浏览器可播放直链 | 支持 | 只能观看电脑共享 | 临时加入房间或观看共享画面 |
+
 ## 项目上下文与 AI 入口
 
 长期开发和换对话时，从以下文件进入：
