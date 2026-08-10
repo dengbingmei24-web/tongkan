@@ -1,4 +1,4 @@
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { access, readFile, readdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
@@ -64,7 +64,14 @@ async function discoverManifests() {
     const groupRoot = path.join(root, group);
     const entries = await readdir(groupRoot, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
-      if (entry.isDirectory()) result.push(path.join(groupRoot, entry.name, "package.json"));
+      if (!entry.isDirectory()) continue;
+      const manifestPath = path.join(groupRoot, entry.name, "package.json");
+      try {
+        await access(manifestPath);
+        result.push(manifestPath);
+      } catch {
+        // Native and other non-JavaScript workspaces do not have a package manifest.
+      }
     }
   }
   return result;
