@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-10T11:45:20.6350205+08:00
+last_updated: 2026-08-10T12:40:38.4349874+08:00
 current_version: 1.0.0-alpha.9.2 (versionCode 11; physical-device test passed; published as GitHub prerelease v1.0.0-alpha.9.2)
 target_version: Collect normal-use feedback, then choose Alpha 9.3 stabilization or Alpha 10 playlist work
-status: Alpha 9.2 passed physical-device testing and is published as GitHub prerelease v1.0.0-alpha.9.2. The repository description, homepage, topics and README are updated; the GitHub homepage now leads with Android screenshots, APK/Web entry points, usage instructions and a platform capability table. General CI remains green.
+status: Alpha 9.2 remains the published stable prerelease. The approved README product showcase and Web home/join/room redesign are committed and pushed to `origin/master`. Typecheck, 80 tests and the full workspace build pass. Cloudflare Pages deployment remains pending, and the immutable Alpha 9.2 release tag remains unchanged.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -81,9 +81,19 @@ status: Alpha 9.2 passed physical-device testing and is published as GitHub prer
 - [x] Published GitHub prerelease `v1.0.0-alpha.9.2` from commit `4312b10`; Release APK SHA-256 is `F43FA9513C364FA85D7899ADE514483F6E625A9A9532138E630C867F67CA600F`
 - [x] Updated GitHub repository description, homepage and topics for Android, Bilibili, Cloudflare Workers, watch-party and WebSocket discovery
 - [x] Fixed general CI in commits `4f4ded7` and `a53c9a4`; GitHub Actions run `31352245118` completed successfully
-- [x] Reworked the GitHub README into a user-first homepage with four Alpha 9.2 preview images, online Web/APK entry points, Android and Web usage steps, and an explicit platform capability table
+- [x] Reworked the GitHub README into a user-first homepage with a single balanced Alpha 9.2 product showcase, online Web/APK entry points, Android and Web usage steps, and an explicit platform capability table
+- [x] Created root `design.md` as the Web cross-page design source and recorded D-054 for shared Android/Web quiet-tool styling
+- [x] Replaced warm-orange Web tokens with default light and persisted neutral black/charcoal dark themes
+- [x] Added the non-destructive `apps/web/src/redesign.css` layer for compact navigation, open entry/join layouts, media-first room layout and responsive states
+- [x] Fixed Web accessibility gaps: decorative preview control, join validation semantics, live room status and disabled unimplemented voice action
+- [x] Visually verified desktop Home light/dark, Join and Room pages in the in-app browser with no console warnings or errors
+- [x] Passed workspace typecheck, 80 tests, Web production build and full workspace build
 
 ## In Progress
+
+- [x] User approved the redesigned Web and README for a local Git commit
+- [x] Push the approved redesign commit to GitHub `origin/master`
+- [ ] Deploy the redesigned Web to Cloudflare Pages only after explicit user confirmation
 
 - [x] Collected first Alpha 7 UX feedback: opening directly into the video interface feels unattractive and out of sequence
 - [x] Confirmed desired flow: room entry -> create/join -> video loading -> viewing
@@ -155,6 +165,7 @@ status: Alpha 9.2 passed physical-device testing and is published as GitHub prer
 5. Android Release signing is not configured; Alpha artifacts use Debug signing.
 6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
 7. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
+8. The redesigned README is published on GitHub after the `master` push; the public Cloudflare Pages Web site remains unchanged until an explicit deployment step.
 
 ## Architecture Decisions
 
@@ -211,10 +222,11 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Keep `v1.0.0-alpha.9.2` and its APK immutable; future fixes use a new versionName, versionCode and tag.
-2. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
-3. Configure a long-term Android Release signing key before the first Beta or stable release.
-4. Upgrade deprecated GitHub Action majors in a separate maintenance change after confirming compatibility.
+1. Deploy the approved Web redesign to Cloudflare Pages only after explicit user confirmation, without changing the immutable Alpha 9.2 release tag.
+2. Keep `v1.0.0-alpha.9.2` and its APK immutable; future fixes use a new versionName, versionCode and tag.
+3. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
+4. Configure a long-term Android Release signing key before the first Beta or stable release.
+5. Upgrade deprecated GitHub Action majors in a separate maintenance change after confirming compatibility.
 
 ## Key Files
 
@@ -389,6 +401,12 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 - 2026-08-10 (93): Repaired the general GitHub CI without changing the immutable Alpha 9.2 tag or Release. Commit `4f4ded7` skips native/non-JS directories when discovering package manifests; commit `a53c9a4` builds `@tongkan/protocol` before live integration tests and supplies Node-only window event shims. Local dependency inventory, typecheck, 80 ordinary tests and live signaling integration passed; GitHub CI run `31352245118` completed successfully.
 
 - 2026-08-10 (94): Updated the GitHub repository homepage for end users. Added prominent online Web and Android APK entry points, four documentation-only Alpha 9.2 screenshots covering entry/light/dark/immersive landscape states, step-by-step Android and Web instructions, and a capability table clarifying that mobile Web Bilibili playback is local-only while full phone Bilibili sync uses the Android App. Verified all relative README paths and confirmed the deployed Web page returns HTTP 200.
+
+- 2026-08-10 (95): User rejected the old README multi-image composition and requested an overall Web UI redesign. Created `design.md`, accepted D-054, replaced the old warm-orange tokens with the Android-aligned light-first neutral system, added persisted theme switching and a non-destructive redesign layer for Home/Join/Room, generated `docs/images/tongkan-alpha9.2-showcase.png`, and updated README/document maps. Visual browser QA passed for light/dark Home, Join and media-first Room with no console errors. Workspace typecheck, 80 tests, Web build and full build all passed. Changes remain local pending user review; no commit, push, release tag change or deployment occurred.
+
+- 2026-08-10 (96): User approved the completed README and Web UI redesign for commit. Prepared one focused local commit containing the shared design system, theme switching, page restyling, accessibility corrections, unified README product board and context/decision documentation. Push and Cloudflare Pages deployment remain separate explicit actions.
+
+- 2026-08-10 (97): User explicitly requested pushing the approved redesign to GitHub. Updated the handoff state, amended the focused redesign commit to include the final push record, and pushed `master` to `origin`. Cloudflare Pages deployment remains a separate pending action; no release tag or APK changed.
 
 ---
 

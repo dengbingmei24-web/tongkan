@@ -16,22 +16,11 @@
 
 ## Android 界面
 
-以下图片是根据当前 **Android 1.0.0-alpha.9.2** 原生界面与已确认 V3 交互生成的高保真预览，只展示当前已经实现的入口、观看控制和横屏沉浸能力。实际播放器中的视频画面和 B站弹幕会随所选视频变化。
+下面这张产品展示图统一呈现 **Android 1.0.0-alpha.9.2** 已实现的入口、浅色观看、深色观看和沉浸横屏状态。实际视频画面与 B站弹幕会随所选视频变化。
 
-<p align="center">
-  <img src="./docs/images/android-alpha9.2-entry-light.png" alt="同看 Android 创建或加入房间页面" width="260" />
-  <img src="./docs/images/android-alpha9.2-watch-light.png" alt="同看 Android 浅色观看页面" width="260" />
-  <img src="./docs/images/android-alpha9.2-watch-dark.png" alt="同看 Android 深色观看页面" width="260" />
-</p>
+![同看 Android Alpha 9.2 创建房间、浅深色观看与沉浸横屏界面](./docs/images/tongkan-alpha9.2-showcase.png)
 
-<p align="center"><sub>创建或加入房间 · 浅色观看 · 深色观看</sub></p>
-
-<p align="center">
-  <img src="./docs/images/android-alpha9.2-landscape.png" alt="同看 Android 横屏沉浸观看页面" width="820" />
-</p>
-
-<p align="center"><sub>手动进入横屏后，只保留点击唤出的播放器控制层</sub></p>
-
+> 默认使用浅色主题；深色主题为中性黑灰。绿色只表示在线或成功状态，横屏由用户手动进入，播放控制会在无操作时自动隐藏。
 ## 怎么使用
 
 ### Android App：两部手机同步看 B站

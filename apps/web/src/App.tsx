@@ -12,6 +12,8 @@ import {
   Radio,
   RotateCcw,
   Send,
+  Sun,
+  Moon,
   Users,
   Video,
   Volume2,
@@ -56,13 +58,31 @@ const defaultCapabilities = {
   canUseMicrophone: typeof navigator.mediaDevices?.getUserMedia === "function",
 };
 
+type ThemeMode = "light" | "dark";
+
+function storedTheme(): ThemeMode {
+  return localStorage.getItem("tongkan:theme") === "dark" ? "dark" : "light";
+}
+
 function Nav({ status = import.meta.env.PROD ? "公网版" : "本地开发" }: { status?: string }) {
+  const [theme, setTheme] = useState<ThemeMode>(storedTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("tongkan:theme", theme);
+  }, [theme]);
+
+  const nextTheme = theme === "light" ? "dark" : "light";
+
   return (
     <nav className="nav-pill" aria-label="主导航">
-      <a className="wordmark" href="/" aria-label="返回同看首页">同看</a>
+      <a className="wordmark" href="/" aria-label="返回同看首页"><span className="wordmark__symbol" aria-hidden="true" />同看</a>
       <span className="nav-pill__status"><span className="status-dot" />{status}</span>
-      <a className="nav-pill__link" href="/self-test">自测</a>
+      <a className="nav-pill__link" href="/self-test">双端自测</a>
       <a className="nav-pill__link" href="/PRD.md">产品说明</a>
+      <button className="theme-toggle" type="button" onClick={() => setTheme(nextTheme)} aria-label={`切换到${nextTheme === "dark" ? "深色" : "浅色"}主题`} title={`切换到${nextTheme === "dark" ? "深色" : "浅色"}主题`}>
+        {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+      </button>
     </nav>
   );
 }
@@ -193,7 +213,7 @@ function HomePage() {
                 <span className="mono">00:18:42</span>
               </div>
               <div className="preview-stage__centre">
-                <button className="round-control" type="button" aria-label="播放预览"><Play fill="currentColor" /></button>
+                <span className="round-control preview-control" aria-hidden="true"><Play fill="currentColor" /></span>
                 <p>视频在 B站播放，房间只传控制状态。</p>
               </div>
               <div className="preview-timeline"><span /></div>
@@ -256,10 +276,10 @@ function JoinGate({ roomId, credential }: { roomId: string; credential: { role: 
           </div>
           <label className="field">
             <span className="field__label">你的昵称</span>
-            <span className="field__control"><input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="例如：小夏" /></span>
-            <span className={error ? "field__help field__help--error" : "field__help"}>{error ? "填写昵称后才能加入房间。" : "不需要注册或密码。"}</span>
+            <span className="field__control"><input value={nickname} onChange={(e) => { setNickname(e.target.value); if (error) setError(false); }} onBlur={() => setError(!nickname.trim())} placeholder="例如：小夏" aria-invalid={error} aria-describedby="join-nickname-help" /></span>
+            <span id="join-nickname-help" className={error ? "field__help field__help--error" : "field__help"}>{error ? "填写昵称后才能加入房间。" : "不需要注册或密码。"}</span>
           </label>
-          {!credential && <p className="form-error">邀请信息不完整，请让房主重新复制链接。</p>}
+          {!credential && <p className="form-error" role="alert">邀请信息不完整，请让房主重新复制链接。</p>}
           <button className="button button--primary" type="submit"><Link2 size={18} />加入房间</button>
         </form>
       </main>
@@ -827,7 +847,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
       <main className="room-shell">
         <header className="room-heading">
           <div>
-            <p className="room-heading__status"><span className={`status-dot ${connection === "connected" ? "status-dot--ready" : ""}`} />{notice}</p>
+            <p className="room-heading__status" role="status" aria-live="polite"><span className={`status-dot ${connection === "connected" ? "status-dot--ready" : ""}`} />{notice}</p>
             <h1>{screenShare
               ? `${screenShare.sharerNickname} 的屏幕`
               : directMedia
@@ -1094,7 +1114,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
         </div>
 
         <section className="room-actions">
-          <button className="action-line" type="button"><Mic size={18} /><span>语音连接</span><strong>下一阶段</strong></button>
+          <button className="action-line" type="button" disabled aria-describedby="voice-feature-status"><Mic size={18} /><span>语音连接</span><strong id="voice-feature-status">下一阶段</strong></button>
           <button
             className="action-line"
             type="button"

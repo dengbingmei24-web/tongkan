@@ -27,7 +27,8 @@
 | `DECISIONS.md` | 已确认的长期产品与技术决策 | 用户确认重要选择或旧决策被替代时 |
 | `PRD.md` | 同看整体产品需求和 1.0 范围 | 整体产品范围改变时 |
 | `ANDROID_FOLLOWUP_PRD.md` | Android 后续版本、体验反馈和 Alpha 9+ 讨论 | Android 产品决定或界面范围改变时 |
-| `design/alpha9-ui/SELECTED_DESIGN.md` | 已选视觉方向和 UI Token | 视觉、交互、主题规则改变时 |
+| `design/alpha9-ui/SELECTED_DESIGN.md` | Android Alpha 9 已选视觉方向和 UI Token | Android 视觉、交互、主题规则改变时 |
+| `design.md` | Web 跨页面统一设计系统 | Web 视觉、结构、主题或组件规则改变时 |
 | `QA_CHECKLIST.md` | 发布验收清单 | 新增需回归的能力时 |
 | `DEPLOYMENT.md` | 公网部署和移动端路线 | 部署方式、域名或环境变量改变时 |
 
@@ -93,6 +94,7 @@
 ├─ PROJECT_CONTEXT.md   本文件：稳定项目地图和文档索引
 ├─ CONTEXT.md           当前开发快照
 ├─ DECISIONS.md         产品与架构决策日志
+├─ design.md            Web 跨页面统一设计系统
 ├─ PRD.md               整体产品需求
 └─ ANDROID_FOLLOWUP_PRD.md Android 后续产品与体验讨论
 ```
@@ -128,7 +130,7 @@ flowchart LR
 | B站链接解析和播放器 URL | `CONTEXT.md` 已知问题 | `BilibiliMedia.java`、`bilibili-player-bridge.js` |
 | 播放协议 | `DECISIONS.md`、`packages/protocol/src/types.ts` | `RoomProtocol.java`、`room-session.ts` |
 | Cloudflare 房间逻辑 | `DEPLOYMENT.md`、`PRD.md` | `apps/signaling/src/` |
-| Web 房间 UI | `PRD.md`、`ACCESSIBILITY_AUDIT.md` | `apps/web/src/` |
+| Web 房间 UI | `design.md`、`PRD.md`、`ACCESSIBILITY_AUDIT.md` | `apps/web/src/`、`tokens.css` |
 | 浏览器扩展 | `apps/extension/README.md` | `apps/extension/` |
 | UI 预览 | `design/alpha9-ui/SELECTED_DESIGN.md` | `design/alpha9-ui/preview.html`、`playlist-preview.html` |
 | APK 构建 | `apps/android/README.md`、`AGENTS.md` | `scripts/run-android-gradle.mjs`、`release/` |
