@@ -87,6 +87,9 @@ Theme choice is stored in `localStorage` under `tongkan:theme`. With no stored p
 - Media stage dominates width and hierarchy
 - Room state and participants are compact metadata, not a second hero
 - Session rail contains media loading, invite and chat in clear blocks
+- When Bilibili is loaded without the extension, the media stage uses a centered no-extension sharing card instead of a passive local-only warning
+- The sharing card has one graphite primary action, a quiet “open Bilibili tab” secondary action and a three-step browser-tab/audio checklist; it uses borders and surface contrast rather than decorative shadow
+- During no-extension sharing, unavailable room playback controls are hidden and copy states that the sharer controls playback in the Bilibili tab
 - Voice remains visibly unavailable until implemented and must not behave like an active button
 - Status notices use polite live regions
 

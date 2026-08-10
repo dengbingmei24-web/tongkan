@@ -700,7 +700,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
     }
     if (!biliBridgeReady) {
       window.open(nextMedia.canonicalUrl, "_blank", "noopener,noreferrer");
-      setNotice("B站页面已打开；安装并重新加载 Edge 扩展后才能双向同步播放器。");
+      setNotice("B站页面已打开；返回同看并点击“无需扩展共享观看”。");
       return;
     }
     setNotice(nextMedia.unresolved ? "正在打开并解析 B站分享链接" : "正在为双方切换 B站视频");
@@ -758,7 +758,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
     }
   }
 
-  async function startScreenShare() {
+  async function startScreenShare(source: "general" | "bilibili" = "general") {
     if (connection !== "connected") {
       setNotice("房间连接成功后才能共享屏幕。");
       return;
@@ -770,6 +770,9 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
     }
     setScreenUiState("requesting");
     setScreenError("");
+    setNotice(source === "bilibili"
+      ? "请选择“浏览器标签页”中的 B站页面，并开启“共享标签页音频”。"
+      : "请选择要共享的标签页、窗口或屏幕。");
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 30, max: 30 } },
@@ -787,9 +790,16 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
       videoTrack.addEventListener("ended", () => {
         if (activeShareIdRef.current === shareId) stopScreenShare("track-ended");
       }, { once: true });
-      clientRef.current?.sendScreenStart(shareId, stream.getAudioTracks().length > 0);
+      const hasSharedAudio = stream.getAudioTracks().length > 0;
+      clientRef.current?.sendScreenStart(shareId, hasSharedAudio);
       setScreenUiState("connecting");
-      setNotice(stream.getAudioTracks().length > 0 ? "已捕获画面和共享声音，正在连接对方。" : "已捕获画面；当前来源没有共享声音。");
+      setNotice(hasSharedAudio
+        ? source === "bilibili"
+          ? "已捕获 B站画面和标签页声音，正在连接对方。"
+          : "已捕获画面和共享声音，正在连接对方。"
+        : source === "bilibili"
+          ? "画面已共享，但没有检测到标签页声音。可停止后重新共享，并开启“共享标签页音频”。"
+          : "已捕获画面；当前来源没有共享声音。");
     } catch (error) {
       const cancelled = error instanceof DOMException && error.name === "NotAllowedError";
       const message = cancelled
@@ -974,10 +984,35 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                   referrerPolicy="strict-origin-when-cross-origin"
                   onLoad={() => setNotice(biliBridgeMissing
                     ? mobileWeb
-                      ? "B站画面已载入；手机网页只能本地观看，当前不会与房间同步。"
-                      : "B站画面已载入；安装扩展后才能与对方同步操作。"
+                      ? "B站画面已载入；手机端可以观看电脑共享，完整双向同步请使用 Android App。"
+                      : "B站画面已载入；点击“无需扩展共享观看”选择 B站标签页和声音。"
                     : "B站画面已载入，正在连接嵌入播放器。")}
                 />
+                {biliBridgeMissing && !mobileWeb && biliUnavailableCopy.primaryAction && (
+                  <div className="bilibili-share-prompt" role="region" aria-labelledby="bilibili-share-title">
+                    <div className="bilibili-share-prompt__card">
+                      <span className="bilibili-share-prompt__eyebrow"><MonitorUp size={16} />无需扩展</span>
+                      <h2 id="bilibili-share-title">{biliUnavailableCopy.title}</h2>
+                      <p>{biliUnavailableCopy.description}</p>
+                      <ol>
+                        {biliUnavailableCopy.steps.map((step) => <li key={step}>{step}</li>)}
+                      </ol>
+                      <div className="bilibili-share-prompt__actions">
+                        <button
+                          className="button button--primary"
+                          type="button"
+                          onClick={() => { void startScreenShare("bilibili"); }}
+                          disabled={connection !== "connected" || screenUiState === "requesting" || screenUiState === "connecting" || !defaultCapabilities.canShareScreen}
+                          data-state={screenUiState === "requesting" || screenUiState === "connecting" ? "loading" : "default"}
+                        >
+                          <MonitorUp size={17} />{biliUnavailableCopy.primaryAction}
+                        </button>
+                        <a className="button button--quiet" href={biliMedia.canonicalUrl} target="_blank" rel="noreferrer"><ExternalLink size={17} />打开 B站标签页</a>
+                      </div>
+                      <small>安装扩展后，可由双方共同播放、暂停、拖动和切换倍速。</small>
+                    </div>
+                  </div>
+                )}
                 <div className="bilibili-embed-stage__status" aria-live="polite">
                   <span><span className={`status-dot ${embeddedBiliReady && extensionSupportsEmbeddedDuration ? "status-dot--ready" : ""}`} />{biliBridgeMissing ? biliUnavailableCopy.statusLabel : !extensionSupportsEmbeddedDuration ? "扩展版本过旧，请重新加载" : embeddedBiliReady ? "嵌入播放器已同步" : "正在连接嵌入播放器"}</span>
                   <a href={biliMedia.canonicalUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} />独立打开</a>
@@ -1005,7 +1040,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
                 </div>
               </div>
             )}
-            {biliSyncUnavailable && !showingScreenStage && (
+            {biliSyncUnavailable && !showingScreenStage && mobileWeb && (
               <div className="capability-notice" role="status" data-device={mobileWeb ? "mobile" : "desktop"}>
                 <CircleHelp size={20} aria-hidden="true" />
                 <div>
@@ -1016,19 +1051,25 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
             )}
             {showingScreenStage ? (
               <div className="screen-share-controls">
-                <span>{screenError || (sharingSelf
-                  ? "这是共享预览；下方按钮控制双方的 B站播放器。"
-                  : "这是实时共享画面；下方按钮控制双方的 B站播放器。")}</span>
+                <span>{screenError || (biliSyncUnavailable
+                  ? sharingSelf
+                    ? "共享已经开始；请在 B站标签页中控制播放，对方会同步看到画面和声音。"
+                    : "这是对方共享的 B站画面；播放操作由共享者完成。"
+                  : sharingSelf
+                    ? "这是共享预览；房间播放控制仍会同步到双方播放器。"
+                    : "这是实时共享画面；房间播放控制仍会同步到双方播放器。")}</span>
                 <div>
-                  <button
-                    className="button button--quiet"
-                    type="button"
-                    onClick={() => sendPlayback(playback?.paused ? "play" : "pause")}
-                    disabled={!activeMedia || connection !== "connected" || Boolean(biliMedia && !biliBridgeReady)}
-                  >
-                    {playback?.paused ? <Play size={17} fill="currentColor" /> : <Pause size={17} fill="currentColor" />}
-                    {playback?.paused ? "播放视频" : "暂停视频"}
-                  </button>
+                  {(!biliMedia || biliBridgeReady) && (
+                    <button
+                      className="button button--quiet"
+                      type="button"
+                      onClick={() => sendPlayback(playback?.paused ? "play" : "pause")}
+                      disabled={!activeMedia || connection !== "connected"}
+                    >
+                      {playback?.paused ? <Play size={17} fill="currentColor" /> : <Pause size={17} fill="currentColor" />}
+                      {playback?.paused ? "播放视频" : "暂停视频"}
+                    </button>
+                  )}
                   <button className="button button--quiet" type="button" onClick={openScreenFullscreen} disabled={!localScreenStream && !remoteScreenStream}><Maximize2 size={17} />全屏</button>
                   {sharingSelf && <button className="button button--quiet" type="button" onClick={() => stopScreenShare("user")} data-state={screenUiState === "stopping" ? "loading" : "default"}><MonitorUp size={17} />停止共享</button>}
                 </div>
@@ -1062,9 +1103,9 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
               <div className="session-block__heading"><h2>连接状态</h2><Radio size={18} /></div>
               <dl className="status-list">
                 <div><dt>房间连接</dt><dd data-tone={connection === "connected" ? "success" : connection === "error" || connection === "closed" ? "warning" : undefined}>{connectionLabel}</dd></div>
-                <div><dt>{mobileWeb ? "B站控制" : "浏览器扩展"}</dt><dd data-tone={extensionState === "installed" && extensionSupportsEmbeddedDuration ? "success" : "warning"}>{extensionState === "installed" ? extensionSupportsEmbeddedDuration ? "已连接 · v0.2" : "版本过旧，请重新加载" : extensionState === "checking" ? "检测中" : biliMedia ? mobileWeb ? "手机网页不支持" : "未检测到（B站需要）" : mobileWeb ? "等待载入视频" : "未检测到"}</dd></div>
+                <div><dt>{mobileWeb ? "B站控制" : "浏览器扩展"}</dt><dd data-tone={extensionState === "installed" && extensionSupportsEmbeddedDuration ? "success" : "warning"}>{extensionState === "installed" ? extensionSupportsEmbeddedDuration ? "已连接 · v0.2" : "版本过旧，请重新加载" : extensionState === "checking" ? "检测中" : biliMedia ? mobileWeb ? "手机网页不支持" : "未安装 · 可共享观看" : mobileWeb ? "等待载入视频" : "未检测到"}</dd></div>
                 <div><dt>对方</dt><dd>{partner}</dd></div>
-                <div><dt>控制权</dt><dd>{biliSyncUnavailable ? "当前设备不可控制" : "双方均可"}</dd></div>
+                <div><dt>控制权</dt><dd>{screenShare ? sharingSelf ? "由你控制共享标签页" : "由共享者控制" : biliSyncUnavailable ? "共享后由共享者控制" : "双方均可"}</dd></div>
                 <div><dt>当前模式</dt><dd>{screenShare ? "屏幕共享" : directMedia ? "直链视频" : biliSyncUnavailable ? biliUnavailableCopy.modeLabel : "B站同步"}</dd></div>
                 {showingScreenStage && <div><dt>P2P</dt><dd data-tone={screenPeerState === "connected" ? "success" : screenPeerState === "failed" ? "warning" : undefined}>{screenPeerState === "connected" ? "已直连" : screenPeerState === "failed" ? "连接失败" : "连接中"}</dd></div>}
               </dl>
@@ -1084,7 +1125,7 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
               </form>
               {mediaInputError
                 ? <p className="form-error" role="alert">{mediaInputError}</p>
-                : <p>{mobileWeb ? "手机网页可同步浏览器能直接播放的视频直链；B站画面目前只能本地观看。" : "支持完整 B站链接、b23.tv 分享短链和视频直链；B站同步需要浏览器扩展。"}</p>}
+                : <p>{mobileWeb ? "手机网页可同步浏览器能直接播放的视频直链，也可以观看电脑端共享的 B站画面。" : "支持 B站链接和视频直链；未安装扩展时可共享 B站标签页，安装后支持双方双向控制。"}</p>}
             </div>
 
             {identity.role === "host" && (
@@ -1118,13 +1159,13 @@ function ConnectedRoom({ roomId, identity }: { roomId: string; identity: { role:
           <button
             className="action-line"
             type="button"
-            onClick={sharingSelf ? () => stopScreenShare("user") : startScreenShare}
+            onClick={sharingSelf ? () => stopScreenShare("user") : () => { void startScreenShare(biliSyncUnavailable ? "bilibili" : "general"); }}
             disabled={watchingOther || screenUiState === "requesting" || screenUiState === "connecting" || screenUiState === "stopping" || !defaultCapabilities.canShareScreen}
             data-state={screenUiState === "error" ? "error" : sharingSelf ? "success" : screenUiState === "requesting" || screenUiState === "connecting" || screenUiState === "stopping" ? "loading" : "default"}
           >
             <MonitorUp size={18} />
-            <span>{sharingSelf ? "停止屏幕共享" : watchingOther ? `${screenShare?.sharerNickname ?? "对方"} 正在共享` : mobileWeb ? "手机屏幕共享" : "共享屏幕"}</span>
-            <strong>{sharingSelf ? "正在共享" : watchingOther ? "观看中" : defaultCapabilities.canShareScreen ? "现在可用" : mobileWeb ? "只能观看电脑共享" : "浏览器不支持"}</strong>
+            <span>{sharingSelf ? "停止屏幕共享" : watchingOther ? `${screenShare?.sharerNickname ?? "对方"} 正在共享` : mobileWeb ? "手机屏幕共享" : biliSyncUnavailable ? "无需扩展共享观看" : "共享屏幕"}</span>
+            <strong>{sharingSelf ? "正在共享" : watchingOther ? "观看中" : defaultCapabilities.canShareScreen ? biliSyncUnavailable ? "选择 B站标签页" : "现在可用" : mobileWeb ? "只能观看电脑共享" : "浏览器不支持"}</strong>
           </button>
           <button
             className="action-line"
