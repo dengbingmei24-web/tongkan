@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-10T10:50:21.079+08:00
-current_version: 1.0.0-alpha.9.2 (versionCode 11; physical-device test passed, preparing first GitHub Release)
-target_version: Publish v1.0.0-alpha.9.2, then collect usage feedback for the next Android iteration
-status: The user confirmed Alpha 9.2 passed physical-device testing. The repository is being prepared for its first GitHub prerelease using immutable version tags, GitHub Release APK assets, CHANGELOG/RELEASING documentation and a tag-triggered Android release workflow. Local typecheck, 80 Web/protocol tests, full workspace build, 15 Android tests, Lint and Debug APK assembly all pass.
+last_updated: 2026-08-10T11:21:15.5716344+08:00
+current_version: 1.0.0-alpha.9.2 (versionCode 11; physical-device test passed; published as GitHub prerelease v1.0.0-alpha.9.2)
+target_version: Collect normal-use feedback, then choose Alpha 9.3 stabilization or Alpha 10 playlist work
+status: Alpha 9.2 passed physical-device testing and is published as GitHub prerelease v1.0.0-alpha.9.2. The repository description, homepage and topics are updated; the release contains the GitHub-built APK and SHA-256 asset. General CI is green after fixing dependency inventory discovery for native directories and making live integration tests self-contained in clean Node environments.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -78,6 +78,9 @@ status: The user confirmed Alpha 9.2 passed physical-device testing. The reposit
 - [x] User confirmed Alpha 9.2 passed physical-device testing on 2026-08-10
 - [x] Added CHANGELOG, release guide, D-053 immutable GitHub version policy and tag-triggered Android Release workflow
 - [x] Revalidated release source: typecheck passed; 80 Web/protocol tests passed; workspace build passed; 15 Android tests, Lint and Debug assembly passed
+- [x] Published GitHub prerelease `v1.0.0-alpha.9.2` from commit `4312b10`; Release APK SHA-256 is `F43FA9513C364FA85D7899ADE514483F6E625A9A9532138E630C867F67CA600F`
+- [x] Updated GitHub repository description, homepage and topics for Android, Bilibili, Cloudflare Workers, watch-party and WebSocket discovery
+- [x] Fixed general CI in commits `4f4ded7` and `a53c9a4`; GitHub Actions run `31352245118` completed successfully
 
 ## In Progress
 
@@ -150,6 +153,7 @@ status: The user confirmed Alpha 9.2 passed physical-device testing. The reposit
 4. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
 5. Android Release signing is not configured; Alpha artifacts use Debug signing.
 6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
+7. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
 
 ## Architecture Decisions
 
@@ -206,11 +210,10 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Push the prepared Alpha 9.2 source and documentation to GitHub master.
-2. Push tag `v1.0.0-alpha.9.2` and verify the automated prerelease assets.
-3. Keep older commits/tags/releases unchanged for rollback; never replace a published APK in place.
-4. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
-5. Configure a long-term Android Release signing key before the first Beta or stable release.
+1. Keep `v1.0.0-alpha.9.2` and its APK immutable; future fixes use a new versionName, versionCode and tag.
+2. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
+3. Configure a long-term Android Release signing key before the first Beta or stable release.
+4. Upgrade deprecated GitHub Action majors in a separate maintenance change after confirming compatibility.
 
 ## Key Files
 
@@ -378,7 +381,11 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 
 - 2026-08-07 (90): Opened Windows File Explorer with `release/tongkan-android-1.0-alpha9.2.apk` selected for manual transfer to the phone and physical-device installation.
 
-- 2026-08-10 (91): User confirmed Alpha 9.2 passed physical-device testing and requested the GitHub repository be updated for sustainable future releases. Prepared D-053, README/Android documentation, CHANGELOG, RELEASING guide, ignore rules and an automated tag-triggered Android GitHub Release workflow. Verified typecheck, 80 Web/protocol tests, full workspace build, 15 Android tests, Lint and Debug APK assembly. Git commit, push, tag and Release verification are in progress.
+- 2026-08-10 (91): User confirmed Alpha 9.2 passed physical-device testing and requested the GitHub repository be updated for sustainable future releases. Prepared D-053, README/Android documentation, CHANGELOG, RELEASING guide, ignore rules and an automated tag-triggered Android GitHub Release workflow. Verified typecheck, 80 Web/protocol tests, full workspace build, 15 Android tests, Lint and Debug APK assembly.
+
+- 2026-08-10 (92): Published commit `4312b10` and tag `v1.0.0-alpha.9.2` as the first GitHub prerelease, uploaded the automatically built APK plus SHA-256, and updated repository description, homepage and topics. The published GitHub APK SHA-256 is `F43FA9513C364FA85D7899ADE514483F6E625A9A9532138E630C867F67CA600F`.
+
+- 2026-08-10 (93): Repaired the general GitHub CI without changing the immutable Alpha 9.2 tag or Release. Commit `4f4ded7` skips native/non-JS directories when discovering package manifests; commit `a53c9a4` builds `@tongkan/protocol` before live integration tests and supplies Node-only window event shims. Local dependency inventory, typecheck, 80 ordinary tests and live signaling integration passed; GitHub CI run `31352245118` completed successfully.
 
 ---
 
