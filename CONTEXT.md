@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-10T12:40:38.4349874+08:00
+last_updated: 2026-08-10T16:23:39.1828329+08:00
 current_version: 1.0.0-alpha.9.2 (versionCode 11; physical-device test passed; published as GitHub prerelease v1.0.0-alpha.9.2)
 target_version: Collect normal-use feedback, then choose Alpha 9.3 stabilization or Alpha 10 playlist work
-status: Alpha 9.2 remains the published stable prerelease. The approved README product showcase and Web home/join/room redesign are committed and pushed to `origin/master`. Typecheck, 80 tests and the full workspace build pass. Cloudflare Pages deployment remains pending, and the immutable Alpha 9.2 release tag remains unchanged.
+status: Alpha 9.2 remains the published stable prerelease. D-055 no-extension Bilibili sharing was committed as `ece55c0`, pushed to `origin/master`, and deployed to Cloudflare Pages production as `f71c6cf2`. The canonical `https://tongkan-personal.pages.dev` now shows the guided sharing entry and passed a live room/API/WebSocket smoke test. The immutable Alpha 9.2 Android release remains unchanged.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -88,12 +88,23 @@ status: Alpha 9.2 remains the published stable prerelease. The approved README p
 - [x] Fixed Web accessibility gaps: decorative preview control, join validation semantics, live room status and disabled unimplemented voice action
 - [x] Visually verified desktop Home light/dark, Join and Room pages in the in-app browser with no console warnings or errors
 - [x] Passed workspace typecheck, 80 tests, Web production build and full workspace build
+- [x] Published Pages deployment `3bd77a10` and verified the canonical `tongkan-personal.pages.dev` UI and room connection
+- [x] Implemented D-055 Web no-extension Bilibili fallback: an in-player “无需扩展共享观看” card launches tab screen sharing, guides Bilibili tab/audio selection, hides unusable playback controls during fallback sharing, and preserves extension-based dual control as the advanced mode
+- [x] Passed Web typecheck, all 16 Web tests and the production Web build after the D-055 implementation
+- [x] Committed and pushed D-055 as `ece55c0 feat(web): add no-extension Bilibili sharing`
+- [x] Published production Pages deployment `f71c6cf2` and verified canonical room `a07c14b27ccc3859a0dc9956405021d3` reached “房间已连接” with the new CTA, audio checklist and sharing status
 
 ## In Progress
 
+- [x] Accepted and implemented the no-extension Web experience: Bilibili defaults to guided tab screen sharing, while the extension remains the advanced dual-control mode.
+- [x] Completed connected-room production QA for the no-extension sharing card, including live room creation, Bilibili embed loading, CTA/guide visibility and updated status copy.
+
+- [x] Changed GitHub repository `dengbingmei24-web/tongkan` from Private to Public and verified unauthenticated access
+
 - [x] User approved the redesigned Web and README for a local Git commit
 - [x] Push the approved redesign commit to GitHub `origin/master`
-- [ ] Deploy the redesigned Web to Cloudflare Pages only after explicit user confirmation
+- [x] Deploy the redesigned Web and existing Pages Functions bundle to Cloudflare Pages
+- [x] Verify the canonical domain, create-room API path and room WebSocket connection in production
 
 - [x] Collected first Alpha 7 UX feedback: opening directly into the video interface feels unattractive and out of sequence
 - [x] Confirmed desired flow: room entry -> create/join -> video loading -> viewing
@@ -165,7 +176,9 @@ status: Alpha 9.2 remains the published stable prerelease. The approved README p
 5. Android Release signing is not configured; Alpha artifacts use Debug signing.
 6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
 7. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
-8. The redesigned README is published on GitHub after the `master` push; the public Cloudflare Pages Web site remains unchanged until an explicit deployment step.
+8. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
+9. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
+10. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
 
 ## Architecture Decisions
 
@@ -222,9 +235,9 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Deploy the approved Web redesign to Cloudflare Pages only after explicit user confirmation, without changing the immutable Alpha 9.2 release tag.
+1. Collect normal-use feedback for the no-extension Bilibili sharing flow, especially whether users select the correct browser tab and enable tab audio.
 2. Keep `v1.0.0-alpha.9.2` and its APK immutable; future fixes use a new versionName, versionCode and tag.
-3. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
+3. Decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
 4. Configure a long-term Android Release signing key before the first Beta or stable release.
 5. Upgrade deprecated GitHub Action majors in a separate maintenance change after confirming compatibility.
 
@@ -408,6 +421,21 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 
 - 2026-08-10 (97): User explicitly requested pushing the approved redesign to GitHub. Updated the handoff state, amended the focused redesign commit to include the final push record, and pushed `master` to `origin`. Cloudflare Pages deployment remains a separate pending action; no release tag or APK changed.
 
+- 2026-08-10 (98): User explicitly requested updating the Cloudflare Pages production Web site. The broad `deploy:cloudflare` command was rejected because it would also redeploy the signaling Worker, so a safer Pages-only production build was used with same-origin HTTPS/WSS settings. Re-deployed from `apps/web` to include the existing Functions service-binding proxy; final deployment URL is `https://3bd77a10.tongkan-personal.pages.dev`. The canonical `https://tongkan-personal.pages.dev` shows the redesigned light-first UI. Production smoke testing created temporary room `74fc20c2a51d2c1702b6b67f48302855` and confirmed the WebSocket reached “房间已连接” with no browser warnings or errors. No signaling Worker source, Android APK or release tag changed.
+
+- 2026-08-10 (99): User requested making the GitHub repository public. Scanned all tracked history for common GitHub/OpenAI/AWS/Cloudflare token formats, private-key markers, credential filenames and keystores; no credential patterns were found. Noted that public history will expose the auto-configured commit email `dengbingmei@game.ntes` and one tracked local username path. Opened GitHub Settings in the user’s logged-in Edge session, confirmed the repository was Private, accepted the public-visibility impact confirmations, and reached GitHub sudo mode. GitHub sent a verification code to `d************@gmail.com`; the visibility change is pending that code and the repository remains Private.
+
+
+- 2026-08-10 (100): GitHub repository `dengbingmei24-web/tongkan` was successfully changed to Public and independently verified as accessible without authentication. The user later supplied the email verification code, but no further entry was needed because the visibility change had already completed; the code itself was not retained in project files. Updated the handoff state; no code, release tag, APK, deployment or Git history changed.
+
+- 2026-08-10 (101): User requested a concise resume-ready project description demonstrating Vibe Coding ability. Drafted a two-line entry emphasizing the AI-assisted end-to-end delivery of Tongkan across native Android, React Web and Cloudflare Durable Objects, including synchronized Bilibili playback and public demo/repository availability. No code, deployment, release or product decision changed.
+
+- 2026-08-10 (102): User asked whether the Web version can support synchronized viewing without installing the browser extension. Reviewed the current React embed, direct-video controller, extension all-frame injection and product constraints. Confirmed that reliable two-way control of the cross-origin Bilibili iframe is not available to the normal page; no-extension options are true synchronization for CORS-compatible direct video links or host-controlled WebRTC tab screen sharing for Bilibili. Recommended presenting two explicit modes and improving the no-extension screen-sharing flow before considering brittle private-player reverse engineering or media proxying. Product choice remains pending user confirmation; no code or deployment changed.
+
+
+- 2026-08-10 (103): User accepted the recommended no-extension Web fallback. Recorded D-055 and implemented a desktop Bilibili player overlay with “无需扩展共享观看”, a three-step browser-tab/audio guide, one-click `getDisplayMedia`, adaptive room status/action copy and removal of unusable playback controls during host-controlled sharing. Updated `PRD.md`, `README.md`, `design.md`, `DECISIONS.md` and mobile capability tests. Web typecheck, all 16 tests and the production build passed. Connected-room visual QA was attempted but the local preview environment hit an occupied Vite port and the known Wrangler Chinese-path restriction; no source failure occurred. Changes remain local and are not committed, pushed or deployed.
+
+- 2026-08-10 (104): User explicitly requested committing, pushing and updating Cloudflare Pages. Committed the D-055 feature/docs/tests as `ece55c0 feat(web): add no-extension Bilibili sharing` and pushed `master` to GitHub. Built the Web with canonical HTTPS/WSS settings. Initial deployments `d1c21ad9` and `436cedfa` were correctly identified as Preview because the Pages production branch is `main`; then deployed with `--branch main`, producing production deployment `f71c6cf2`. Verified the canonical site loads asset `index-CJM37Qlg.js`, created temporary room `a07c14b27ccc3859a0dc9956405021d3`, confirmed “房间已连接”, Bilibili embed loading, the “无需扩展共享观看” CTA, three-step tab/audio guide, “未安装 · 可共享观看” status and updated control ownership copy. No signaling Worker, Android APK or release tag changed.
 ---
 
 Maintenance rules:
