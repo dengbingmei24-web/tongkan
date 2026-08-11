@@ -32,7 +32,6 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.SeekBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -106,7 +105,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private Button continueButton;
     private ImageButton entryThemeButton;
     private Button cancelPreparationButton;
-    private ImageButton moreButton;
+    private Button changeVideoButton;
+    private Button videoThemeButton;
     private Button danmakuButton;
     private Button speedButton;
     private Button orientationButton;
@@ -313,9 +313,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         shareButton.setEnabled(false);
         shareButton.setOnClickListener(view -> shareInvite());
         header.addView(shareButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        moreButton = iconButton(R.drawable.ic_more, "更多操作");
-        moreButton.setOnClickListener(this::showVideoMenu);
-        header.addView(moreButton, margin(new LinearLayout.LayoutParams(dp(48), dp(48)), 8, 0, 0, 0));
         videoSection.addView(header, matchWrap());
 
         preparationPanel = card();
@@ -368,30 +365,40 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         configureSeekBar(seekBar);
         footer.addView(seekBar, matchHeight(36));
 
+        LinearLayout primaryControls = horizontal();
         playPauseButton = button("播放", true);
         setButtonIcon(playPauseButton, R.drawable.ic_play);
         playPauseButton.setEnabled(false);
         playPauseButton.setOnClickListener(view -> togglePlayback());
-        footer.addView(playPauseButton, margin(matchHeight(52), 0, 8, 0, 0));
-
-        LinearLayout tools = horizontal();
+        primaryControls.addView(playPauseButton, weight(1));
         danmakuButton = button("弹幕 开", false);
         setButtonIcon(danmakuButton, R.drawable.ic_danmaku);
         danmakuButton.setOnClickListener(view -> toggleDanmaku());
-        tools.addView(danmakuButton, weight(1));
+        primaryControls.addView(danmakuButton, margin(weight(1), 6, 0, 0, 0));
         speedButton = button("1.0×", false);
         setButtonIcon(speedButton, R.drawable.ic_speed);
         speedButton.setOnClickListener(view -> showSpeedDialog());
-        tools.addView(speedButton, margin(weight(1), 8, 0, 0, 0));
+        primaryControls.addView(speedButton, margin(weight(1), 6, 0, 0, 0));
         orientationButton = button("横屏", false);
         setButtonIcon(orientationButton, R.drawable.ic_rotate);
         orientationButton.setOnClickListener(view -> toggleOrientation());
-        tools.addView(orientationButton, margin(weight(1), 8, 0, 0, 0));
+        primaryControls.addView(orientationButton, margin(weight(1), 6, 0, 0, 0));
         fullscreenButton = button("全屏", false);
         setButtonIcon(fullscreenButton, R.drawable.ic_fullscreen);
         fullscreenButton.setOnClickListener(view -> toggleAppFullscreen());
-        tools.addView(fullscreenButton, margin(weight(1), 8, 0, 0, 0));
-        footer.addView(tools, margin(matchHeight(64), 0, 10, 0, 0));
+        primaryControls.addView(fullscreenButton, margin(weight(1), 6, 0, 0, 0));
+        footer.addView(primaryControls, margin(matchHeight(62), 0, 6, 0, 0));
+
+        LinearLayout quickActions = horizontal();
+        changeVideoButton = button("换视频", false);
+        setButtonIcon(changeVideoButton, R.drawable.ic_video);
+        changeVideoButton.setOnClickListener(view -> showPreparationPanel());
+        quickActions.addView(changeVideoButton, weight(1));
+        videoThemeButton = button(darkMode ? "浅色" : "深色", false);
+        setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
+        videoThemeButton.setOnClickListener(view -> toggleTheme());
+        quickActions.addView(videoThemeButton, margin(weight(1), 8, 0, 0, 0));
+        footer.addView(quickActions, margin(matchHeight(50), 0, 8, 0, 0));
         videoSection.addView(footer, matchWrap());
 
         applyTheme();
@@ -471,33 +478,17 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void setButtonIcon(Button button, int drawableId) {
         android.graphics.drawable.Drawable drawable = getDrawable(drawableId).mutate();
         drawable.setBounds(0, 0, dp(18), dp(18));
-        button.setCompoundDrawables(drawable, null, null, null);
-        button.setCompoundDrawablePadding(dp(6));
+        button.setTextSize(11);
+        button.setPadding(dp(2), dp(5), dp(2), dp(4));
+        button.setGravity(Gravity.CENTER);
+        button.setCompoundDrawables(null, drawable, null, null);
+        button.setCompoundDrawablePadding(dp(3));
     }
 
     private void tintButtonDrawables(Button button, int color) {
         for (android.graphics.drawable.Drawable drawable : button.getCompoundDrawables()) {
             if (drawable != null) drawable.setColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN);
         }
-    }
-
-    private void showVideoMenu(View anchor) {
-        PopupMenu menu = new PopupMenu(this, anchor);
-        menu.getMenu().add("换视频");
-        menu.getMenu().add(darkMode ? "切换浅色" : "切换深色");
-        menu.getMenu().add("离开房间");
-        menu.setOnMenuItemClickListener(item -> {
-            String title = item.getTitle().toString();
-            if ("换视频".equals(title)) {
-                showPreparationPanel();
-            } else if (title.startsWith("切换")) {
-                toggleTheme();
-            } else if ("离开房间".equals(title)) {
-                confirmLeaveRoom();
-            }
-            return true;
-        });
-        menu.show();
     }
 
     private void buildImmersiveControls() {
@@ -812,6 +803,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 pendingMediaToBroadcast = resolved;
                 playerContainer.setVisibility(View.VISIBLE);
                 preparationPanel.setVisibility(View.GONE);
+                syncVideoFooterVisibility();
                 loadMedia(resolved);
             });
         });
@@ -872,6 +864,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         videoInput.setText(anchor.media.canonicalUrl);
         playerContainer.setVisibility(View.VISIBLE);
         preparationPanel.setVisibility(View.GONE);
+        syncVideoFooterVisibility();
         updatePlayerAspectRatio();
 
         if (pendingMediaToBroadcast != null && anchor.media.sameIdentity(pendingMediaToBroadcast)) {
@@ -918,6 +911,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         setPlaybackControlsEnabled(false);
         if (appFullscreen) setImmersiveControlsVisible(true, false);
         playerContainer.setVisibility(View.VISIBLE);
+        syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         playerHint.setText(preparingLocalVideo ? "正在准备视频…" : "正在载入房间视频…");
         webView.loadUrl(embedUrl);
@@ -1126,6 +1120,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         entryScroll.setVisibility(View.GONE);
         videoSection.setVisibility(View.VISIBLE);
         if (roomMedia == null && loadedMedia == null) showPreparationPanel();
+        syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         applyTheme();
     }
@@ -1136,8 +1131,16 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         videoSection.setVisibility(View.VISIBLE);
         preparationPanel.setVisibility(View.VISIBLE);
         playerContainer.setVisibility(roomMedia == null && loadedMedia == null ? View.GONE : View.VISIBLE);
-        videoFooter.setVisibility(playerContainer.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
+        syncVideoFooterVisibility();
         videoInput.requestFocus();
+    }
+
+    private void syncVideoFooterVisibility() {
+        if (videoFooter == null || playerContainer == null || videoSection == null) return;
+        boolean shouldShow = !appFullscreen
+            && videoSection.getVisibility() == View.VISIBLE
+            && playerContainer.getVisibility() == View.VISIBLE;
+        videoFooter.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
     }
 
     private void setConnectionStatus(String value) {
@@ -1253,7 +1256,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         appFullscreen = !appFullscreen;
         mainHandler.removeCallbacks(hideImmersiveControls);
         videoHeader.setVisibility(appFullscreen ? View.GONE : View.VISIBLE);
-        videoFooter.setVisibility(appFullscreen ? View.GONE : (playerContainer.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE));
+        syncVideoFooterVisibility();
         preparationPanel.setVisibility(appFullscreen ? View.GONE : (roomMedia == null && loadedMedia == null ? View.VISIBLE : View.GONE));
         videoSection.setPadding(appFullscreen ? 0 : dp(16), appFullscreen ? 0 : dp(12), appFullscreen ? 0 : dp(16), appFullscreen ? 0 : dp(12));
         fullscreenButton.setText(appFullscreen ? "退出全屏" : "全屏");
@@ -1357,6 +1360,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         applyThemeRecursive(rootContainer, background, surface, primaryText, secondaryText, border);
         entryThemeButton.setImageResource(darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
         entryThemeButton.setContentDescription(darkMode ? "切换浅色主题" : "切换深色主题");
+        if (videoThemeButton != null) {
+            videoThemeButton.setText(darkMode ? "浅色" : "深色");
+            setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
+            tintButtonDrawables(videoThemeButton, primaryText);
+        }
         String danmakuLabel = danmakuVisible ? "弹幕 开" : "弹幕 关";
         danmakuButton.setText(danmakuLabel);
         if (immersiveDanmakuButton != null) immersiveDanmakuButton.setText(danmakuLabel);

@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-10T16:23:39.1828329+08:00
-current_version: 1.0.0-alpha.9.2 (versionCode 11; physical-device test passed; published as GitHub prerelease v1.0.0-alpha.9.2)
-target_version: Collect normal-use feedback, then choose Alpha 9.3 stabilization or Alpha 10 playlist work
-status: Alpha 9.2 remains the published stable prerelease. D-055 no-extension Bilibili sharing was committed as `ece55c0`, pushed to `origin/master`, and deployed to Cloudflare Pages production as `f71c6cf2`. The canonical `https://tongkan-personal.pages.dev` now shows the guided sharing entry and passed a live room/API/WebSocket smoke test. The immutable Alpha 9.2 Android release remains unchanged.
+last_updated: 2026-08-11T10:35:00+08:00
+current_version: 1.0.0-alpha.9.3.1 (versionCode 13) is physically verified and committed locally as `ab6acd1`; Alpha 9.2 remains the published baseline
+target_version: Collect any remaining Alpha 9.3.1 usability feedback, then decide separately whether to push and publish the verified Android prerelease
+status: Alpha 9.3.1 footer visibility fix was physically verified and committed locally as `ab6acd1` (`feat(android): fix alpha 9.3 viewing controls`). No remote push, tag or GitHub release has been performed.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -21,6 +21,15 @@ status: Alpha 9.2 remains the published stable prerelease. D-055 no-extension Bi
 
 ## Completed
 
+- [x] Fixed Alpha 9.3 portrait viewing controls disappearing after video load by centralizing `videoFooter` visibility synchronization in `MainActivity.java`
+- [x] Built Alpha 9.3.1 with versionCode 13; 15 unit tests passed, Lint passed with 0 errors and 7 non-blocking warnings, and Debug APK assembly passed
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.1.apk` (1,400,383 bytes; SHA-256 `1ACCACA261AFB54D4819CF6A4F9E0F253E33EE2108075B0BB49FEFB85E7434C8`)
+- [x] Accepted D-056 and synchronized option A into `DECISIONS.md`, `ANDROID_FOLLOWUP_PRD.md`, `design/alpha9-ui/SELECTED_DESIGN.md` and `QA_CHECKLIST.md`
+- [x] Built Android Alpha 9.3 option-A controls: removed the top-right overflow menu, compacted five playback actions into the first row, and exposed change-video plus theme in the second row
+- [x] Passed 15 Android unit tests, Android Lint with 0 errors and 7 non-blocking warnings, and Debug APK assembly for versionCode 12 / versionName 1.0.0-alpha.9.3
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.apk` (1,402,937 bytes; SHA-256 `9571DF61F24AA73AE440C6ED5565E6B3B02D2A8CE2B08953E33BFD73B632ED7C`)
+- [x] Reviewed the Alpha 9.2 Android viewing hierarchy and confirmed the usability problem is first-screen visibility and action hierarchy rather than missing playback functions
+- [x] Created and browser-validated three viewing-control alternatives plus recommended light, dark and immersive-landscape previews under `design/alpha9-ui/watch-controls-options.*`
 - [x] Accepted D-052: portrait adds extra safe-area breathing room and landscape becomes a full-screen tap-to-show player overlay without persistent online/room/sidebar UI
 - [x] Created `design/alpha9-ui/preview-v3.html` with visible and hidden immersive landscape control states
 
@@ -96,6 +105,8 @@ status: Alpha 9.2 remains the published stable prerelease. D-055 no-extension Bi
 
 ## In Progress
 
+- [x] Physically verified Alpha 9.3.1 restores the portrait footer after video loading; broader option-A usability feedback and release decision remain open
+
 - [x] Accepted and implemented the no-extension Web experience: Bilibili defaults to guided tab screen sharing, while the extension remains the advanced dual-control mode.
 - [x] Completed connected-room production QA for the no-extension sharing card, including live room creation, Bilibili embed loading, CTA/guide visibility and updated status copy.
 
@@ -161,11 +172,10 @@ status: Alpha 9.2 remains the published stable prerelease. D-055 no-extension Bi
 
 ## Active Tasks
 
-1. Commit the accumulated Alpha 9.2 Android source, design and project-context documents.
-2. Push local master, including the four existing local commits, to GitHub.
-3. Create and push the immutable tag `v1.0.0-alpha.9.2`.
-4. Verify GitHub Actions creates the prerelease with APK and SHA-256 assets.
-5. Update repository description/topics and record the final release URL.
+1. Install and physically verify `release/tongkan-android-1.0-alpha9.3.1.apk` on a phone.
+2. Confirm the portrait footer shows play, danmaku, speed, landscape, fullscreen, change-video and theme controls after video load.
+3. If physical verification passes, commit the focused Android fix and decide whether to publish a prerelease after user approval.
+4. Keep Alpha 9.2 and tag `v1.0.0-alpha.9.2` immutable.
 
 ## Known Issues
 
@@ -179,6 +189,7 @@ status: Alpha 9.2 remains the published stable prerelease. D-055 no-extension Bi
 8. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
 9. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
 10. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
+11. Alpha 9.3.1 footer visibility is physically verified. Remaining release-gate feedback covers first-screen spacing, button sizing, theme switching and immersive landscape controls.
 
 ## Architecture Decisions
 
@@ -210,15 +221,24 @@ SDK:  C:\tmp\android-build\android-sdk  (platform 35, build-tools 35.0.0)
 Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 validation copy; ASCII path avoids Gradle errors)
 ```
 
-## Active Alpha 9.2 Build Artifact
+## Active Android Test Artifact
 
-- APK: `release\tongkan-android-1.0-alpha9.2.apk`
+- APK: `release/tongkan-android-1.0-alpha9.3.1.apk`
+- Size: 1,400,383 bytes (1.34 MiB)
+- SHA-256: `1ACCACA261AFB54D4819CF6A4F9E0F253E33EE2108075B0BB49FEFB85E7434C8`
+- Validation: `testDebugUnitTest lintDebug assembleDebug --offline` passed on 2026-08-11
+- Unit tests: 15 passed, 0 failed; Lint: 0 errors, 7 non-blocking warnings
+- Fix scope: restore `videoFooter` when a player becomes visible; do not change the accepted option-A layout
+- Signing: Android Debug signing; manual installation only
+
+## Published Alpha 9.2 Artifact
+
+- APK: `release/tongkan-android-1.0-alpha9.2.apk`
 - Size: 1,400,318 bytes (1.34 MiB)
 - SHA-256: `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`
 - Validation: `testDebugUnitTest lintDebug assembleDebug` passed on 2026-08-07
 - Unit tests: 15 passed, 0 failed; Lint: 0 errors, 7 non-blocking warnings
 - Signing: Android Debug signing; manual installation only
-
 ## Alpha 7 Rollback Artifact
 
 - APK: `release\tongkan-android-1.0-alpha7.apk`
@@ -235,12 +255,11 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Collect normal-use feedback for the no-extension Bilibili sharing flow, especially whether users select the correct browser tab and enable tab audio.
-2. Keep `v1.0.0-alpha.9.2` and its APK immutable; future fixes use a new versionName, versionCode and tag.
-3. Decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
-4. Configure a long-term Android Release signing key before the first Beta or stable release.
-5. Upgrade deprecated GitHub Action majors in a separate maintenance change after confirming compatibility.
-
+1. Collect any remaining Alpha 9.3.1 feedback on spacing, control labels, themes and landscape behavior.
+2. Verify all option-A controls respond visibly in portrait and that fullscreen/landscape still hide and restore the correct UI.
+3. Collect the user’s screenshot and interaction feedback; only then adjust spacing or labels.
+4. If verification passes, commit the focused fix and decide whether to create a prerelease tag; do not alter `v1.0.0-alpha.9.2`.
+5. Keep interactive stickers and the persistent local playlist deferred until their real message/storage paths are ready.
 ## Key Files
 
 | Purpose | File |
@@ -250,19 +269,22 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 | Local playlist interactive preview | design/alpha9-ui/playlist-preview.html |
 | Alpha 9 design direction notes | design/alpha9-ui/DESIGN_DIRECTIONS.md |
 | Selected Alpha 9 design specification | design/alpha9-ui/SELECTED_DESIGN.md |
+| Android viewing-control options prototype | design/alpha9-ui/watch-controls-options.html |
+| Android viewing-control comparison image | design/alpha9-ui/watch-controls-options-comparison.png |
 | Installed UI/UX skill | C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md |
 | Main product PRD | PRD.md |
 | Android Bilibili URL parsing/embed URL | apps/android/.../BilibiliMedia.java |
 | Android WebView/player bridge and UI | apps/android/.../MainActivity.java |
 | Android WebSocket/API | apps/android/.../RoomClient.java (OkHttp 4.12.0) |
 | Android build config | apps/android/app/build.gradle |
+| Alpha 9.3.1 local APK | release/tongkan-android-1.0-alpha9.3.1.apk |
 | Protocol messages | apps/android/.../RoomProtocol.java |
 | Player bridge script | apps/android/app/src/main/assets/bilibili-player-bridge.js |
 | Signaling Worker | apps/signaling/src/worker.ts |
 | Room session logic | apps/signaling/src/room-session.ts |
 | Shared types | packages/protocol/src/types.ts |
 | QA checklist | QA_CHECKLIST.md |
-| Active APK | release/tongkan-android-1.0-alpha7.apk |
+| Active local test APK | release/tongkan-android-1.0-alpha9.3.1.apk |
 
 ## Follow-up PRD Direction
 
@@ -436,6 +458,16 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 - 2026-08-10 (103): User accepted the recommended no-extension Web fallback. Recorded D-055 and implemented a desktop Bilibili player overlay with “无需扩展共享观看”, a three-step browser-tab/audio guide, one-click `getDisplayMedia`, adaptive room status/action copy and removal of unusable playback controls during host-controlled sharing. Updated `PRD.md`, `README.md`, `design.md`, `DECISIONS.md` and mobile capability tests. Web typecheck, all 16 tests and the production build passed. Connected-room visual QA was attempted but the local preview environment hit an occupied Vite port and the known Wrangler Chinese-path restriction; no source failure occurred. Changes remain local and are not committed, pushed or deployed.
 
 - 2026-08-10 (104): User explicitly requested committing, pushing and updating Cloudflare Pages. Committed the D-055 feature/docs/tests as `ece55c0 feat(web): add no-extension Bilibili sharing` and pushed `master` to GitHub. Built the Web with canonical HTTPS/WSS settings. Initial deployments `d1c21ad9` and `436cedfa` were correctly identified as Preview because the Pages production branch is `main`; then deployed with `--branch main`, producing production deployment `f71c6cf2`. Verified the canonical site loads asset `index-CJM37Qlg.js`, created temporary room `a07c14b27ccc3859a0dc9956405021d3`, confirmed “房间已连接”, Bilibili embed loading, the “无需扩展共享观看” CTA, three-step tab/audio guide, “未安装 · 可共享观看” status and updated control ownership copy. No signaling Worker, Android APK or release tag changed.
+
+- 2026-08-10 (105): User confirmed the no-extension Web sharing implementation, GitHub push and Cloudflare Pages deployment phase is complete. No further action was requested; the next project work should begin from normal-use feedback rather than continuing this deployment thread. No code, deployment, release or long-term decision changed.
+
+- 2026-08-10 (106): User requested releasing viewing controls from the top-right overflow menu and asked for multiple design previews before implementation. Reviewed `MainActivity.java` and confirmed the overflow menu contains change-video, theme and leave-room while danmaku, speed, landscape and fullscreen already exist but may fall below the first visible screen. Used the UI/UX design skill guidance to create three high-fidelity alternatives: A persistent two-row controls (recommended), B bottom safe-area dock and C labelled bottom sheet. Exported and visually checked the combined comparison, recommended light/dark portrait and immersive landscape PNGs. No Android source, APK, release tag, PRD or accepted decision changed; user selection is pending.
+
+- 2026-08-10 (107): User selected viewing-control option A. Recorded D-056, superseding the viewing-page portions of D-012 and D-051, and synchronized the Android PRD, selected design and QA checklist. Implemented Alpha 9.3 in native Java: removed the overflow menu and unused `ic_more`, placed play/danmaku/speed/landscape/fullscreen in a compact persistent first row, added direct change-video and light/dark theme actions in a second row, retained Back-to-confirm-leave, and added `ic_video`. Bumped to versionCode 12 / versionName 1.0.0-alpha.9.3. A clean isolated build passed 15 unit tests, Android Lint with 0 errors and 7 existing/non-blocking warnings, and Debug APK assembly. Produced `release/tongkan-android-1.0-alpha9.3.apk`, 1,402,937 bytes, SHA-256 `9571DF61F24AA73AE440C6ED5565E6B3B02D2A8CE2B08953E33BFD73B632ED7C`. Physical-device verification is still required; no commit, push, tag or GitHub release was created, and published Alpha 9.2 remains unchanged.
+- 2026-08-11 (108): User reported that Alpha 9.3 could load and play Bilibili video, but the native buttons below the player were missing and the page showed blank space. Traced the issue to `showPreparationPanel()` setting `videoFooter` to `GONE`; the video-loading paths made `playerContainer` visible without restoring the footer. Added `syncVideoFooterVisibility()` and invoked it on video load, room-media application, viewing-screen entry, preparation-screen transitions and fullscreen transitions. Bumped Android to versionCode 13 / versionName `1.0.0-alpha.9.3.1`. Isolated Android validation passed: 15 unit tests, Lint 0 errors with 7 non-blocking warnings, and Debug APK assembly. Produced `release/tongkan-android-1.0-alpha9.3.1.apk` (1,400,383 bytes; SHA-256 `1ACCACA261AFB54D4819CF6A4F9E0F253E33EE2108075B0BB49FEFB85E7434C8`). No commit, push, tag or GitHub release was created; physical-device retest is pending.
+- 2026-08-11 (109): User installed `release/tongkan-android-1.0-alpha9.3.1.apk` and confirmed the missing portrait control buttons are visible again after video loading. The footer visibility fix is accepted. No commit, push, tag or GitHub release was requested; continue from remaining Alpha 9.3.1 usability feedback and release discussion.
+
+- 2026-08-11 (110): User confirmed no further interface optimization is needed for now and explicitly requested a local commit. Staged the accumulated Alpha 9.3.1 Android source, icon changes, design previews and synchronized project documents, then created commit b6acd1 with message eat(android): fix alpha 9.3 viewing controls. No push, tag or GitHub release was performed.
 ---
 
 Maintenance rules:

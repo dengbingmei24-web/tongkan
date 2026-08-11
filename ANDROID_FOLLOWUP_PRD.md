@@ -971,3 +971,16 @@ Alpha 9.1 已完成：
 - 当前版本继续使用 Debug 签名并标记为 prerelease，仅用于个人安装测试。
 - 后续小修复提高 `versionCode` 并发布新标签，不覆盖或移动已经发布的标签。
 - 互动表情、文字聊天和 Alpha 10 本地片单继续作为后续迭代，不回填进 Alpha 9.2。
+
+### 16.9 Alpha 9.3 观看控制释放
+
+用户在 Alpha 9.2 日常使用中确认：观看页右上角“更多”菜单增加了记忆成本，且部分手机首屏无法立即看到全部播放控制。Alpha 9.3 采用方案 A：
+
+- 顶部仅保留返回、房间状态和分享，移除“更多”。
+- 第一排常驻播放/暂停、B站弹幕、倍速、横屏、全屏，所有按钮保持至少 48dp 触控高度和明确按下变色反馈。
+- 第二排直接显示“换视频”和当前目标主题（浅色/深色），不再通过弹出菜单查找。
+- 离开房间继续使用返回键加确认框，不在控制栏放置容易误触的危险操作。
+- 互动表情仍按 D-034～D-038 继续规划，但在双方发送和显示链路完成前不展示无效按钮；未来接入第二排预留位置。
+- 横屏与全屏仍为两个独立动作；横屏沉浸层继续遵循点击显示、播放中约 3 秒自动隐藏的规则。
+
+设计真源：`design/alpha9-ui/watch-controls-options.html`。已验证截图：`watch-controls-options-comparison.png`、`watch-controls-option-a-light.png`、`watch-controls-option-a-dark.png`、`watch-controls-option-a-landscape.png`。

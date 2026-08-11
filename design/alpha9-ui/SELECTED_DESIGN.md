@@ -281,3 +281,13 @@
 - Web 首页为紧凑顶部栏加双栏工作区；房间页为媒体优先主舞台加紧凑会话栏；移动端统一单列并保证 44px 以上触控区。
 - GitHub README 不再独立并排四张不等高截图，改用一张统一基线、标签和比例的产品展示合成图。
 - Web 跨页面完整设计真源位于根目录 `design.md`，具体令牌位于根目录 `tokens.css`。
+
+## Alpha 9.3 观看页方案 A
+
+- 用户已选择“双层常驻控制”方案 A，方案 B 底部 Dock 与方案 C 底部操作面板不进入实现。
+- 顶部移除“更多”，只保留返回、房间状态和分享。
+- 播放器下第一排常驻播放/暂停、弹幕、倍速、横屏、全屏；按钮统一使用线性图标、短标签、12dp 圆角和明确按下态。
+- 第二排直接提供换视频和浅/深主题切换；离开房间由返回键确认。
+- 互动按钮只有在 D-034～D-038 的真实双方互动链路完成后才显示，不制作不可用占位按钮。
+- 横屏继续采用 D-052 的纯视频沉浸控制层，不显示房间、分享、主题、换视频或互动信息。
+- 对比原型：`watch-controls-options.html`；方案对比：`watch-controls-options-comparison.png`；推荐浅/深色与横屏截图分别为 `watch-controls-option-a-light.png`、`watch-controls-option-a-dark.png`、`watch-controls-option-a-landscape.png`。
