@@ -11,16 +11,26 @@
   const suppressed = new Map();
 
 
+  function blockLinkActivation(event) {
+    const target = event.target;
+    const link = target && target.closest ? target.closest('a[href]') : null;
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+
+  function suppressNativeControls() {
+    document.documentElement.classList.add('tongkan-player-guarded');
+    if (!video) return;
+    video.controls = false;
+    video.removeAttribute('controls');
+  }
+
   function installPlayerGuards() {
     try { window.open = function () { return null; }; } catch (_) {}
-    document.addEventListener('click', function (event) {
-      const target = event.target;
-      const link = target && target.closest ? target.closest('a[href]') : null;
-      if (!link) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }, true);
+    document.addEventListener('click', blockLinkActivation, true);
+    document.addEventListener('auxclick', blockLinkActivation, true);
     const style = document.createElement('style');
     style.textContent = [
       '.bpx-player-top-wrap',
@@ -29,8 +39,15 @@
       '.bpx-player-ending-wrap',
       '.bpx-player-electric-panel',
       '.bpx-player-toast-wrap'
-    ].join(',') + '{display:none!important;pointer-events:none!important;}';
+    ].join(',') + '{display:none!important;pointer-events:none!important;}' + [
+      '.tongkan-player-guarded .bpx-player-control-wrap',
+      '.tongkan-player-guarded .bpx-player-video-btn',
+      '.tongkan-player-guarded .bpx-player-video-btn-start',
+      '.tongkan-player-guarded .bpx-player-video-pause-panel',
+      '.tongkan-player-guarded .bpx-player-video-toolbar'
+    ].join(',') + '{opacity:0!important;visibility:hidden!important;pointer-events:none!important;}';
     document.documentElement.appendChild(style);
+    suppressNativeControls();
   }
 
   function activeVideo() {
@@ -89,9 +106,14 @@
 
   function attach() {
     const next = activeVideo();
-    if (!next || next === video) return;
+    if (!next) return;
+    if (next === video) {
+      suppressNativeControls();
+      return;
+    }
     if (detach) detach();
     video = next;
+    suppressNativeControls();
     const listeners = {
       play: function () { emitLocal('play'); },
       pause: function () { emitLocal('pause'); },
@@ -162,6 +184,13 @@
     attach();
     if (!video) return;
     if (video.paused) video.play().catch(function () {}); else video.pause();
+  };
+  window.__tongkanSetPlaying = function (playing) {
+    attach();
+    if (!video) return false;
+    if (playing && video.paused) video.play().catch(function () {});
+    if (!playing && !video.paused) video.pause();
+    return true;
   };
 
   window.__tongkanSeekTo = function (seconds) {

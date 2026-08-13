@@ -2,7 +2,7 @@
 
 > 作用：保存不会因一次开发任务结束而失效的项目背景、目录地图、文档导航和 AI 工作方法。
 > 动态状态请看 `CONTEXT.md`；长期决策请看 `DECISIONS.md`；执行规则请看 `AGENTS.md`。
-> 最后核对：2026-08-10。
+> 最后核对：2026-08-11。
 
 ## 1. 新对话启动顺序
 
@@ -27,7 +27,11 @@
 | `DECISIONS.md` | 已确认的长期产品与技术决策 | 用户确认重要选择或旧决策被替代时 |
 | `PRD.md` | 同看整体产品需求和 1.0 范围 | 整体产品范围改变时 |
 | `ANDROID_FOLLOWUP_PRD.md` | Android 后续版本、体验反馈和 Alpha 9+ 讨论 | Android 产品决定或界面范围改变时 |
-| `design/alpha9-ui/SELECTED_DESIGN.md` | Android Alpha 9 已选视觉方向和 UI Token | Android 视觉、交互、主题规则改变时 |
+| `ACCOUNT_PAIR_SPACE_PRD.md` | Alpha 10 账号、唯一好友、双人片库、日历、历史和统计真源 | 账号与双人空间范围、数据或交互变化时 |
+| `design/alpha9-ui/SELECTED_DESIGN.md` | Android Alpha 9 已选视觉方向和 UI Token | Android Alpha 9 视觉、交互、主题规则改变时 |
+| `design/alpha10-ui/OPTIONS.md` | Alpha 10 账号与双人空间候选演进和比较记录 | Alpha 10 候选或研究过程调整时 |
+| `design/alpha10-ui/SELECTED_DESIGN.md` | Alpha 10 已选 Breath Tech 黑白双主题、组件与交互 Token 真源 | Alpha 10 生产视觉、主题或组件规则改变时 |
+| `design/alpha10-ui/ANDROID_IMPLEMENTATION_PLAN.md` | Breath Tech 原生 Java View 分层、开发顺序与首批验收 | 开始或调整 Alpha 10 Android UI 实现时 |
 | `design.md` | Web 跨页面统一设计系统 | Web 视觉、结构、主题或组件规则改变时 |
 | `QA_CHECKLIST.md` | 发布验收清单 | 新增需回归的能力时 |
 | `DEPLOYMENT.md` | 公网部署和移动端路线 | 部署方式、域名或环境变量改变时 |
@@ -51,15 +55,15 @@
 
 核心价值：
 
-- 不注册、不登录，通过临时房间密钥让两个人进入同一房间。
+- Alpha 10 起使用邮箱验证码账号和唯一好友绑定建立长期双人空间；首版通过 QQ 邮箱 SMTP 发送验证码，匿名临时房间与临时密钥继续作为无需登录的房间运行和兼容能力。任意一方可单方面解绑，双方分别控制自己是否保留旧双人空间的只读归档。活动片库完全共享；日历日期必填、开始时间和备注可选；头像只使用用户提供的内置资源；共同观看时长按双方有效播放区间的自然时间重叠计算。
 - 服务器只同步播放控制状态，不中转 B站视频流。
 - 双方同步播放、暂停、进度、倍速和视频切换。
-- Android 客户端重点优化创建/加入房间、选择视频、全屏观看和长期片单体验。
+- Android 客户端重点优化账号登录、唯一好友、双人片库、观看日历、历史统计，以及稳定的同步观看体验。
 
 当前非目标：
 
 - 多人群组房间。
-- 账号体系、云收藏和社交关系。
+- 好友列表、多人社交关系、公开主页和内容社区；产品只支持一个活动好友绑定。
 - Android 屏幕共享、语音和聊天。
 - 服务端转码或视频内容中继。
 - 用 Compose、Kotlin 或大型新框架重写 Android。
@@ -68,9 +72,9 @@
 
 动态版本以 `CONTEXT.md` 为准。必须区分“当前稳定版本”和“下一开发目标”：
 
-- 当前真机测试版本：Android `1.0.0-alpha.9.2`，`versionCode 11`。
-- 安装包真源：GitHub Release `v1.0.0-alpha.9.2`；本地 `release/` 仅作为构建中转目录，不提交 Git。
-- 下一开发目标：先收集 Alpha 9.2 使用反馈，再推进互动表情/聊天或 Alpha 10 本地片单。
+- 当前版本、真机验证状态和活动 APK 始终以 `CONTEXT.md` 为准，不在本文件维护动态版本号。
+- 已发布安装包以 GitHub Release 为真源；开发中的本地 `release/` 仅作为构建中转目录，不提交 Git。
+- 下一主线：完成 Alpha 9.3.x 稳定验证后，按 `ACCOUNT_PAIR_SPACE_PRD.md` 推进 Alpha 10 账号与双人空间；B站登录和画质后置。
 - Alpha 8：直接加载 B站移动页面的实验版本，已归档，不作为当前方案。
 - 当前播放器路线：桌面 UA + 独立 Embed + Android Bridge，已通过 Alpha 9.2 真机测试。
 
@@ -126,13 +130,14 @@ flowchart LR
 | 任务 | 首先阅读 | 主要代码或目录 |
 |---|---|---|
 | Android UI、主题、全屏、片单 | `ANDROID_FOLLOWUP_PRD.md`、`design/alpha9-ui/SELECTED_DESIGN.md` | `apps/android/app/src/main/java/com/tongkan/mobile/MainActivity.java` |
+| 同看账号、唯一好友、片库、日历和历史 | `ACCOUNT_PAIR_SPACE_PRD.md`、`DECISIONS.md`、`design/alpha10-ui/OPTIONS.md` | 计划新增账号 Worker/D1；Android 账号与主导航模块 |
 | Android 房间连接和重连 | `CONTEXT.md`、Android README | `RoomClient.java` |
 | B站链接解析和播放器 URL | `CONTEXT.md` 已知问题 | `BilibiliMedia.java`、`bilibili-player-bridge.js` |
 | 播放协议 | `DECISIONS.md`、`packages/protocol/src/types.ts` | `RoomProtocol.java`、`room-session.ts` |
 | Cloudflare 房间逻辑 | `DEPLOYMENT.md`、`PRD.md` | `apps/signaling/src/` |
 | Web 房间 UI | `design.md`、`PRD.md`、`ACCESSIBILITY_AUDIT.md` | `apps/web/src/`、`tokens.css` |
 | 浏览器扩展 | `apps/extension/README.md` | `apps/extension/` |
-| UI 预览 | `design/alpha9-ui/SELECTED_DESIGN.md` | `design/alpha9-ui/preview.html`、`playlist-preview.html` |
+| UI 预览 | `design/alpha9-ui/SELECTED_DESIGN.md`、`design/alpha10-ui/OPTIONS.md` | `design/alpha9-ui/preview.html`、`playlist-preview.html`、`design/alpha10-ui/options.html` |
 | APK 构建 | `apps/android/README.md`、`AGENTS.md` | `scripts/run-android-gradle.mjs`、`release/` |
 | 发布验收 | `QA_CHECKLIST.md` | `qa/`、各测试命令 |
 | 崩溃和历史事故 | `.crash-analysis.md`、`.roomclient-loss-analysis.md` | 对应 Android 网络与生命周期代码 |
@@ -239,18 +244,23 @@ Android 临时构建环境和完整复制命令以 `AGENTS.md`、`apps/android/R
 | 房主 / 访客 | 创建房间的人和通过邀请链接加入的人 |
 | 播放锚点 | 服务端保存的媒体、位置、暂停状态、倍速和时间基准 |
 | Bridge | Android/WebView 或扩展与真实播放器之间的控制脚本 |
-| 本地片单 | 只保存在 Android 手机、跨房间和重启保留的视频列表 |
+| 双人片库 | 绑定双方共同维护、按分类组织并可安排观看日期的长期视频集合 |
 | 当前媒体 | 房间此刻同步播放的视频，属于协议状态 |
 | Alpha 7 | 当前 Android 安全回退基线 |
 | Alpha 9 | 下一开发版本：核心房间与观看体验，不包含完整本地片单 |
-| Alpha 10 | 完整 Android 本地长期片单里程碑 |
+| Alpha 10 | 邮箱验证码账号、唯一好友、双人片库、日历、历史和统计的分阶段里程碑 |
 
 ## 13. 当前最重要的导航
 
 - 当前开发状态：`CONTEXT.md`
 - 已确认决策：`DECISIONS.md`
 - Android 后续 PRD：`ANDROID_FOLLOWUP_PRD.md`
+- 账号与双人空间 PRD：`ACCOUNT_PAIR_SPACE_PRD.md`
 - Alpha 9 已选设计：`design/alpha9-ui/SELECTED_DESIGN.md`
+- Alpha 10 UI 候选演进：`design/alpha10-ui/OPTIONS.md`
+- Alpha 10 已选 Breath Tech 设计：`design/alpha10-ui/SELECTED_DESIGN.md`
+- Alpha 10 Android 实施计划：`design/alpha10-ui/ANDROID_IMPLEMENTATION_PLAN.md`
+- Alpha 10 交互对比原型：`design/alpha10-ui/options.html`
 - Alpha 9 主界面原型：`design/alpha9-ui/preview.html`
 - 本地片单原型：`design/alpha9-ui/playlist-preview.html`
 - Android 构建说明：`apps/android/README.md`

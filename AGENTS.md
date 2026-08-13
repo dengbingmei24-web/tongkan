@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-同看是一个双人同步观看 B站视频的自用工具。无注册/无登录，通过临时密钥创建房间。
+同看是一个双人同步观看 B站视频的自用工具。当前 Alpha 9 使用匿名临时房间；Alpha 10 将增加邮箱验证码账号、唯一好友和长期双人空间。
 架构：Cloudflare Durable Objects 信令 + Web 房间页 + Chrome 扩展 + Android App。
 
 ## 代码仓库结构
@@ -156,6 +156,11 @@ cd C:\tmp\android-build\project
 Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
           "C:\...\同步观看视频\release\tongkan-android-1.0-alphaN.apk"
 ```
+
+### APK 真机测试交付
+
+- 当构建结果需要用户安装或真机测试时，完成构建后自动打开 `release/` 文件夹，并在资源管理器中选中本次应测试的 APK；不要只提供文字路径。
+- 如果 APK 尚未生成或构建失败，不打开旧 APK，并明确说明阻塞原因。
 
 ## 编码规范
 

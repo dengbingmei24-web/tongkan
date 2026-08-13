@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-11T10:35:00+08:00
-current_version: 1.0.0-alpha.9.3.1 (versionCode 13) is physically verified and committed locally as `ab6acd1`; Alpha 9.2 remains the published baseline
-target_version: Collect any remaining Alpha 9.3.1 usability feedback, then decide separately whether to push and publish the verified Android prerelease
-status: Alpha 9.3.1 footer visibility fix was physically verified and committed locally as `ab6acd1` (`feat(android): fix alpha 9.3 viewing controls`). No remote push, tag or GitHub release has been performed.
+last_updated: 2026-08-13T11:09:21+08:00
+current_version: 1.0.0-alpha10.0-p0.1 (versionCode 19) is the current physically verified Android UI baseline; Auth/Home safe areas, black/white theme switching, four-tab shell and anonymous room/player regression passed user testing
+target_version: Alpha 10.0 account foundation: email one-time-code login, secure sessions and account UI, followed by one-active-friend pairing, shared library, calendar plans and joint watch history/statistics
+status: Alpha 10 Android P0 Java View shell is complete and physically verified. Breath Tech Theme/Drawables/Components, Auth screen, anonymous Home screen and four-tab navigation are the accepted Android baseline; existing create/join/restore/share/player/landscape/fullscreen behavior remains working. Development now moves to the Alpha 10.0 account foundation: SMTP feasibility, account Worker/D1, secure sessions and real Android email-code login.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -21,6 +21,60 @@ status: Alpha 9.3.1 footer visibility fix was physically verified and committed 
 
 ## Completed
 
+- [x] User confirmed `1.0.0-alpha10.0-p0.1` passed real-device testing on 2026-08-13; P0 Breath Tech Auth/Home/navigation, safe areas, light/dark themes and anonymous room/player compatibility are now the accepted Alpha 10 Android baseline.
+
+- [x] Started Alpha 10 Android P0 Java View implementation: added Breath Tech theme/drawable/component foundations, Auth and anonymous Home screens, four-tab navigation placeholders, system-inset handling and theme persistence; preserved existing create/join/share/player/fullscreen logic. `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed in `C:\tmp\android-build\project-alpha10-p0-1`. Built `release/tongkan-android-1.0.0-alpha10.0-p0.1.apk` (SHA-256 `B1DE9AB9DA58BC0898E6787C0EE7D9334194C271BD71F23208EF2BB26F426BE0`) and opened it in Explorer for installation.
+
+- [x] User visually approved Breath Tech and authorized the Android implementation-planning step; created `design/alpha10-ui/ANDROID_IMPLEMENTATION_PLAN.md` with Java View layering, P0/P1 screen scope, development sequence and first-slice acceptance criteria
+
+- [x] Accepted D-073 and replaced the rejected Air/Cinema/Together production direction with Breath Tech: rebuilt five Alpha 10 pages in neutral white/black themes, added signal-led visuals and immediate button/loading/Toast feedback, refreshed five screenshots, passed 10 page/theme browser QA combinations without overflow or undersized touch targets, and updated the selected-design truth source
+
+- [x] Accepted D-072: selected Air as the Alpha 10 production structure, retained Cinema/Together as Air color palettes, created `design/alpha10-ui/SELECTED_DESIGN.md`, added restrained tactile button depth and verified 30 page/palette/theme combinations plus resting/pressed button states without errors or content overflow
+
+- [x] Accepted D-071 and rebuilt the Alpha 10 comparison with a shared shadcn-inspired component system while retaining Air, Cinema and Together; exported five refreshed screenshots and verified five pages, three phone canvases, light/dark themes, loading/success feedback and bottom Drawer interactions without JavaScript errors or overflow
+
+- [x] Created three Apple-inspired Alpha 10 UI candidates covering login, home, fully shared library, calendar and Us: A Air, B Cinema and C Together; exported five comparison screenshots and completed visual overflow review
+
+- [x] Built a 45-second, 1920x1080 Chinese HyperFrames promo preview in `videos/tongkan-promo` from the current repository and live product website; `npm run check` passed with lint/runtime/layout/motion at 0 errors and 0 warnings plus 25/25 WCAG AA text checks, 17 snapshots were visually reviewed, the preview service is available at `http://localhost:4317/#project/tongkan-promo`, and no MP4 was rendered
+- [x] Accepted D-059: Alpha 10 prioritizes Tongkan accounts and a persistent two-person space; the old no-account restriction D-002 is superseded
+- [x] Accepted D-060: each account can have at most one active bound friend, enforced by the server rather than only by UI
+- [x] Accepted D-061: the two-person space includes a shared categorized library, watch calendar, joint history and monthly/cumulative statistics
+- [x] Accepted D-062: optional Bilibili login and quality selection are postponed until the account foundation is stable
+- [x] Accepted D-063: Alpha 10.0 uses email one-time-code login; phone SMS and WeChat Open Platform are not first-version dependencies
+- [x] Accepted D-064: QQ Mail SMTP is the initial verification-code sender; users may register with any deliverable email address
+- [x] Accepted D-065: anonymous temporary rooms remain available without login, while persistent pair-space features require an account
+- [x] Accepted D-066: either friend may unbind unilaterally; each person independently chooses whether to retain a read-only archive, and physical deletion occurs only after both choose delete
+- [x] Accepted D-067: the active pair library is fully shared with equal permissions and no private library in the first version
+- [x] Accepted D-068: accounts use built-in avatars only; the user will provide the selectable image assets later
+- [x] Accepted D-069: joint watch duration counts overlapping wall-clock intervals when both paired users are online, ready and actually playing; pause, buffering, disconnect and anonymous rooms do not count
+- [x] Accepted D-070: calendar plans require a date; start time and note are optional, while notifications and recurring plans are deferred
+- [x] Created `ACCOUNT_PAIR_SPACE_PRD.md` with four-tab navigation, account/pair/content/history data models, API draft, security requirements and Alpha 10.0-10.4 delivery phases
+- [x] Updated `PRD.md`, `ANDROID_FOLLOWUP_PRD.md`, `PROJECT_CONTEXT.md` and `DECISIONS.md` for the new long-term product boundary
+- [x] Implemented Alpha 9.3.3 player-control consolidation: the App interaction layer now owns portrait video taps and immersive control visibility instead of passing taps into Bilibili page elements
+- [x] Hid Bilibili native progress/control/center-button overlays while preserving video and danmaku rendering; immersive controls now hide after 2.8 seconds during playback and the center button only appears when paused or ended
+- [x] Hardened WebView navigation: subframe navigation remains available for player internals, while user-gesture main-frame navigation is blocked whenever the player is visible
+- [x] Added Alpha 9.3.3 PRD and QA coverage for duplicate controls, navigation protection, auto-hide behavior and orientation-state preservation
+- [x] Passed bridge JavaScript syntax validation, 15 Android unit tests, Lint with 0 errors and 7 non-blocking warnings, and Debug APK assembly for versionCode 15 / versionName 1.0.0-alpha.9.3.3
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.3.apk` (1,401,551 bytes; SHA-256 `A945C48845442B437EF15CC81A642BFCD8B32C94549050273EB85B43DFE34897`)
+- [x] Implemented Alpha 9.3.4 room-video loading feedback: 8-second slow-load state and 20-second recoverable 鈥滄崲瑙嗛閲嶈瘯鈥?state without forcing an already-connected room back to preparation
+- [x] Added orientation playback-state protection: preserve playing/paused state across manual landscape/portrait changes and suppress the transient rotation pause from room broadcasts
+- [x] Passed 15 Android unit tests, Lint with 0 errors and 7 non-blocking warnings, and Debug APK assembly for versionCode 16 / versionName 1.0.0-alpha.9.3.4
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.4.apk` (1,402,067 bytes; SHA-256 `F9594BB03A4DFCADC3175406338819E092B85AB74036A28C3676321C0A17CE8A`)
+- [x] Accepted D-057 and changed the immersive landscape/fullscreen control container to a transparent overlay; individual controls retain their own contrast and pressed-state surfaces
+- [x] Updated the selected Android design, Alpha 9 follow-up PRD and QA section 7.4 for the transparent control layer
+- [x] Passed 15 Android unit tests, Lint with 0 errors and 7 non-blocking warnings, and Debug APK assembly for versionCode 17 / versionName 1.0.0-alpha.9.3.5
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.5.apk` (1,402,047 bytes; SHA-256 `885AE8A1C4AA0659F7C9A07D7411BDCFF25188D64391CC6CB4388885CF7D9DD1`)
+- [x] Identified the Alpha 9.3.5 audio-only regression: `.bpx-player-video-perch` is the actual parent of Bilibili's `<video>`, not a native control overlay
+- [x] Removed the dangerous selector while keeping Bilibili native controls, recommendation overlays and top-level navigation suppressed
+- [x] Passed bridge syntax/live-DOM regression checks, 15 Android unit tests, Lint with 0 errors and 7 non-blocking warnings, and Debug APK assembly for versionCode 18 / versionName 1.0.0-alpha.9.3.6
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.6.apk` (1,402,039 bytes; SHA-256 `D148D582E934514EDAA6F2E6F9789A6E983A8EFD8F9886B415352DF9109B67E3`) and automatically opened it in File Explorer
+- [x] User physically confirmed Alpha 9.3.6 restores visible video playback together with audio
+
+- [x] Started P0 stabilization and implemented Alpha 9.3.2 Android buffering debounce: short buffering under 2 seconds no longer pauses the room
+- [x] Added one buffering=true report and one buffering=false report per buffering episode, with cancellation on recovery, media switch and room leave
+- [x] Added a visible hard-sync notice when room/local drift exceeds 1.5 seconds without changing the accepted viewing layout
+- [x] Passed 15 Android unit tests, Lint with 0 errors and 7 non-blocking warnings, and Debug APK assembly for versionCode 14 / versionName 1.0.0-alpha.9.3.2
+- [x] Generated `release/tongkan-android-1.0-alpha9.3.2.apk` (1,447,668 bytes; SHA-256 `41663F1D92BF1BDD7E8D94158E0D850DFEC59E4F10F47A944640BF8A053B861C`)
 - [x] Fixed Alpha 9.3 portrait viewing controls disappearing after video load by centralizing `videoFooter` visibility synchronization in `MainActivity.java`
 - [x] Built Alpha 9.3.1 with versionCode 13; 15 unit tests passed, Lint passed with 0 errors and 7 non-blocking warnings, and Debug APK assembly passed
 - [x] Generated `release/tongkan-android-1.0-alpha9.3.1.apk` (1,400,383 bytes; SHA-256 `1ACCACA261AFB54D4819CF6A4F9E0F253E33EE2108075B0BB49FEFB85E7434C8`)
@@ -63,21 +117,21 @@ status: Alpha 9.3.1 footer visibility fix was physically verified and committed 
 - [x] Connected AGENTS.md, README.md, CONTEXT.md, PROJECT_CONTEXT.md, and DECISIONS.md into a fixed new-conversation reading and maintenance workflow
 - [x] Alpha 8 direct-page experiment built previously, then rolled back; artifact retained only for comparison
 - [x] Recovered the generated Alpha 9 reaction preview to `design/alpha9-ui/reaction-sticker-preview-v1.png` for reliable local display
-- [x] Replaced the oversized reaction picker concept with a compact 5×2 popup above the “互动” button and exported `design/alpha9-ui/preview-reaction-compact-v2.png`
+- [x] Replaced the oversized reaction picker concept with a compact 5脳2 popup above the 鈥滀簰鍔ㄢ€?button and exported `design/alpha9-ui/preview-reaction-compact-v2.png`
 - [x] Confirmed black-and-white outlined dumpling art direction and generated `design/alpha9-ui/reaction-sticker-art-direction-a-v2.png` with light and dark visibility tests
 
 - [x] Completed isolated Bilibili playback verification across mobile direct, desktop direct, mobile Embed, and desktop Embed routes using av170001 and BV1Qxuc62E1y
 - [x] Accepted D-049: desktop User-Agent plus top-level player.bilibili.com Embed is the Alpha 9 Android player route
 - [x] Implemented Alpha 9 first usable native flow: room entry -> video preparation -> viewing, with local validation before media-change broadcast
 - [x] Implemented default light and selectable neutral black/charcoal dark themes with 12dp controls and pressed-state color feedback
-- [x] Implemented B站 danmaku preference, six synchronized playback rates, manual landscape, App immersive fullscreen, and HTML player fullscreen handling
+- [x] Implemented B绔?danmaku preference, six synchronized playback rates, manual landscape, App immersive fullscreen, and HTML player fullscreen handling
 - [x] Implemented 8-second slow loading hint, 20-second preparation timeout, cancel preparation, and automatic system share after room creation
 - [x] Passed 15 Android unit tests, Android Lint, and Debug APK build for Alpha 9
 - [x] Built `release/tongkan-android-1.0-alpha9.apk` (1,383,668 bytes, SHA-256 `B530C274A5B11F1C6D3CB9635957FE9B2BC35194907C5F3C9FDBED42926956D9`)
 
 - [x] Processed first Alpha 9 physical-device screenshots and identified safe-area overlap, default button elevation, full-height WebView, hidden native controls, Bilibili click-through navigation, and inaccessible landscape control
 - [x] Implemented D-050: centered 16:9 watch stage, system inset handling, zero-elevation buttons, blocked Bilibili internal navigation, and explicit landscape immersive viewing
-- [x] Real Embed control probe passed: URL remained on player.html, top click-through overlay hidden, danmaku toggled true -> false, and playback rate changed to 1.5×
+- [x] Real Embed control probe passed: URL remained on player.html, top click-through overlay hidden, danmaku toggled true -> false, and playback rate changed to 1.5脳
 - [x] Passed 15 unit tests, Android Lint, and Debug build for Alpha 9.1
 - [x] Built `release/tongkan-android-1.0-alpha9.1.apk` (1,385,392 bytes, SHA-256 `1AFC421B94F0CB970D23A4396CB274F07B025B3AA94AE3085021CB3A97960885`)
 - [x] Implemented D-051/D-052 natively for Alpha 9.2: open entry layout, daily local movie quote, light/dark visual tokens, compact watch header/tools, extra safe-area spacing and full-screen landscape overlay controls
@@ -98,14 +152,22 @@ status: Alpha 9.3.1 footer visibility fix was physically verified and committed 
 - [x] Visually verified desktop Home light/dark, Join and Room pages in the in-app browser with no console warnings or errors
 - [x] Passed workspace typecheck, 80 tests, Web production build and full workspace build
 - [x] Published Pages deployment `3bd77a10` and verified the canonical `tongkan-personal.pages.dev` UI and room connection
-- [x] Implemented D-055 Web no-extension Bilibili fallback: an in-player “无需扩展共享观看” card launches tab screen sharing, guides Bilibili tab/audio selection, hides unusable playback controls during fallback sharing, and preserves extension-based dual control as the advanced mode
+- [x] Implemented D-055 Web no-extension Bilibili fallback: an in-player 鈥滄棤闇€鎵╁睍鍏变韩瑙傜湅鈥?card launches tab screen sharing, guides Bilibili tab/audio selection, hides unusable playback controls during fallback sharing, and preserves extension-based dual control as the advanced mode
 - [x] Passed Web typecheck, all 16 Web tests and the production Web build after the D-055 implementation
 - [x] Committed and pushed D-055 as `ece55c0 feat(web): add no-extension Bilibili sharing`
-- [x] Published production Pages deployment `f71c6cf2` and verified canonical room `a07c14b27ccc3859a0dc9956405021d3` reached “房间已连接” with the new CTA, audio checklist and sharing status
+- [x] Published production Pages deployment `f71c6cf2` and verified canonical room `a07c14b27ccc3859a0dc9956405021d3` reached 鈥滄埧闂村凡杩炴帴鈥?with the new CTA, audio checklist and sharing status
 
 ## In Progress
 
-- [x] Physically verified Alpha 9.3.1 restores the portrait footer after video loading; broader option-A usability feedback and release decision remain open
+- [x] Real-device test `1.0.0-alpha10.0-p0.1` passed: Auth/Home spacing, light/dark switching, four-tab shell and anonymous room/player compatibility were accepted by the user
+
+- [ ] Await user review of the HyperFrames Studio preview; revise timing, copy or visuals if requested, and render only after explicit approval
+
+- [ ] Validate Cloudflare Worker TLS/SMTP connectivity to QQ Mail and configure a dedicated sender mailbox plus SMTP authorization code
+
+- [ ] Decide the clarity route after confirming Bilibili anonymous Embed quality behavior: 360P is the highest non-login option; 480P/720P/1080P require official Bilibili login or membership
+
+- [x] Physically verified Alpha 9.3.1 restores the portrait footer after video loading; user paused further interface optimization
 
 - [x] Accepted and implemented the no-extension Web experience: Bilibili defaults to guided tab screen sharing, while the extension remains the advanced dual-control mode.
 - [x] Completed connected-room production QA for the no-extension sharing card, including live room creation, Bilibili embed loading, CTA/guide visibility and updated status copy.
@@ -172,29 +234,38 @@ status: Alpha 9.3.1 footer visibility fix was physically verified and committed 
 
 ## Active Tasks
 
-1. Install and physically verify `release/tongkan-android-1.0-alpha9.3.1.apk` on a phone.
-2. Confirm the portrait footer shows play, danmaku, speed, landscape, fullscreen, change-video and theme controls after video load.
-3. If physical verification passes, commit the focused Android fix and decide whether to publish a prerelease after user approval.
-4. Keep Alpha 9.2 and tag `v1.0.0-alpha.9.2` immutable.
-
+1. Install `release/tongkan-android-1.0-alpha9.3.5.apk` and verify the transparent landscape/fullscreen control layer on a real phone.
+2. Confirm time, progress, play, danmaku, speed and exit buttons remain clear and clickable without a full-width black strip.
+3. Recheck Alpha 9.3.4 loading feedback, orientation-state preservation, navigation blocking and Alpha 9.3.2 two-device buffering/reconnect behavior.
+4. Continue P0 after physical verification: complete error recovery actions and playback-completion state; do not push, tag or publish yet.
 ## Known Issues
 
 1. The exact bottom interaction area is undecided: reaction-only, collapsible text chat, or both.
 2. A repeatable two-device regression matrix for create/join, media switching, speed, seek and reconnect should be completed before Beta.
-3. The accepted 2-second buffering debounce and one-report-per-buffering-episode guard remain unimplemented.
+3. Alpha 9.3.3 inherits the accepted Alpha 9.3.2 buffering debounce and one-report-per-buffering-episode guard; two-device physical verification is pending.
 4. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
-5. Android Release signing is not configured; Alpha artifacts use Debug signing.
+5. Android Release signing is not configured; Alpha artifacts use Debug signing. Configure a stable Release keystore before publishing the account-enabled Android app.
 6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
 7. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
 8. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
 9. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
 10. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
 11. Alpha 9.3.1 footer visibility is physically verified. Remaining release-gate feedback covers first-screen spacing, button sizing, theme switching and immersive landscape controls.
+12. The test recording shows roughly 10鈥?1 seconds of black/paused player state after entering the viewing page before the Bilibili video becomes visible; there is no clear app-level loading progress, timeout or retry action. Treat this as a P1 loading-feedback issue unless it reproduces as an actual stuck load.
+13. Alpha 9.3.3 implements native Bilibili control suppression, an App-owned transparent interaction layer and user-gesture main-frame navigation blocking. Static/build validation passed, but physical verification is still required because Bilibili DOM classes and WebView gesture behavior can vary by player version.
+14. The landscape stage is genuinely horizontal in the cropped frames; the large black areas in the portrait recording are caused by recording a landscape screen into a fixed 432x960 portrait canvas. The 16:9 video's left/right pillarboxing is normal. However, after the 51.9鈥?2.3s rotation back to portrait the player is paused at about 05:37鈥?5:38; the recording cannot prove whether this was an intentional tap or an unintended rotation side effect, so add a focused enter/exit-landscape playback-state regression.
+15. This was a single-device visual recording only. It does not verify two-device synchronization, long/short buffering behavior, reconnect, hard-sync notices, peer media switching or completion-state behavior for Alpha 9.3.2.
+16. Bilibili Embed currently exposes only Auto(360P) without a Bilibili login. `high_quality=1`, `quality=64`, `qn=64` and `quality=80&qn=80` all remain at 360P. Real clarity improvement requires an optional official Bilibili login flow and highest-available-quality selection; CSS sharpening cannot restore missing source detail.
+17. Alpha 10 email login will initially use QQ Mail SMTP. Direct Worker-to-SMTP TLS connectivity, QQ anti-abuse/frequency limits, delivery latency and failure handling still require a technical spike; use a dedicated sender and SMTP authorization code in Cloudflare secrets, never the mailbox password.
+18. Unbind/data ownership is resolved by D-066: either party may unbind immediately after confirmation; each party independently keeps or deletes access to a read-only archive, and underlying pair data is physically deleted only when both choose delete. Account-deletion interaction with retained archives still requires implementation-level validation.
+19. The current Android UI is concentrated in `MainActivity.java`; Alpha 10 should introduce plain-Java account/session clients and separate auth/watch screen responsibilities without Kotlin, Compose or a large framework rewrite.
+20. The HyperFrames promo preview is intentionally silent and local-only for review. TTS/BGM dependencies are unavailable offline, and final MP4 rendering is explicitly deferred until user approval.
+21. Alpha 10.0 P0 currently implements only the native UI shell. Email code login deliberately returns a service-not-ready message; Library, Calendar and Us tabs are labelled placeholders until the account Worker/D1 APIs and screen slices are implemented. Real-device regression against the Alpha 9.3.6 player is pending.
 
 ## Architecture Decisions
 
 - Room fixed at 2 people (host + guest), no multi-group
-- No registration/login, temporary keys
+- Alpha 9 keeps anonymous temporary-key rooms; Alpha 10 adds email-code accounts while temporary keys remain the room-runtime and compatibility mechanism
 - Android: Bilibili sync control only (no screen share, voice, chat)
 - Server syncs control state only, no video stream relay
 - Native Android remains Java + WebView; no Kotlin, Compose, or new architecture dependencies
@@ -223,14 +294,22 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Active Android Test Artifact
 
+- APK: `release/tongkan-android-1.0-alpha9.3.6.apk`
+- Size: 1,402,039 bytes (1.34 MiB)
+- SHA-256: `D148D582E934514EDAA6F2E6F9789A6E983A8EFD8F9886B415352DF9109B67E3`
+- Validation: bridge JavaScript syntax, current Bilibili DOM selector regression, `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed on 2026-08-11
+- Unit tests: 15 passed, 0 failed; Lint: 0 errors, 7 non-blocking warnings
+- Physical verification: user confirmed visible video picture and audio playback on 2026-08-11
+- P0 scope: video-layer visibility fix plus inherited buffering/loading/orientation, transparent immersive controls, hidden native controls and navigation protection
+- Build directory: `C:\tmp\android-build\project-alpha936-video-visible-20260811-1438`
+- Signing: Android Debug signing; manual installation only
+
+## Previous Verified Alpha 9.3.1 Artifact
+
 - APK: `release/tongkan-android-1.0-alpha9.3.1.apk`
 - Size: 1,400,383 bytes (1.34 MiB)
 - SHA-256: `1ACCACA261AFB54D4819CF6A4F9E0F253E33EE2108075B0BB49FEFB85E7434C8`
-- Validation: `testDebugUnitTest lintDebug assembleDebug --offline` passed on 2026-08-11
-- Unit tests: 15 passed, 0 failed; Lint: 0 errors, 7 non-blocking warnings
-- Fix scope: restore `videoFooter` when a player becomes visible; do not change the accepted option-A layout
-- Signing: Android Debug signing; manual installation only
-
+- Physical verification: portrait footer visibility fix passed on 2026-08-11
 ## Published Alpha 9.2 Artifact
 
 - APK: `release/tongkan-android-1.0-alpha9.2.apk`
@@ -255,16 +334,21 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Collect any remaining Alpha 9.3.1 feedback on spacing, control labels, themes and landscape behavior.
-2. Verify all option-A controls respond visibly in portrait and that fullscreen/landscape still hide and restore the correct UI.
-3. Collect the user’s screenshot and interaction feedback; only then adjust spacing or labels.
-4. If verification passes, commit the focused fix and decide whether to create a prerelease tag; do not alter `v1.0.0-alpha.9.2`.
-5. Keep interactive stickers and the persistent local playlist deferred until their real message/storage paths are ready.
+1. Freeze the accepted P0 baseline when the user requests a commit, then begin Alpha 10.0 with a QQ SMTP connectivity spike and a minimal `apps/account` Worker + D1 authentication skeleton.
+2. Prepare a dedicated QQ sender mailbox, enable SMTP and obtain an authorization code; store it only in Cloudflare secrets and do not record it in project files.
+3. Run a Cloudflare Worker-to-QQ-SMTP TLS connectivity and delivery spike, including timeout, invalid-recipient, rate-limit and retry behavior.
+4. Create the Alpha 10.0 architecture slice: planned `apps/account` Worker, D1 schema/migrations, email challenge/session API contracts, replaceable mail adapter and Android `AccountClient`/`SessionStore`.
+5. Build the Android email login and first-profile flow while retaining the anonymous-room button; then implement one-active-friend binding, shared library, calendar and history in Alpha 10.1-10.4.
+6. Prepare the user-provided built-in avatar asset pack and the four-tab account-space UI preview before the corresponding Android screens are finalized.
+7. After P0 real-device approval, implement the Account Worker/D1/email challenge foundation and Android `AccountClient`/`SessionStore`; keep Bilibili login and quality selection deferred. Do not commit, push, tag or publish until explicitly requested.
+8. Review `http://localhost:4317/#project/tongkan-promo`; after approval, optionally add Chinese voice/BGM and run the explicit HyperFrames render step.
+
 ## Key Files
 
 | Purpose | File |
 |---|---|
 | Android follow-up PRD | ANDROID_FOLLOWUP_PRD.md |
+| Account and pair-space PRD | ACCOUNT_PAIR_SPACE_PRD.md |
 | Alpha 9 interactive UI preview | design/alpha9-ui/preview.html |
 | Local playlist interactive preview | design/alpha9-ui/playlist-preview.html |
 | Alpha 9 design direction notes | design/alpha9-ui/DESIGN_DIRECTIONS.md |
@@ -277,14 +361,15 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 | Android WebView/player bridge and UI | apps/android/.../MainActivity.java |
 | Android WebSocket/API | apps/android/.../RoomClient.java (OkHttp 4.12.0) |
 | Android build config | apps/android/app/build.gradle |
-| Alpha 9.3.1 local APK | release/tongkan-android-1.0-alpha9.3.1.apk |
+| Alpha 9.3.6 local APK | release/tongkan-android-1.0-alpha9.3.6.apk |
+| Alpha 10 P0 Android UI APK | release/tongkan-android-1.0.0-alpha10.0-p0.1.apk |
 | Protocol messages | apps/android/.../RoomProtocol.java |
 | Player bridge script | apps/android/app/src/main/assets/bilibili-player-bridge.js |
 | Signaling Worker | apps/signaling/src/worker.ts |
 | Room session logic | apps/signaling/src/room-session.ts |
 | Shared types | packages/protocol/src/types.ts |
 | QA checklist | QA_CHECKLIST.md |
-| Active local test APK | release/tongkan-android-1.0-alpha9.3.1.apk |
+| Active local test APK | release/tongkan-android-1.0-alpha9.3.6.apk |
 
 ## Follow-up PRD Direction
 
@@ -364,31 +449,31 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 - 2026-08-07 (35): User accepted error UX with plain-language categories and direct recovery actions while preserving technical diagnostics under a collapsed View Details section
 - 2026-08-07 (36): User accepted fullscreen control behavior: black stage, tap-to-toggle controls, three-second auto-hide while playing, persistent controls during interaction or errors, and restored orientation on exit
 - 2026-08-07 (37): User added Alpha 9 requirements for a danmaku option that preserves Bilibili comments and for a playback-speed feature; existing rate sync can be reused, while danmaku bridging remains to be implemented
-- 2026-08-07 (38): User accepted danmaku as a default-on per-device persisted preference and accepted six room-synchronized speed options with new rooms starting at 1.0×
+- 2026-08-07 (38): User accepted danmaku as a default-on per-device persisted preference and accepted six room-synchronized speed options with new rooms starting at 1.0脳
 - 2026-08-07 (39): User requested preset non-text reactions visible to both viewers; feasibility review found that the existing chat broadcast and rate limit can support an ephemeral room reaction overlay without persistent room state
-- 2026-08-07 (40): User accepted room reaction danmaku as an Alpha 9 P1 feature with 8–12 built-in non-text reactions, real-time broadcast, no history or offline replay, and no ability to block the core APK
+- 2026-08-07 (40): User accepted room reaction danmaku as an Alpha 9 P1 feature with 8鈥?2 built-in non-text reactions, real-time broadcast, no history or offline replay, and no ability to block the core APK
 - 2026-08-07 (41): User accepted independent local controls for Bilibili danmaku and room reactions; reactions remain visible with fullscreen controls hidden and use immediate local rendering plus server-message deduplication
 - 2026-08-07 (42): Generated the first visual preview of the ten-expression clean-utility reaction pack, its light picker panel, and dark fullscreen overlay; awaiting user design feedback
 - 2026-08-07 (43): User could not see the inline generation result; recovered its PNG from the Codex task record into the project and displayed it using an absolute local path
-- 2026-08-07 (44): User said the large picker over the video obstructs viewing; changed it to a compact 5×2 popup directly above the “互动” control, updated PRD/design/decision documents, and exported a revised preview
-- 2026-08-07 (45): User explicitly accepted the compact reaction picker preview; its placement, 5×2 layout, close behavior, and control-bar visibility rules are frozen for Alpha 9 P1 implementation
+- 2026-08-07 (44): User said the large picker over the video obstructs viewing; changed it to a compact 5脳2 popup directly above the 鈥滀簰鍔ㄢ€?control, updated PRD/design/decision documents, and exported a revised preview
+- 2026-08-07 (45): User explicitly accepted the compact reaction picker preview; its placement, 5脳2 layout, close behavior, and control-bar visibility rules are frozen for Alpha 9 P1 implementation
 - 2026-08-07 (46): Began the next design discussion for reaction overlay motion; comparing full-screen danmaku traversal, a recommended short right-side glide, and a button-origin floating bubble, with exact size and timing awaiting user confirmation
 - 2026-08-07 (47): User accepted the recommended short right-side glide: 48dp portrait / 56dp fullscreen, about 120dp travel with slight upward drift, 2.5-second lifetime, three upper/middle lanes, peer nickname labels, and button scale/color/haptic feedback
 - 2026-08-07 (48): Began selecting the final art direction for the ten custom reaction assets; comparing minimal outlined dumplings, colorful flat emoji, and glossy 3D styles, with the minimal outlined system recommended
 - 2026-08-07 (49): User accepted art direction A; recorded D-038 and generated `reaction-sticker-art-direction-a-v2.png`, showing the final ten black-and-white outlined dumpling expressions and dark-video visibility test
 - 2026-08-07 (50): User accepted the new reaction concept and asked what remains; reorganized the roadmap so Alpha 9 core UI/player/lifecycle implementation and QA come before non-blocking P1 reaction asset production, followed by Alpha 10 playlist work
 - 2026-08-07 (51): Began the final Alpha 9 loading/error-state discussion with a proposed safe media-change flow: load and verify the new video locally first, broadcast the room media change only after success, and leave the peer on the existing video if preparation fails
-- 2026-08-07 (52): User accepted safe media switching; recorded D-039 so failed local preparation preserves the room’s current video and only successful local bridge readiness triggers the synchronized switch
-- 2026-08-07 (53): Prepared the next loading-timing proposal for discussion: immediate spinner and “正在准备视频”, a slower-loading hint after 8 seconds, a 20-second failure threshold, no fake percentage, an optional cancel action, and a brief success check before synchronized switching
+- 2026-08-07 (52): User accepted safe media switching; recorded D-039 so failed local preparation preserves the room鈥檚 current video and only successful local bridge readiness triggers the synchronized switch
+- 2026-08-07 (53): Prepared the next loading-timing proposal for discussion: immediate spinner and 鈥滄鍦ㄥ噯澶囪棰戔€? a slower-loading hint after 8 seconds, a 20-second failure threshold, no fake percentage, an optional cancel action, and a brief success check before synchronized switching
 - 2026-08-07 (54): User accepted the loading timing; recorded D-040 with the 8-second slow hint, cancel action, 20-second recoverable failure, no percentage, and 0.4-second success feedback
 - 2026-08-07 (55): Prepared the next discussion around four user-facing video errors: invalid link, network/timeout, player bridge failure, and unavailable or restricted video, each with a direct recovery action and collapsed technical details
 - 2026-08-07 (56): User accepted the four-category error matrix; recorded D-041 and froze exact natural-language copy, recovery actions, room-disconnect separation, state preservation, and collapsed diagnostics
-- 2026-08-07 (57): Prepared the next discussion for receiving a peer-initiated video switch: automatic switch overlay, independent local loading, no wait between devices, and local retry if the receiver fails to load the room’s new current media
+- 2026-08-07 (57): Prepared the next discussion for receiving a peer-initiated video switch: automatic switch overlay, independent local loading, no wait between devices, and local retry if the receiver fails to load the room鈥檚 new current media
 - 2026-08-07 (58): User accepted peer-initiated automatic switching; recorded D-042 with immediate pause/overlay, independent loading, no confirmation, local-only retry, and room-anchor catch-up after readiness
 - 2026-08-07 (59): Prepared the next discussion for playback buffering: ignore very short stalls, optionally pause both viewers after a sustained stall, show which viewer is loading, and require an explicit resume after recovery
 - 2026-08-07 (60): User accepted synchronized buffering pauses; recorded D-043 with a 2-second debounce, one pause per buffering episode, manual resume after recovery, and 15-second recovery actions
-- 2026-08-07 (61): Code review confirmed the existing bridge already ignores drift below 0.3 seconds, temporarily adjusts speed for 0.3–1.5-second drift, and hard-seeks above 1.5 seconds; prepared this behavior for user confirmation
-- 2026-08-07 (62): User accepted the existing drift correction thresholds; recorded D-044 and added the brief “已重新同步” message only for hard seeks above 1.5 seconds
+- 2026-08-07 (61): Code review confirmed the existing bridge already ignores drift below 0.3 seconds, temporarily adjusts speed for 0.3鈥?.5-second drift, and hard-seeks above 1.5 seconds; prepared this behavior for user confirmation
+- 2026-08-07 (62): User accepted the existing drift correction thresholds; recorded D-044 and added the brief 鈥滃凡閲嶆柊鍚屾鈥?message only for hard seeks above 1.5 seconds
 - 2026-08-07 (63): Prepared the next discussion for end-of-video behavior: stay in the room, show a completion overlay, offer synchronized replay or return to video preparation, and never auto-play or auto-select another video in Alpha 9
 - 2026-08-07 (64): User accepted the Alpha 9 end-of-video screen; recorded D-045 with synchronized replay, local return to video preparation, peer selecting status, and no auto replay/recommendation/next-video behavior
 - 2026-08-07 (65): Prepared the next discussion for room creation/join feedback, automatic share timing, expired/full-room invite errors, and late joiners automatically loading existing room media
@@ -443,9 +528,9 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 
 - 2026-08-10 (97): User explicitly requested pushing the approved redesign to GitHub. Updated the handoff state, amended the focused redesign commit to include the final push record, and pushed `master` to `origin`. Cloudflare Pages deployment remains a separate pending action; no release tag or APK changed.
 
-- 2026-08-10 (98): User explicitly requested updating the Cloudflare Pages production Web site. The broad `deploy:cloudflare` command was rejected because it would also redeploy the signaling Worker, so a safer Pages-only production build was used with same-origin HTTPS/WSS settings. Re-deployed from `apps/web` to include the existing Functions service-binding proxy; final deployment URL is `https://3bd77a10.tongkan-personal.pages.dev`. The canonical `https://tongkan-personal.pages.dev` shows the redesigned light-first UI. Production smoke testing created temporary room `74fc20c2a51d2c1702b6b67f48302855` and confirmed the WebSocket reached “房间已连接” with no browser warnings or errors. No signaling Worker source, Android APK or release tag changed.
+- 2026-08-10 (98): User explicitly requested updating the Cloudflare Pages production Web site. The broad `deploy:cloudflare` command was rejected because it would also redeploy the signaling Worker, so a safer Pages-only production build was used with same-origin HTTPS/WSS settings. Re-deployed from `apps/web` to include the existing Functions service-binding proxy; final deployment URL is `https://3bd77a10.tongkan-personal.pages.dev`. The canonical `https://tongkan-personal.pages.dev` shows the redesigned light-first UI. Production smoke testing created temporary room `74fc20c2a51d2c1702b6b67f48302855` and confirmed the WebSocket reached 鈥滄埧闂村凡杩炴帴鈥?with no browser warnings or errors. No signaling Worker source, Android APK or release tag changed.
 
-- 2026-08-10 (99): User requested making the GitHub repository public. Scanned all tracked history for common GitHub/OpenAI/AWS/Cloudflare token formats, private-key markers, credential filenames and keystores; no credential patterns were found. Noted that public history will expose the auto-configured commit email `dengbingmei@game.ntes` and one tracked local username path. Opened GitHub Settings in the user’s logged-in Edge session, confirmed the repository was Private, accepted the public-visibility impact confirmations, and reached GitHub sudo mode. GitHub sent a verification code to `d************@gmail.com`; the visibility change is pending that code and the repository remains Private.
+- 2026-08-10 (99): User requested making the GitHub repository public. Scanned all tracked history for common GitHub/OpenAI/AWS/Cloudflare token formats, private-key markers, credential filenames and keystores; no credential patterns were found. Noted that public history will expose the auto-configured commit email `dengbingmei@game.ntes` and one tracked local username path. Opened GitHub Settings in the user鈥檚 logged-in Edge session, confirmed the repository was Private, accepted the public-visibility impact confirmations, and reached GitHub sudo mode. GitHub sent a verification code to `d************@gmail.com`; the visibility change is pending that code and the repository remains Private.
 
 
 - 2026-08-10 (100): GitHub repository `dengbingmei24-web/tongkan` was successfully changed to Public and independently verified as accessible without authentication. The user later supplied the email verification code, but no further entry was needed because the visibility change had already completed; the code itself was not retained in project files. Updated the handoff state; no code, release tag, APK, deployment or Git history changed.
@@ -455,9 +540,9 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 - 2026-08-10 (102): User asked whether the Web version can support synchronized viewing without installing the browser extension. Reviewed the current React embed, direct-video controller, extension all-frame injection and product constraints. Confirmed that reliable two-way control of the cross-origin Bilibili iframe is not available to the normal page; no-extension options are true synchronization for CORS-compatible direct video links or host-controlled WebRTC tab screen sharing for Bilibili. Recommended presenting two explicit modes and improving the no-extension screen-sharing flow before considering brittle private-player reverse engineering or media proxying. Product choice remains pending user confirmation; no code or deployment changed.
 
 
-- 2026-08-10 (103): User accepted the recommended no-extension Web fallback. Recorded D-055 and implemented a desktop Bilibili player overlay with “无需扩展共享观看”, a three-step browser-tab/audio guide, one-click `getDisplayMedia`, adaptive room status/action copy and removal of unusable playback controls during host-controlled sharing. Updated `PRD.md`, `README.md`, `design.md`, `DECISIONS.md` and mobile capability tests. Web typecheck, all 16 tests and the production build passed. Connected-room visual QA was attempted but the local preview environment hit an occupied Vite port and the known Wrangler Chinese-path restriction; no source failure occurred. Changes remain local and are not committed, pushed or deployed.
+- 2026-08-10 (103): User accepted the recommended no-extension Web fallback. Recorded D-055 and implemented a desktop Bilibili player overlay with 鈥滄棤闇€鎵╁睍鍏变韩瑙傜湅鈥? a three-step browser-tab/audio guide, one-click `getDisplayMedia`, adaptive room status/action copy and removal of unusable playback controls during host-controlled sharing. Updated `PRD.md`, `README.md`, `design.md`, `DECISIONS.md` and mobile capability tests. Web typecheck, all 16 tests and the production build passed. Connected-room visual QA was attempted but the local preview environment hit an occupied Vite port and the known Wrangler Chinese-path restriction; no source failure occurred. Changes remain local and are not committed, pushed or deployed.
 
-- 2026-08-10 (104): User explicitly requested committing, pushing and updating Cloudflare Pages. Committed the D-055 feature/docs/tests as `ece55c0 feat(web): add no-extension Bilibili sharing` and pushed `master` to GitHub. Built the Web with canonical HTTPS/WSS settings. Initial deployments `d1c21ad9` and `436cedfa` were correctly identified as Preview because the Pages production branch is `main`; then deployed with `--branch main`, producing production deployment `f71c6cf2`. Verified the canonical site loads asset `index-CJM37Qlg.js`, created temporary room `a07c14b27ccc3859a0dc9956405021d3`, confirmed “房间已连接”, Bilibili embed loading, the “无需扩展共享观看” CTA, three-step tab/audio guide, “未安装 · 可共享观看” status and updated control ownership copy. No signaling Worker, Android APK or release tag changed.
+- 2026-08-10 (104): User explicitly requested committing, pushing and updating Cloudflare Pages. Committed the D-055 feature/docs/tests as `ece55c0 feat(web): add no-extension Bilibili sharing` and pushed `master` to GitHub. Built the Web with canonical HTTPS/WSS settings. Initial deployments `d1c21ad9` and `436cedfa` were correctly identified as Preview because the Pages production branch is `main`; then deployed with `--branch main`, producing production deployment `f71c6cf2`. Verified the canonical site loads asset `index-CJM37Qlg.js`, created temporary room `a07c14b27ccc3859a0dc9956405021d3`, confirmed 鈥滄埧闂村凡杩炴帴鈥? Bilibili embed loading, the 鈥滄棤闇€鎵╁睍鍏变韩瑙傜湅鈥?CTA, three-step tab/audio guide, 鈥滄湭瀹夎 路 鍙叡浜鐪嬧€?status and updated control ownership copy. No signaling Worker, Android APK or release tag changed.
 
 - 2026-08-10 (105): User confirmed the no-extension Web sharing implementation, GitHub push and Cloudflare Pages deployment phase is complete. No further action was requested; the next project work should begin from normal-use feedback rather than continuing this deployment thread. No code, deployment, release or long-term decision changed.
 
@@ -467,7 +552,54 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 - 2026-08-11 (108): User reported that Alpha 9.3 could load and play Bilibili video, but the native buttons below the player were missing and the page showed blank space. Traced the issue to `showPreparationPanel()` setting `videoFooter` to `GONE`; the video-loading paths made `playerContainer` visible without restoring the footer. Added `syncVideoFooterVisibility()` and invoked it on video load, room-media application, viewing-screen entry, preparation-screen transitions and fullscreen transitions. Bumped Android to versionCode 13 / versionName `1.0.0-alpha.9.3.1`. Isolated Android validation passed: 15 unit tests, Lint 0 errors with 7 non-blocking warnings, and Debug APK assembly. Produced `release/tongkan-android-1.0-alpha9.3.1.apk` (1,400,383 bytes; SHA-256 `1ACCACA261AFB54D4819CF6A4F9E0F253E33EE2108075B0BB49FEFB85E7434C8`). No commit, push, tag or GitHub release was created; physical-device retest is pending.
 - 2026-08-11 (109): User installed `release/tongkan-android-1.0-alpha9.3.1.apk` and confirmed the missing portrait control buttons are visible again after video loading. The footer visibility fix is accepted. No commit, push, tag or GitHub release was requested; continue from remaining Alpha 9.3.1 usability feedback and release discussion.
 
-- 2026-08-11 (110): User confirmed no further interface optimization is needed for now and explicitly requested a local commit. Staged the accumulated Alpha 9.3.1 Android source, icon changes, design previews and synchronized project documents, then created commit b6acd1 with message eat(android): fix alpha 9.3 viewing controls. No push, tag or GitHub release was performed.
+- 2026-08-11 (110): User confirmed no further interface optimization is needed for now and explicitly requested a local commit. Staged the accumulated Alpha 9.3.1 Android source, icon changes, design previews and synchronized project documents, then created commit `3fa5156` with message `feat(android): fix alpha 9.3 viewing controls`. No push, tag or GitHub release was performed.
+- 2026-08-11 (111): User asked what should be developed next and confirmed that visual interface optimization is paused. Reviewed the current context and Android follow-up PRD. Recommended the next order: release-gate two-device regression and stabilization, optional push/release of verified Alpha 9.3.1, Alpha 9 P1 interactive reactions, then Alpha 10 persistent local playlist. No code or product decision changed.
+- 2026-08-11 (112): User selected P0 as the next development phase. Audited the Android playback path and implemented the first P0 stabilization slice in Alpha 9.3.2: 2-second buffering debounce, one buffering and one recovery report per episode, cancellation on short recovery/media switch/room leave, and a visible hard-sync notice for drift above 1.5 seconds. Updated the Android follow-up PRD and added QA section 7.1. Android validation passed: 15 unit tests, Lint 0 errors with 7 non-blocking warnings, and Debug APK assembly. Produced `release/tongkan-android-1.0-alpha9.3.2.apk` (1,447,668 bytes; SHA-256 `41663F1D92BF1BDD7E8D94158E0D850DFEC59E4F10F47A944640BF8A053B861C`). Two-device physical verification and the remaining P0 recovery/completion work are pending; no commit, push, tag or release was created.
+- 2026-08-11 (113): User accepted the first Alpha 9.3.2 P0 stabilization batch and test plan. No additional code, commit, push, tag or release action was requested. The next action is physical two-device verification using QA section 7.1, followed by the remaining P0 error-recovery and playback-completion work.
+- 2026-08-11 (114): Opened Windows File Explorer with `release/tongkan-android-1.0-alpha9.3.2.apk` selected so the user can transfer and install it for physical two-device P0 verification. No code, commit, push, tag or release changed.
+- 2026-08-11 (115): User provided a 73.63-second Alpha 9.3.x Android test recording for review. Single-device audit confirmed the room flow, automatic share, Bilibili playback, danmaku display, manual landscape, portrait return, theme switch and system sharing path. Findings: approximately 10鈥?1 seconds of black/paused loading without a clear progress/retry state; Bilibili native controls remain visible beside the app footer and the prior jump-to-page issue was not reproduced; landscape itself is horizontal and portrait-recording black space is mostly expected, but playback was paused after the rotation back to portrait and requires focused regression; no two-device P0 synchronization behavior can be certified from this recording. No code or release artifact changed.
+- 2026-08-11 (116): User prioritized fixing duplicate Bilibili/App controls and top-level webpage navigation risk. Built Alpha 9.3.3: an App-owned transparent layer intercepts video taps in portrait and immersive viewing; portrait taps toggle playback through the bridge, immersive taps only toggle App controls; Bilibili native control, center-button, ending/recommendation and related overlay selectors are hidden while video/danmaku remain; immersive auto-hide uses 2.8 seconds and the center button is visible only while paused/ended; WebView blocks user-gesture main-frame navigation while allowing player subframes and trusted non-gesture loading. Updated Android PRD and QA section 7.2, bumped versionCode 15/versionName 1.0.0-alpha.9.3.3, passed bridge syntax validation, 15 unit tests, Lint 0 errors/7 warnings and Debug assembly. Produced `release/tongkan-android-1.0-alpha9.3.3.apk` (1,401,551 bytes; SHA-256 A945C48845442B437EF15CC81A642BFCD8B32C94549050273EB85B43DFE34897). Physical verification remains pending; no commit, push, tag or release was created.
+- 2026-08-11 (117): User asked to batch any remaining high-value improvements before testing. Added Alpha 9.3.4 room-video slow-load feedback: 8-second status and 20-second recoverable change-video retry without forcing connected rooms back to preparation. Added orientation-state protection: record whether playback was active before manual rotation, restore playing state after layout settles, and ignore the transient rotation pause for about 1.2 seconds so it is not broadcast as a room pause. Added bridge `__tongkanSetPlaying`, QA section 7.3 and PRD section 16.11, bumped versionCode 16/versionName 1.0.0-alpha.9.3.4. Passed bridge syntax validation, 15 unit tests, Lint 0 errors/7 warnings and Debug assembly. Produced `release/tongkan-android-1.0-alpha9.3.4.apk` (1,402,067 bytes; SHA-256 `F9594BB03A4DFCADC3175406338819E092B85AB74036A28C3676321C0A17CE8A`). Physical verification remains pending; no commit, push, tag or release was created.
+- 2026-08-11 (118): User reported that the opaque black bottom bar in landscape/fullscreen was too prominent and requested a transparent control layer showing only progress and controls. Accepted D-057, changed the immersive bottom container to transparent while retaining independent button surfaces, updated the selected design, PRD section 16.12 and QA section 7.4, bumped versionCode 17/versionName 1.0.0-alpha.9.3.5. Passed 15 unit tests, Lint 0 errors/7 warnings and Debug assembly. Produced `release/tongkan-android-1.0-alpha9.3.5.apk` (1,402,047 bytes; SHA-256 `885AE8A1C4AA0659F7C9A07D7411BDCFF25188D64391CC6CB4388885CF7D9DD1`). Physical verification remains pending; no commit, push, tag or release was created.
+- 2026-08-11 (119): Re-checked the user's transparent landscape/fullscreen control request against the current worktree. Confirmed the immersive bottom container is fully transparent while the progress bar, time text and independently surfaced action buttons remain available; Alpha 9.3.5 APK and SHA-256 remain unchanged. No additional source change, commit, push, tag or release was made; physical verification is the next step.
+- 2026-08-11 (120): User established a permanent APK test-delivery workflow: whenever a newly built Android package requires installation or physical-device testing, automatically open the `release/` folder and select the exact APK rather than only providing its path. Opened Windows File Explorer with `release/tongkan-android-1.0-alpha9.3.5.apk` selected, recorded D-058, and added the operational rule to `AGENTS.md`. No code, APK, commit, push, tag or release changed.
+- 2026-08-11 (121): User reported audio playback without visible video in Alpha 9.3.5. Live Bilibili DOM inspection confirmed `.bpx-player-video-perch` directly contains the real `<video>` and had been mistakenly included in the hidden native-control selector list. Removed only that selector, retained navigation/native-control suppression, added QA section 7.5, bumped to versionCode 18/versionName 1.0.0-alpha.9.3.6, passed bridge syntax and live-DOM checks, 15 unit tests, Lint 0 errors/7 warnings and Debug assembly, produced `release/tongkan-android-1.0-alpha9.3.6.apk` (1,402,039 bytes; SHA-256 `D148D582E934514EDAA6F2E6F9789A6E983A8EFD8F9886B415352DF9109B67E3`), and automatically opened the APK. User then physically confirmed picture playback works. Quality investigation found anonymous Bilibili Embed remains at Auto(360P), including with quality/qn URL overrides; optional official Bilibili login is the pending real-quality solution. No commit, push, tag or release was created.
+- 2026-08-11 (122): User asked whether Tongkan can add phone-number accounts and let users sign into Bilibili inside the App so each viewer can select higher quality. Architecture review separated two independent systems: a Tongkan account would require SMS OTP, persistent user storage, sessions, abuse controls, privacy/deletion flows and would supersede D-002; it does not itself unlock Bilibili quality. The recommended first step is an optional official Bilibili login in a separate WebView with no JavaScript bridge, local-only Bilibili cookies, no credential interception or server upload, and per-device highest-available quality selection. General viewer OAuth/session-cookie support is not clearly documented as a public Bilibili API, so unofficial login APIs and sharing one Bilibili session between users are rejected. No code, PRD, accepted decision, APK, commit, push, tag or release changed.
+- 2026-08-11 (123): User explicitly chose the Tongkan account system before Bilibili quality work and expanded the product into a persistent two-person space: phone-number login, exactly one active friend per user, pair watch history, monthly watch duration, a calendar for planned videos and actual viewing records, daily planned-watch lists, and a categorized long-term library. Accepted D-059 through D-062, superseded D-002, created `ACCOUNT_PAIR_SPACE_PRD.md`, and updated the root PRD, Android follow-up PRD and project context. Recommended four Android destinations are Home, Library, Calendar and Us, with the watch page remaining immersive and separate. Proposed a new account Worker with D1 while preserving the existing signaling Durable Objects. No account code, database, SMS provider, APK, commit, push, tag or release was created; unbind/data ownership, anonymous fallback and SMS provider remain pending decisions.
+- 2026-08-11 (124): User asked whether WeChat login can replace phone-number SMS login for the planned Tongkan account system. Feasibility review concluded that Android WeChat OpenSDK authorization plus server-side code exchange is viable and removes the SMS-provider dependency, but it requires a WeChat Open Platform mobile-app registration/review, AppID/AppSecret, stable package name and Release signature; AppSecret must remain in Cloudflare secrets. WeChat login does not expose a WeChat friend list, so Tongkan's one-friend relationship must still use its own invite/link/QR binding. No final authentication decision, PRD replacement, code, APK, commit, push, tag or release was made.
+
+- 2026-08-11 (125): User asked what 鈥渉aving or applying for a WeChat Open Platform account as an individual鈥?means. Clarified that the Open Platform account is a developer console account and the 鈥渟ubject鈥?is the legal owner of the app, not an ordinary WeChat user. Corrected the earlier wording: an ordinary natural person with only an ID card should not be assumed eligible for mobile-app WeChat Login; the practical route generally requires developer qualification plus eligible company, organization or individual-business materials shown by the current Open Platform console. Therefore WeChat login may be unsuitable for this personal project unless the user has such a subject. No product decision, PRD replacement, code, APK, commit, push, tag or release was made.
+
+- 2026-08-11 (126): User accepted email one-time-code login for Alpha 10 so the project does not depend on WeChat Open Platform review. Accepted D-063 and synchronized `AGENTS.md`, `ACCOUNT_PAIR_SPACE_PRD.md`, `PRD.md`, `ANDROID_FOLLOWUP_PRD.md`, `PROJECT_CONTEXT.md`, `DECISIONS.md` and `CONTEXT.md`. The account model now uses normalized email HMAC indexes, masked email display, `email_challenges`, five-minute codes, resend/attempt/IP/device rate limits, Keystore-protected sessions and a planned transactional email or SMTP/API provider stored in Cloudflare secrets. Phone SMS and WeChat login are not Alpha 10.0 dependencies. No account code, provider configuration, APK, commit, push, tag or release was created.
+
+- 2026-08-11 (127): User selected QQ Mail as the Alpha 10 verification-code sender and confirmed that anonymous temporary rooms must remain available. Accepted D-064 and D-065, updated the account PRD, root PRD, Android follow-up PRD, project context and development context. QQ Mail is only the sender: users may register with any deliverable email address. The server must use an SMTP authorization code stored in Cloudflare secrets, never the mailbox password, and expose a replaceable mail adapter so provider changes do not affect the login API. Anonymous users retain current create/join room capabilities but cannot access cloud friend, library, calendar, history or statistics. No account code, SMTP credential, APK, commit, push, tag or release was created.
+
+- 2026-08-11 (128): User confirmed that either friend may unbind unilaterally and that library, calendar and history retention should be user-controlled after unbind. Accepted D-066 and specified privacy-safe ownership: unbinding immediately releases both users from the active one-friend constraint and freezes the old pair space; each user independently chooses `keep` or `delete`, retained data is read-only, one user cannot delete the other user鈥檚 archive, and physical deletion occurs only after both choose delete. Updated the account PRD, root PRD, Android follow-up PRD, project context, decision log and development context. No account code, migration, API, APK, commit, push, tag or release was created.
+
+- 2026-08-11 (129): User confirmed a fully shared pair library and built-in-only avatars, with avatar images to be supplied later, and asked to model joint-watch duration after NetEase Cloud Music together-listening time. Public material did not expose a precise official NetEase calculation formula, so Tongkan accepted D-067 through D-069 using a transparent server-verifiable equivalent: both paired users must be in the same pair-linked room, online, ready and actually playing; count overlapping wall-clock time only, exclude pause/buffering/offline/anonymous intervals, do not alter totals for seek, and count speed playback by real elapsed time. Updated the account PRD, root PRD, Android follow-up PRD, project context, decisions and development context. Proposed calendar first version as required date plus optional start time and optional note, with notifications and recurrence deferred; user confirmation is pending. No code, avatar assets, migration, APK, commit, push, tag or release was created.
+
+- 2026-08-11 (130): User requested a 45-second, 16:9 Chinese product-promo video using HyperFrames, the current repository and the live product website, with preview only and no direct render. Installed/refreshed the HyperFrames workflow, captured `https://tongkan-personal.pages.dev/` (3 screenshots, 8 assets, Geist/JetBrains Mono), audited and adopted six real product images, and created `videos/tongkan-promo` with `BRIEF.md`, `frame.md`, `ASSET_AUDIT.md`, a six-frame `STORYBOARD.md`, six seek-safe sub-compositions and a 45-second master timeline. `npm run check` passed with lint/runtime/layout/motion at 0 errors and 0 warnings plus 25/25 WCAG AA text checks; 17 midpoint/transition snapshots were reviewed with no black frames or missing mounted styles. HyperFrames Studio is running at `http://localhost:4317/#project/tongkan-promo` (PID 27008). No MP4/MOV/WebM was generated, and no commit, push, tag, deployment or release was created.
+
+- 2026-08-11 (131): User accepted the proposed Alpha 10.3 calendar fields. Accepted D-070: every watch plan requires a date, while start time and note are optional; plans without a time display as “当天”, timed plans sort chronologically before untimed plans, and notifications/reminders plus recurring plans are deferred. Updated the account PRD, root PRD, Android follow-up PRD, project context, decision log and development context while preserving the parallel completed HyperFrames promo-preview status. No code, database migration, notification implementation, APK, commit, push, tag or release was created.
+
+- 2026-08-11 (132): Cleaned up the previous HyperFrames preview/calibration process tree rooted at PID 27008, reconfirmed that `videos/tongkan-promo` contains no MP4/MOV/WebM/MKV render artifact, and restarted the preview service hidden on `http://localhost:4317/#project/tongkan-promo` with root PID 21620. The HTTP endpoint returns 200; Studio was not automatically opened, and no render, commit, push, tag, deployment or release was created.
+
+- 2026-08-11 (133): User requested three Apple-inspired redesign references for the entire Android App before implementing Alpha 10 account and pair-space features. Applied the Hallmark redesign workflow and Apple HIG principles without copying Apple product pixels. Created `design/alpha10-ui/options.html` and `OPTIONS.md` with synchronized comparison across login, home, library, calendar and Us, global light/dark switching and three structurally distinct directions: A Air (native system clarity), B Cinema (black media-led stage) and C Together (warm relationship-led space). Exported `options-home-light.png`, `options-login-light.png`, `options-library-light.png`, `options-calendar-dark.png` and `options-us-light.png`; browser QA confirmed all three 390x844 phone canvases fit without internal overflow. Fixed an SVG sizing collision in the library search field. Indexed the new design source in `PROJECT_CONTEXT.md`. Preview server is running at `http://127.0.0.1:4319/options.html` with PID 33896. No option has been accepted, no production Android code or selected-design document changed, and no APK, commit, push, tag or release was created.
+
+- 2026-08-11 (134): User chose to retain all three Alpha 10 color systems but rejected the existing button and component styling, explicitly requesting a redesign informed by UI design skills and shadcn/ui. Applied Hallmark and UI UX Pro Max guidance, reviewed shadcn Button/Tabs composition principles, accepted D-071, and rebuilt the preview as `options-shadcn.html` + `options-shadcn.css` + `options-shadcn.js` while preserving `options.html` as the public local entry. Unified button variants, 46px action height, restrained 11-14px radii, light borders, limited elevation, labelled inputs, Tabs, fixed bottom navigation, bottom Drawer, Toast, pressed, disabled, loading and success states. Retained Air blue-gray, Cinema neutral black/warm-gold and Together warm-apricot/purple palettes with full light/dark support. Re-exported five comparison screenshots. Browser QA found no JavaScript errors; all three 376x830 visible phone areas fit without internal overflow; live interaction checks passed for `正在创建房间…` to `房间已创建`, Drawer open/confirm and saved feedback, and dark studio background `rgb(12, 13, 16)`. Production Android UI remains unchanged. The remaining design decision is whether the three palettes ship as full user-selectable themes or are assigned by page role.
+
+- 2026-08-11 (135): User selected A · Air and requested another visual pass because the buttons still felt flat, asking for research into strong interface examples. Reviewed current official platform guidance and UI UX Pro Max tactile/elevation patterns, then accepted D-072. Air is now the sole page structure; Cinema and Together remain as black-gold and warm-apricot palette switches on the same Air UI, with blue-gray light as default. Reworked primary buttons with a restrained vertical gradient, top highlight, bottom edge, near shadow and theme-colored far shadow; pressed state descends 2px and compresses the shadow. Added separate depth rules for outline/destructive buttons, icon buttons, relationship cards, inputs, selected bottom-navigation items and Drawer, while keeping ordinary lists flat. Replaced temporary status-bar text glyphs with SVG. Changed the preview from three simultaneous phones to one selected Air phone and added page/palette/light-dark controls. During final audit, identified that the iPhone Dynamic Island mockup was inappropriate for an Android product, and replaced it with a neutral Android punch-hole frame, thinner bezel and Android-oriented safe area. Created `design/alpha10-ui/SELECTED_DESIGN.md` as the Alpha 10 production UI truth source, updated `OPTIONS.md`, `PROJECT_CONTEXT.md`, `DECISIONS.md` and `CONTEXT.md`, and refreshed all five screenshots. Browser QA passed all 30 page/palette/theme combinations with no JavaScript errors or content overflow; computed-style verification confirmed the primary button changes from layered resting shadow to translated/shrunken pressed shadow. Android production code and APK remain unchanged.
+
+- 2026-08-11 (136): User rejected the previous Air direction as visually dated and explicitly requested a full restart using relevant UI design skills, with a technological yet breathable visual language and complete black/white themes. Applied Hallmark and UI UX Pro Max mobile rules, created the Breath Tech system in `breath-tech.html/css/js`, and kept `options.html` as the preview entry. Rebuilt login, home, shared library, calendar and Us around precise status codes, subtle grid/light fields, connection tracks, neutral monochrome surfaces, edge-to-edge lists and cold-blue focus signals. Removed the old production dependence on three palettes and tactile gradient buttons; primary controls now use monochrome reversal, 80-150ms press feedback, disabled loading state and success Toast. Fixed dark studio contrast, double-avatar positioning and all sub-44px controls. Browser QA passed 5 pages × 2 themes with no JavaScript errors, content overflow or undersized touch targets; live checks passed for create-room loading, duplicate-click disable, success Toast, Drawer, navigation and theme switching. Refreshed all five preview screenshots, accepted D-073, updated `SELECTED_DESIGN.md`, `OPTIONS.md`, `PROJECT_CONTEXT.md`, `DECISIONS.md` and `CONTEXT.md`. Android production code, APK, commit, push and deployment remain unchanged.
+
+- 2026-08-11 (137): User approved the Breath Tech visual direction. Marked visual review complete and created `design/alpha10-ui/ANDROID_IMPLEMENTATION_PLAN.md`, defining native Java View boundaries, Theme/Drawable/Component foundations, Auth/Home P0 shell, Library/Calendar/Pair P1 pages, player migration constraints, implementation order and first-slice acceptance criteria. Updated the selected-design document, project document index and context. No Android production code, APK, commit, push or deployment was created in this confirmation turn.
+
+- 2026-08-11 (138): User instructed direct P0 Android Java View development. Preserved the existing worktree with safety stash `codex-safety-alpha10-p0-20260811-172753`, completed Breath Tech native foundations and connected Auth/Home/four-tab navigation into `MainActivity` without changing the proven room, WebView, WebSocket or protocol paths. Fixed the icon-button minimum-size compile issue, updated Android to versionCode 19 / `1.0.0-alpha10.0-p0.1`, passed unit tests, Lint and Debug assembly, copied the APK to `release/tongkan-android-1.0.0-alpha10.0-p0.1.apk`, recorded SHA-256 `B1DE9AB9DA58BC0898E6787C0EE7D9334194C271BD71F23208EF2BB26F426BE0`, and opened Explorer with the artifact selected. Real-device UI and Alpha 9.3.6 player regression remain pending.
+
+- 2026-08-13 (139): User requested the current APK. Confirmed `release/tongkan-android-1.0.0-alpha10.0-p0.1.apk` is still the latest Android test artifact, verified SHA-256 `B1DE9AB9DA58BC0898E6787C0EE7D9334194C271BD71F23208EF2BB26F426BE0`, and opened Explorer with the APK selected for installation. No code, build, version, commit, push or deployment changed.
+
+- 2026-08-13 (140): User confirmed all Alpha 10 P0.1 real-device tests passed and asked for the subsequent development order. Promoted `1.0.0-alpha10.0-p0.1` to the physically verified Android UI baseline. The recommended critical path is: freeze P0 baseline; validate QQ SMTP; build Account Worker/D1 and secure auth APIs; connect Android AccountClient/Keystore session and complete real email login; then deliver unique friend binding, shared library, calendar, history/statistics, and only afterward migrate player responsibilities and run full two-device regression. No code, build, commit, push or deployment changed in this turn.
+
 ---
 
 Maintenance rules:

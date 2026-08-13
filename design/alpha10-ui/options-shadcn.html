@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang=zh-CN>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content=width=device-width,initial-scale=1,maximum-scale=1>
+<title>同看 Alpha 10 · 组件化 UI 方向</title>
+<link rel=stylesheet href=options-shadcn.css>
+</head>
+<body>
+<main id=studio class=studio>
+  <div class=studio-shell>
+    <header class=studio-top>
+      <div>
+        <h1 class=studio-title>同看 · Air 设计深化</h1>
+        <p class=studio-sub>Air 作为主设计结构，三套色系继续保留为可切换配色。</p>
+      </div>
+      <div class=studio-actions>
+        <div class=segmented id=pageSwitch aria-label=页面切换>
+          <button data-page=login>登录</button><button data-page=home class=active>首页</button><button data-page=library>片库</button><button data-page=calendar>日历</button><button data-page=us>我们</button>
+        </div>
+        <div class=segmented id=paletteSwitch aria-label=配色切换>
+          <button data-palette=air class=active>蓝灰</button><button data-palette=cinema>黑金</button><button data-palette=together>暖杏</button>
+        </div>
+        <div class=segmented id=themeSwitch aria-label=主题切换>
+          <button data-theme=light class=active>浅色</button><button data-theme=dark>深色</button>
+        </div>
+      </div>
+    </header>
+    <div id=compare class="compare selected"></div>
+  </div>
+</main>
+<script src=options-shadcn.js></script>
+</body>
+</html>

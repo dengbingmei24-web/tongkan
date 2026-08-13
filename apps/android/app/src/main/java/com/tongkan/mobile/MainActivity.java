@@ -38,6 +38,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.view.WindowManager;
 
+import com.tongkan.mobile.ui.AuthScreen;
+import com.tongkan.mobile.ui.BreathTheme;
+import com.tongkan.mobile.ui.HomeScreen;
+import com.tongkan.mobile.ui.MainNavigationView;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -89,14 +94,24 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean playerPaused = true;
     private boolean playerEnded;
     private boolean playerBuffering;
+    private static final long BUFFERING_DEBOUNCE_MS = 2000;
+    private static final long IMMERSIVE_CONTROLS_HIDE_DELAY_MS = 2800;
+    private Runnable pendingBufferingReport;
+    private boolean roomBufferingActive;
+    private double latestBufferingPositionSeconds;
+    private boolean latestBufferingPaused;
+    private int latestBufferingReadyState;
     private volatile boolean loadingVideo;
     private int readyState;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private FrameLayout rootContainer;
     private FrameLayout htmlFullscreenContainer;
     private LinearLayout rootLayout;
-    private LinearLayout entrySection;
-    private ScrollView entryScroll;
+    private FrameLayout entryHost;
+    private AuthScreen authScreen;
+    private HomeScreen homeScreen;
+    private MainNavigationView mainNavigationView;
+    private BreathTheme breathTheme;
     private LinearLayout videoSection;
     private LinearLayout preparationPanel;
     private FrameLayout playerContainer;
@@ -125,6 +140,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean appFullscreen;
     private double selectedPlaybackRate = 1.0;
     private long loadingGeneration;
+    private boolean orientationWasPlaying;
+    private long ignoreOrientationPauseUntilMs;
     private int systemInsetTop;
     private int systemInsetBottom;
     private FrameLayout immersiveControls;
@@ -156,16 +173,19 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(null);
         preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
-        darkMode = preferences.getBoolean("darkMode", false);
+        breathTheme = new BreathTheme(this, preferences);
+        darkMode = breathTheme.isDark();
         danmakuVisible = preferences.getBoolean("danmakuVisible", true);
         playerBridgeScript = readAsset("bilibili-player-bridge.js");
         buildInterface();
         configureWebView();
 
         nicknameInput.setText(preferences.getString("nickname", "我"));
-        showEntryScreen();
+        showAuthScreen();
         String deepLink = getIntent().getDataString();
         if (deepLink != null && InviteInfo.parse(deepLink) != null) {
+            showEntryScreen();
+            homeScreen.showJoinPanel();
             inviteInput.setText(deepLink);
             joinInvite(deepLink);
         }
@@ -183,6 +203,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         setIntent(intent);
         String deepLink = intent.getDataString();
         if (deepLink != null) {
+            showEntryScreen();
+            homeScreen.showJoinPanel();
             inviteInput.setText(deepLink);
             joinInvite(deepLink);
         }
@@ -207,84 +229,71 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         rootLayout.setOrientation(LinearLayout.VERTICAL);
         rootContainer.addView(rootLayout, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        entryScroll = new ScrollView(this);
-        entryScroll.setFillViewport(true);
-        entryScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        entrySection = new LinearLayout(this);
-        entrySection.setOrientation(LinearLayout.VERTICAL);
-        entrySection.setPadding(dp(20), dp(20), dp(20), dp(24));
-        entrySection.setTag("screen");
-        entryScroll.addView(entrySection, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        rootLayout.addView(entryScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        entryHost = new FrameLayout(this);
+        rootLayout.addView(entryHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         htmlFullscreenContainer = new FrameLayout(this);
         htmlFullscreenContainer.setBackgroundColor(Color.BLACK);
         htmlFullscreenContainer.setVisibility(View.GONE);
         rootContainer.addView(htmlFullscreenContainer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        LinearLayout entryHeader = horizontal();
-        TextView title = text("同看", 24, Color.BLACK);
-        title.setTag("primaryText");
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        entryHeader.addView(title, weight(1));
-        entryThemeButton = iconButton(R.drawable.ic_theme_moon, "切换深色主题");
-        entryThemeButton.setOnClickListener(view -> toggleTheme());
-        entryHeader.addView(entryThemeButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        entrySection.addView(entryHeader, matchWrap());
+        String[] quote = dailyQuote();
+        authScreen = new AuthScreen(this, breathTheme, new AuthScreen.Listener() {
+            @Override
+            public void onToggleTheme() {
+                toggleTheme();
+            }
 
-        String[] dailyQuote = dailyQuote();
-        TextView quoteLabel = text("今日台词", 12, Color.DKGRAY);
-        quoteLabel.setTag("secondaryText");
-        entrySection.addView(quoteLabel, margin(matchWrap(), 0, 28, 0, 0));
-        TextView quoteText = text(dailyQuote[0], 27, Color.BLACK);
-        quoteText.setTag("primaryText");
-        quoteText.setTypeface(Typeface.SERIF, Typeface.BOLD);
-        quoteText.setLineSpacing(dp(3), 1.08f);
-        entrySection.addView(quoteText, margin(matchWrap(), 0, 8, 0, 0));
-        TextView quoteSource = text(dailyQuote[1], 13, Color.DKGRAY);
-        quoteSource.setTag("secondaryText");
-        entrySection.addView(quoteSource, margin(matchWrap(), 0, 8, 0, 0));
+            @Override
+            public void onRequestCode(String email) {
+                authScreen.setLoading(true);
+                mainHandler.postDelayed(() -> {
+                    authScreen.setLoading(false);
+                    authScreen.showMessage("账号服务正在接入，请先使用匿名房间");
+                    Toast.makeText(MainActivity.this, "邮箱登录将在账号服务接入后开放", Toast.LENGTH_SHORT).show();
+                }, 650);
+            }
 
-        TextView createTitle = text("创建一个房间", 18, Color.BLACK);
-        createTitle.setTag("primaryText");
-        createTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        entrySection.addView(createTitle, margin(matchWrap(), 0, 28, 0, 0));
-        entrySection.addView(label("你的昵称"), margin(matchWrap(), 0, 12, 0, 0));
-        nicknameInput = edit("你的昵称");
-        nicknameInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
-        entrySection.addView(nicknameInput, margin(matchHeight(52), 0, 7, 0, 0));
-        createButton = button("创建房间", true);
-        createButton.setOnClickListener(view -> createRoom());
-        entrySection.addView(createButton, margin(matchHeight(52), 0, 8, 0, 0));
+            @Override
+            public void onUseAnonymousRoom() {
+                showEntryScreen();
+            }
+        });
+        homeScreen = new HomeScreen(this, breathTheme, quote[0], quote[1], new HomeScreen.Listener() {
+            @Override
+            public void onToggleTheme() {
+                toggleTheme();
+            }
 
-        entrySection.addView(divider("或者"), margin(matchHeight(34), 0, 18, 0, 0));
-        TextView joinTitle = text("加入朋友的房间", 18, Color.BLACK);
-        joinTitle.setTag("primaryText");
-        joinTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        entrySection.addView(joinTitle, margin(matchWrap(), 0, 6, 0, 0));
-        entrySection.addView(label("邀请链接"), margin(matchWrap(), 0, 12, 0, 0));
-        LinearLayout inviteRow = horizontal();
-        inviteInput = edit("粘贴朋友发来的邀请链接");
-        inviteRow.addView(inviteInput, weight(1));
-        Button pasteButton = button("粘贴", false);
-        pasteButton.setOnClickListener(view -> pasteInviteFromClipboard());
-        inviteRow.addView(pasteButton, margin(new LinearLayout.LayoutParams(dp(72), ViewGroup.LayoutParams.MATCH_PARENT), 8, 0, 0, 0));
-        entrySection.addView(inviteRow, matchHeight(52));
-        joinButton = button("加入房间", false);
-        joinButton.setOnClickListener(view -> joinInvite(inviteInput.getText().toString()));
-        entrySection.addView(joinButton, margin(matchHeight(52), 0, 8, 0, 0));
-        continueButton = textButton("继续上次房间  ›");
-        continueButton.setOnClickListener(view -> restoreLastRoom());
-        entrySection.addView(continueButton, margin(matchHeight(52), 0, 14, 0, 0));
+            @Override
+            public void onCreateRoom() {
+                createRoom();
+            }
 
-        entryConnectionText = text("创建房间，或粘贴邀请链接加入", 13, Color.DKGRAY);
-        entryConnectionText.setTag("secondaryText");
-        entryConnectionText.setGravity(Gravity.CENTER_HORIZONTAL);
-        entrySection.addView(entryConnectionText, margin(matchWrap(), 0, 14, 0, 0));
-        TextView privacyNote = text("临时私人房间 · 最多两个人", 11, Color.DKGRAY);
-        privacyNote.setTag("secondaryText");
-        privacyNote.setGravity(Gravity.CENTER_HORIZONTAL);
-        entrySection.addView(privacyNote, margin(matchWrap(), 0, 10, 0, 0));
+            @Override
+            public void onJoinRoom() {
+                joinInvite(inviteInput.getText().toString());
+            }
+
+            @Override
+            public void onPasteInvite() {
+                pasteInviteFromClipboard();
+            }
+
+            @Override
+            public void onRestoreRoom() {
+                restoreLastRoom();
+            }
+        });
+        mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTab);
+        nicknameInput = homeScreen.getNicknameInput();
+        inviteInput = homeScreen.getInviteInput();
+        createButton = homeScreen.getCreateButton();
+        joinButton = homeScreen.getJoinButton();
+        continueButton = homeScreen.getContinueButton();
+        entryThemeButton = homeScreen.getThemeButton();
+        entryConnectionText = homeScreen.getConnectionText();
+        entryHost.addView(authScreen.getView(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         videoSection = new LinearLayout(this);
         videoSection.setOrientation(LinearLayout.VERTICAL);
@@ -466,9 +475,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private StateListDrawable iconButtonBackground() {
-        int normal = darkMode ? Color.rgb(23, 24, 25) : Color.WHITE;
-        int pressed = darkMode ? Color.rgb(48, 50, 54) : Color.rgb(229, 229, 224);
-        int border = darkMode ? Color.rgb(48, 50, 54) : Color.rgb(217, 217, 210);
+        int normal = breathTheme.panel();
+        int pressed = breathTheme.accentSoft();
+        int border = breathTheme.line();
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[] {android.R.attr.state_pressed}, rounded(pressed, border, 12));
         states.addState(new int[] {}, rounded(normal, border, 12));
@@ -495,7 +504,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         immersiveTapLayer = new View(this);
         immersiveTapLayer.setBackgroundColor(Color.TRANSPARENT);
         immersiveTapLayer.setVisibility(View.GONE);
-        immersiveTapLayer.setOnClickListener(view -> setImmersiveControlsVisible(!immersiveControlsVisible, true));
+        immersiveTapLayer.setOnClickListener(view -> {
+            if (appFullscreen) {
+                setImmersiveControlsVisible(!immersiveControlsVisible, true);
+            } else if (playerReady && authenticated && !awaitingMediaConfirmation) {
+                togglePlayback();
+            }
+        });
         playerContainer.addView(immersiveTapLayer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         immersiveControls = new FrameLayout(this);
@@ -518,7 +533,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
         bottom.setPadding(dp(18), dp(12), dp(18), dp(12));
-        bottom.setBackground(rounded(Color.argb(205, 0, 0, 0), Color.TRANSPARENT, 0));
+        bottom.setBackgroundColor(Color.TRANSPARENT);
         FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         immersiveControls.addView(bottom, bottomParams);
 
@@ -601,7 +616,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void scheduleImmersiveControlsHide() {
         mainHandler.removeCallbacks(hideImmersiveControls);
         if (appFullscreen && !playerPaused && !playerEnded && !playerBuffering && !userSeeking && !loadingVideo) {
-            mainHandler.postDelayed(hideImmersiveControls, 3000);
+            mainHandler.postDelayed(hideImmersiveControls, IMMERSIVE_CONTROLS_HIDE_DELAY_MS);
         }
     }
 
@@ -617,6 +632,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (immersiveCenterPlayButton != null) {
             immersiveCenterPlayButton.setImageResource(icon);
             immersiveCenterPlayButton.setContentDescription(showPlay ? "播放" : "暂停");
+            immersiveCenterPlayButton.setVisibility(showPlay ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -682,8 +698,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (!request.isForMainFrame()) return false;
                 String url = request.getUrl().toString();
-                return !isTrustedPlayerUrl(url) && !"about:blank".equals(url);
+                if ("about:blank".equals(url)) return false;
+                if (request.hasGesture() && playerContainer != null && playerContainer.getVisibility() == View.VISIBLE) {
+                    playerHint.setText("已阻止网页跳转，继续在同看中播放");
+                    return true;
+                }
+                return !isTrustedPlayerUrl(url);
             }
 
             @Override
@@ -884,9 +906,17 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             loadMedia(anchor.media);
             return;
         }
+        double hardSyncDrift = 0;
+        if (playerReady && roomClient != null && loadedMedia != null && loadedMedia.sameIdentity(anchor.media)) {
+            hardSyncDrift = anchor.positionAt(roomClient.serverNow()) - currentPositionSeconds;
+        }
         if (playerReady) applyLatestAnchorToPlayer();
         updateSpeedButton(anchor.playbackRate);
-        playerHint.setText((anchor.paused ? "已暂停" : "正在播放") + " · 操作来自 " + actorNickname);
+        if (Math.abs(hardSyncDrift) > 1.5) {
+            playerHint.setText(String.format(Locale.CHINA, "已重新同步 · 偏差 %.1f 秒", Math.abs(hardSyncDrift)));
+        } else {
+            playerHint.setText((anchor.paused ? "已暂停" : "正在播放") + " · 操作来自 " + actorNickname);
+        }
         setPlaybackControlsEnabled(playerReady && !awaitingMediaConfirmation);
     }
 
@@ -898,8 +928,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         }
         loadedMedia = media;
         playerReady = false;
+        loadingVideo = true;
+        loadingGeneration += 1;
+        long generation = loadingGeneration;
+        startLoadingTimeout(generation);
         playerPaused = true;
         playerEnded = false;
+        resetBufferingEpisode();
         playerBuffering = false;
         currentPositionSeconds = 0;
         durationSeconds = 0;
@@ -911,6 +946,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         setPlaybackControlsEnabled(false);
         if (appFullscreen) setImmersiveControlsVisible(true, false);
         playerContainer.setVisibility(View.VISIBLE);
+        syncPlayerInteractionLayerVisibility();
         syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         playerHint.setText(preparingLocalVideo ? "正在准备视频…" : "正在载入房间视频…");
@@ -988,6 +1024,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     public void onLocalCommand(String kind, double positionSeconds, double playbackRate) {
         runOnUiThread(() -> {
             if (!authenticated || roomClient == null || loadedMedia == null || awaitingMediaConfirmation) return;
+            if ("pause".equals(kind) && System.currentTimeMillis() < ignoreOrientationPauseUntilMs) return;
             if ("rate".equals(kind)) updateSpeedButton(playbackRate);
             Double position = ("play".equals(kind) || "pause".equals(kind) || "seek".equals(kind)) ? positionSeconds : null;
             Double rate = "rate".equals(kind) ? playbackRate : null;
@@ -1055,13 +1092,44 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         runOnUiThread(() -> {
             playerBuffering = buffering;
             playerPaused = paused;
-            playerHint.setText(buffering ? "正在缓冲，房间会暂时等待" : "缓冲结束，等待房间继续");
+            latestBufferingPositionSeconds = positionSeconds;
+            latestBufferingPaused = paused;
+            latestBufferingReadyState = state;
             if (appFullscreen) {
                 setImmersiveControlsVisible(true, !buffering && !paused && !playerEnded);
             }
-            if (roomClient == null || loadedMedia == null || latestAnchor == null) return;
-            roomClient.sendReport(latestAnchor.sequence, positionSeconds, paused, state, buffering, loadedMedia);
+            if (buffering) {
+                if (pendingBufferingReport != null || roomBufferingActive) return;
+                pendingBufferingReport = () -> {
+                    pendingBufferingReport = null;
+                    if (!playerBuffering || roomBufferingActive || roomClient == null || loadedMedia == null || latestAnchor == null) return;
+                    roomBufferingActive = true;
+                    playerHint.setText("正在缓冲，房间会暂时等待");
+                    roomClient.sendReport(latestAnchor.sequence, latestBufferingPositionSeconds, latestBufferingPaused, latestBufferingReadyState, true, loadedMedia);
+                };
+                mainHandler.postDelayed(pendingBufferingReport, BUFFERING_DEBOUNCE_MS);
+                return;
+            }
+
+            boolean wasRoomBufferingActive = roomBufferingActive;
+            cancelPendingBufferingReport();
+            roomBufferingActive = false;
+            if (wasRoomBufferingActive && roomClient != null && loadedMedia != null && latestAnchor != null) {
+                playerHint.setText("缓冲结束，等待房间继续");
+                roomClient.sendReport(latestAnchor.sequence, latestBufferingPositionSeconds, latestBufferingPaused, latestBufferingReadyState, false, loadedMedia);
+            }
         });
+    }
+
+    private void cancelPendingBufferingReport() {
+        if (pendingBufferingReport == null) return;
+        mainHandler.removeCallbacks(pendingBufferingReport);
+        pendingBufferingReport = null;
+    }
+
+    private void resetBufferingEpisode() {
+        cancelPendingBufferingReport();
+        roomBufferingActive = false;
     }
 
     private void applySafeAreaInsets() {
@@ -1070,7 +1138,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             rootLayout.setPadding(0, 0, 0, 0);
             return;
         }
-        rootLayout.setPadding(0, systemInsetTop + dp(16), 0, systemInsetBottom + dp(8));
+        rootLayout.setPadding(0, systemInsetTop, 0, systemInsetBottom);
     }
 
     private void updatePlayerAspectRatio() {
@@ -1102,24 +1170,74 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (!appFullscreen) rootContainer.post(this::updatePlayerAspectRatio);
     }
 
+    private void showAuthScreen() {
+        appFullscreen = false;
+        setImmersiveControlsVisible(false, false);
+        if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(View.GONE);
+        applyImmersiveMode(false);
+        videoSection.setVisibility(View.GONE);
+        entryHost.setVisibility(View.VISIBLE);
+        if (authScreen.getView().getParent() instanceof ViewGroup) {
+            ((ViewGroup) authScreen.getView().getParent()).removeView(authScreen.getView());
+        }
+        entryHost.removeAllViews();
+        entryHost.addView(authScreen.getView(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        applyTheme();
+    }
+
     private void showEntryScreen() {
         appFullscreen = false;
         setImmersiveControlsVisible(false, false);
         if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(View.GONE);
         applyImmersiveMode(false);
-        entryScroll.setVisibility(View.VISIBLE);
         videoSection.setVisibility(View.GONE);
+        entryHost.setVisibility(View.VISIBLE);
+        if (mainNavigationView.getView().getParent() instanceof ViewGroup) {
+            ((ViewGroup) mainNavigationView.getView().getParent()).removeView(mainNavigationView.getView());
+        }
+        entryHost.removeAllViews();
+        entryHost.addView(mainNavigationView.getView(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         boolean hasLastRoom = preferences.getString("roomId", null) != null
             && preferences.getString("key", null) != null
             && preferences.getString("role", null) != null;
         continueButton.setVisibility(hasLastRoom ? View.VISIBLE : View.GONE);
+        showMainTab("home");
         applyTheme();
     }
 
+    private void showMainTab(String page) {
+        String target = page;
+        View content;
+        switch (page) {
+            case "library":
+                content = mainNavigationView.placeholder("02 / LIBRARY", "共同片库", "分类、排序和共享视频将在 Alpha 10 的片库阶段接入。");
+                break;
+            case "calendar":
+                content = mainNavigationView.placeholder("03 / CALENDAR", "观看日历", "日期计划、当天片单和观看安排将在日历阶段接入。");
+                break;
+            case "pair":
+                content = mainNavigationView.placeholder("04 / US", "我们的空间", "唯一好友绑定、共同历史和观看统计将在账号服务接入后开放。");
+                break;
+            case "home":
+            default:
+                target = "home";
+                content = homeScreen.getView();
+                boolean hasLastRoom = preferences.getString("roomId", null) != null
+                    && preferences.getString("key", null) != null
+                    && preferences.getString("role", null) != null;
+                continueButton.setVisibility(hasLastRoom ? View.VISIBLE : View.GONE);
+                break;
+        }
+        mainNavigationView.select(target);
+        mainNavigationView.showContent(content);
+        mainNavigationView.applyTheme();
+    }
+
     private void showVideoScreen() {
-        entryScroll.setVisibility(View.GONE);
+        entryHost.setVisibility(View.GONE);
         videoSection.setVisibility(View.VISIBLE);
         if (roomMedia == null && loadedMedia == null) showPreparationPanel();
+        syncPlayerInteractionLayerVisibility();
         syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         applyTheme();
@@ -1127,10 +1245,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void showPreparationPanel() {
         if (appFullscreen) toggleAppFullscreen();
-        entryScroll.setVisibility(View.GONE);
+        entryHost.setVisibility(View.GONE);
         videoSection.setVisibility(View.VISIBLE);
         preparationPanel.setVisibility(View.VISIBLE);
         playerContainer.setVisibility(roomMedia == null && loadedMedia == null ? View.GONE : View.VISIBLE);
+        syncPlayerInteractionLayerVisibility();
         syncVideoFooterVisibility();
         videoInput.requestFocus();
     }
@@ -1141,6 +1260,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             && videoSection.getVisibility() == View.VISIBLE
             && playerContainer.getVisibility() == View.VISIBLE;
         videoFooter.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
+    }
+
+    private void syncPlayerInteractionLayerVisibility() {
+        if (immersiveTapLayer == null || playerContainer == null || videoSection == null) return;
+        boolean shouldIntercept = videoSection.getVisibility() == View.VISIBLE
+            && playerContainer.getVisibility() == View.VISIBLE;
+        immersiveTapLayer.setVisibility(shouldIntercept ? View.VISIBLE : View.GONE);
     }
 
     private void setConnectionStatus(String value) {
@@ -1227,6 +1353,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void toggleOrientation() {
+        capturePlaybackBeforeOrientationChange();
         boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         if (landscape) {
             if (appFullscreen) toggleAppFullscreen();
@@ -1249,7 +1376,26 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             if (appFullscreen) updateFullscreenPlayerLayout();
             else updatePlayerAspectRatio();
             applySafeAreaInsets();
+            restorePlaybackAfterOrientationChange();
         });
+    }
+
+    private void capturePlaybackBeforeOrientationChange() {
+        orientationWasPlaying = playerReady && !playerPaused && !playerEnded && !playerBuffering;
+        ignoreOrientationPauseUntilMs = orientationWasPlaying
+            ? System.currentTimeMillis() + 1200
+            : 0;
+    }
+
+    private void restorePlaybackAfterOrientationChange() {
+        if (!orientationWasPlaying) return;
+        mainHandler.postDelayed(() -> {
+            if (orientationWasPlaying && playerReady && !playerEnded) {
+                evaluatePlayer("window.__tongkanSetPlaying && window.__tongkanSetPlaying(true);");
+            }
+            orientationWasPlaying = false;
+            ignoreOrientationPauseUntilMs = 0;
+        }, 450);
     }
 
     private void toggleAppFullscreen() {
@@ -1261,7 +1407,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         videoSection.setPadding(appFullscreen ? 0 : dp(16), appFullscreen ? 0 : dp(12), appFullscreen ? 0 : dp(16), appFullscreen ? 0 : dp(12));
         fullscreenButton.setText(appFullscreen ? "退出全屏" : "全屏");
         setButtonIcon(fullscreenButton, appFullscreen ? R.drawable.ic_exit_fullscreen : R.drawable.ic_fullscreen);
-        if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(appFullscreen ? View.VISIBLE : View.GONE);
+        syncPlayerInteractionLayerVisibility();
         updateFullscreenPlayerLayout();
         applyImmersiveMode(appFullscreen);
         applySafeAreaInsets();
@@ -1313,6 +1459,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             confirmLeaveRoom();
             return;
         }
+        if (entryHost.getVisibility() == View.VISIBLE && mainNavigationView.getView().getParent() == entryHost) {
+            if (!"home".equals(mainNavigationView.getCurrentPage())) {
+                showMainTab("home");
+            } else {
+                showAuthScreen();
+            }
+            return;
+        }
         super.onBackPressed();
     }
 
@@ -1334,6 +1488,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         currentRole = null;
         currentInviteKey = null;
         latestAnchor = null;
+        resetBufferingEpisode();
         roomMedia = null;
         loadedMedia = null;
         playerReady = false;
@@ -1344,22 +1499,24 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void toggleTheme() {
-        darkMode = !darkMode;
-        preferences.edit().putBoolean("darkMode", darkMode).apply();
+        breathTheme.toggle();
+        darkMode = breathTheme.isDark();
         applyTheme();
     }
 
     private void applyTheme() {
-        int background = darkMode ? Color.rgb(11, 12, 13) : Color.rgb(243, 243, 240);
-        int surface = darkMode ? Color.rgb(23, 24, 25) : Color.WHITE;
-        int primaryText = darkMode ? Color.rgb(244, 244, 242) : Color.rgb(23, 24, 23);
-        int secondaryText = darkMode ? Color.rgb(165, 166, 170) : Color.rgb(112, 114, 109);
-        int border = darkMode ? Color.rgb(48, 50, 54) : Color.rgb(217, 217, 210);
+        darkMode = breathTheme.isDark();
+        int background = breathTheme.background();
+        int surface = breathTheme.panel();
+        int primaryText = breathTheme.ink();
+        int secondaryText = breathTheme.muted();
+        int border = breathTheme.line();
         rootContainer.setBackgroundColor(background);
         rootLayout.setBackgroundColor(background);
         applyThemeRecursive(rootContainer, background, surface, primaryText, secondaryText, border);
-        entryThemeButton.setImageResource(darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
-        entryThemeButton.setContentDescription(darkMode ? "切换浅色主题" : "切换深色主题");
+        authScreen.applyTheme();
+        homeScreen.applyTheme();
+        mainNavigationView.applyTheme();
         if (videoThemeButton != null) {
             videoThemeButton.setText(darkMode ? "浅色" : "深色");
             setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
@@ -1368,8 +1525,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         String danmakuLabel = danmakuVisible ? "弹幕 开" : "弹幕 关";
         danmakuButton.setText(danmakuLabel);
         if (immersiveDanmakuButton != null) immersiveDanmakuButton.setText(danmakuLabel);
-        getWindow().setStatusBarColor(background);
-        getWindow().setNavigationBarColor(background);
+        breathTheme.applySystemBars(this, appFullscreen || htmlFullscreenView != null);
         applyImmersiveMode(appFullscreen || htmlFullscreenView != null);
     }
 
@@ -1435,7 +1591,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private StateListDrawable textButtonBackground(int border) {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[] {android.R.attr.state_pressed}, rounded(darkMode ? Color.rgb(35, 36, 38) : Color.rgb(232, 232, 227), Color.TRANSPARENT, 0));
+        states.addState(new int[] {android.R.attr.state_pressed}, rounded(breathTheme.accentSoft(), Color.TRANSPARENT, 0));
         states.addState(new int[] {}, rounded(Color.TRANSPARENT, Color.TRANSPARENT, 0));
         return states;
     }
@@ -1490,14 +1646,20 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void startLoadingTimeout(long generation) {
         mainHandler.postDelayed(() -> {
-            if (loadingVideo && preparingLocalVideo && generation == loadingGeneration) {
+            if (!loadingVideo || generation != loadingGeneration) return;
+            if (preparingLocalVideo) {
                 playerHint.setText("视频加载得有点慢，请再等一下");
                 cancelPreparationButton.setVisibility(View.VISIBLE);
+            } else {
+                playerHint.setText("B站播放器加载较慢，请稍候");
             }
         }, 8000);
         mainHandler.postDelayed(() -> {
-            if (loadingVideo && preparingLocalVideo && generation == loadingGeneration) {
+            if (!loadingVideo || generation != loadingGeneration) return;
+            if (preparingLocalVideo) {
                 failVideoPreparation("视频准备超时，请重新加载或更换链接");
+            } else {
+                playerHint.setText("播放器响应较慢，可点击换视频重试");
             }
         }, 20000);
     }
@@ -1552,13 +1714,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private StateListDrawable buttonBackground(boolean primary) {
-        int normal = primary
-            ? (darkMode ? Color.rgb(241, 241, 239) : Color.rgb(32, 33, 31))
-            : (darkMode ? Color.rgb(23, 24, 25) : Color.WHITE);
-        int pressed = primary
-            ? (darkMode ? Color.rgb(216, 217, 220) : Color.rgb(56, 58, 54))
-            : (darkMode ? Color.rgb(48, 50, 54) : Color.rgb(229, 229, 224));
-        int border = primary ? Color.TRANSPARENT : (darkMode ? Color.rgb(48, 50, 54) : Color.rgb(217, 217, 210));
+        int normal = primary ? breathTheme.cta() : breathTheme.panel();
+        int pressed = primary ? breathTheme.accent() : breathTheme.accentSoft();
+        int border = primary ? Color.TRANSPARENT : breathTheme.line();
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[] {android.R.attr.state_pressed}, rounded(pressed, border, 12));
         states.addState(new int[] {}, rounded(normal, border, 12));
