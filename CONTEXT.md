@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-14T11:59:52+08:00
+last_updated: 2026-08-14T12:41:06+08:00
 current_version: 1.0.0-alpha10.1-p0.6-fcm (versionCode 27) production-configured APK built; real two-device notification delivery pending
 target_version: Reviewer/worker workflow setup and TK-001 unilateral-unbind pilot
-status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. uv 0.12.4 and official Spec Kit 0.8.15 are installed; Spec Kit is initialized with Codex skills, automatic Git hooks disabled, and the existing context system preserved. The governance layer and complete TK-001 unilateral-unbind spec/plan/data/OpenAPI/tasks/checklist/three worker contracts passed independent governance and technical review after all requested changes. The workflow setup is committed in this turn as the next clean baseline. No worker branch, worktree, Issue, PR, migration or implementation has started. GitHub CLI 2.97.0 installer reported success, but the executable is not visible in the current shell yet; open a fresh terminal and authenticate before creating remote Issues. FCM physical delivery remains postponed and SMTP authorization-code rotation remains required.
+status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. The independently approved Spec Kit reviewer/worker workflow and complete TK-001 unilateral-unbind specification package are committed as 3bd9ed3. All staged whitespace, YAML/JSON, PowerShell syntax, requirements-checklist, Spec Kit availability and added-line credential checks passed. Portable GitHub CLI 2.97.0 is available at C:\tmp\gh-cli-2.97.0\bin\gh.exe, but GitHub authentication is still pending; a visible authorization terminal has been opened for the user. No Worker Issue, branch, worktree, Draft PR, migration or implementation has started. FCM physical delivery remains postponed and SMTP authorization-code rotation remains required.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -32,6 +32,8 @@ status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. uv 0.12.4
 - [x] Installed uv 0.12.4, Spec Kit 0.8.15 and GitHub CLI 2.97.0; initialized `.specify/` and Codex Spec Kit skills, disabled automatic Git hooks, added the multi-session constitution/workflow/Issue/PR/contract templates, and created the complete `TK-001-unilateral-unbind` pilot artifacts.
 
 - [x] Independent governance review approved the reviewer/worker authority, worktree isolation, commit/merge/deploy boundaries and Issue/PR templates. Independent technical review approved TK-001 after adding retention retry semantics, snapshot/sorting rules, stable errors, D1 CAS/rollback, real local D1 concurrency tests, old-invite invalidation and pairId-targeted unbind protection.
+
+- [x] Cleaned the remaining generated-file whitespace, validated 15 YAML files, 5 JSON files, 9 PowerShell scripts, the 19/19 requirements checklist, Spec Kit availability and staged added lines for credentials, then committed the workflow/TK-001 baseline as `3bd9ed3 chore(workflow): add spec-kit review workflow`.
 
 - [x] User physically verified `1.0.0-alpha10.0-p0.3`: preview email-code login, in-App test code, secure session restore, logout, anonymous room fallback, theme and player regression passed on a real device.
 
@@ -193,7 +195,7 @@ status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. uv 0.12.4
 - [x] Added `scripts/configure-fcm.ps1` plus `scripts/run-fcm-configure.mjs`: Firebase files must stay outside Git; `-ValidateOnly` checks package/project matching without build or network changes; full mode tests/builds Android, configures three Worker Secrets without printing values, deploys, checks health, hashes the APK and opens Explorer. Added ignore rules and setup documentation. A fake external configuration passed validation without leaking dummy API key, service email or private-key text.
 ## In Progress
 
-- [ ] Commit the approved workflow/TK-001 setup, then create W1-W3 remote Issues and local worktrees from that exact clean baseline when GitHub CLI is available and authenticated.
+- [ ] Complete GitHub CLI browser authentication, then create W1-W3 remote Issues and isolated local worktrees from the clean reviewer baseline before any implementation starts.
 
 - [ ] Install `1.0.0-alpha10.1-p0.6-fcm` on two supported Android devices and complete notification delivery, background receipt and click-to-room verification.
 
@@ -302,6 +304,7 @@ status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. uv 0.12.4
 20. The HyperFrames promo preview is intentionally silent and local-only for review. TTS/BGM dependencies are unavailable offline, and final MP4 rendering is explicitly deferred until user approval.
 21. Production Account Worker and Pages `/account-api` routing are live, but the current test APK still needs the next provider-enabled build for real push validation. Library and Calendar remain placeholders, while Us contains the account/pair shell and one-tap invite flow.
 22. Production device-token storage is migrated and protected by HMAC lookup plus AES-GCM ciphertext. With no `PUSH_PROVIDER`/FCM secrets configured, the Worker returns `fallbackRequired` rather than claiming delivery; Android continues with system sharing.
+23. Portable GitHub CLI 2.97.0 works from `C:\tmp\gh-cli-2.97.0\bin\gh.exe`, but `gh auth status` reports no authenticated host. A visible `gh auth login --web` terminal is open; Worker Issues and worktrees must wait until authentication succeeds.
 
 ## Architecture Decisions
 
@@ -377,11 +380,11 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Verify GitHub CLI from a fresh terminal and authenticate it.
-2. Create W1-W3 Worker Issues and Draft-PR-ready worktrees from the exact workflow setup commit.
+1. Finish the visible GitHub CLI browser authorization and verify `gh auth status`.
+2. Create W1-W3 Worker Issues and Draft-PR-ready worktrees from the clean reviewer baseline.
 3. Run the pilot implementation and review loop for unilateral unbind and independent archive-retention choices.
-5. Keep the FCM two-device test paused until the user resumes it, then run the existing notification QA matrix.
-6. Rotate the exposed QQ SMTP authorization code and verify the replacement secret remains private.
+4. Keep the FCM two-device test paused until the user resumes it, then run the existing notification QA matrix.
+5. Rotate the exposed QQ SMTP authorization code and verify the replacement secret remains private.
 
 ## Key Files
 
@@ -684,3 +687,5 @@ Maintenance rules:
 - 2026-08-14 (163): Committed the reviewed Alpha 10.1 baseline as `42248e1`. Installed uv 0.12.4, official Spec Kit 0.8.15 and GitHub CLI 2.97.0, initialized Codex skills and `.specify/`, disabled all automatic Git hooks, and preserved the existing context system. Added a Tongkan constitution, reviewer/worker workflow, Worker/Review Issue templates, Draft PR gates, handoff/review/task-contract templates, and full `TK-001-unilateral-unbind` spec, research, data model, OpenAPI contract, plan, tasks, requirements checklist and three non-overlapping worker contracts. YAML/JSON parsing, Spec Kit tool checks, placeholder checks, diff checks and credential scanning passed. The first governance review returned `CHANGES_REQUESTED` because worker authority over global docs and commit ownership was ambiguous; repaired AGENTS, constitution, contract, PR and Issue templates so workers may only commit assigned branches and can never modify global context or production state. Re-review and the independent TK-001 technical verdict remain pending; no implementation worktree or remote Issue/PR was created.
 
 - 2026-08-14 (164): Completed the two-review acceptance loop for the multi-task development system. Governance re-review returned `APPROVED` after making reviewer ownership and worker prohibitions absolute. TK-001 technical review required and received: exact `pairId` targeting to prevent delayed old requests from unbinding a new friend, explicit same/different retry behavior and non-disclosing 404 after physical deletion, both-user invite invalidation, stable archive ordering and profile snapshots, complete mutation/error OpenAPI responses, D1 CAS/rollback design, local real-D1 20-round concurrency and cascade tests, preview checks limited to real tables, and environment/stdin-only test tokens. Final technical verdict is `APPROVED`. Spec Kit checks, YAML/JSON parsing, task numbering, placeholder checks, `git diff --check` and credential scanning pass. The approved setup is committed before any worker worktree is created. GitHub CLI installation reported success but the executable requires a fresh shell before authentication and Issue creation.
+
+- 2026-08-14 (165): User accepted proceeding with the recommended reviewer/worker workflow. Cleaned the last generated-file trailing whitespace and re-staged the full setup. Validation passed for staged whitespace, 15 YAML files, 5 JSON files, 9 PowerShell scripts, the 19/19 TK-001 requirements checklist, official Spec Kit availability and added-line credential patterns. Committed the approved workflow and TK-001 package as `3bd9ed3 chore(workflow): add spec-kit review workflow`; the repository was clean immediately afterward. The earlier GitHub CLI installation was not present on disk, so downloaded the official portable `gh` 2.97.0 package to `C:\tmp\gh-cli-2.97.0`; `gh auth status` remains unauthenticated. A visible PowerShell window now runs the official browser login flow. No Worker Issue, branch, worktree, Draft PR, migration or implementation has started; Issue/worktree creation resumes only after the user completes GitHub authorization.
