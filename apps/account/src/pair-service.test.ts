@@ -248,6 +248,55 @@ describe('PairService archives', () => {
     await expect(service.unbind(userA, pairId, 'delete')).rejects.toMatchObject({ code: 'PAIR_RETENTION_FINAL' });
   });
 
+  it('returns a conflict when an active unbind loses the CAS race', async () => {
+    const repository = new MemoryPairRepository();
+    const service = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const pairId = await bind(repository, service, userA, userB);
+    const applyWinningUnbind = repository.unbindPair.bind(repository);
+    repository.unbindPair = async (targetPairId, _userId, _retention, now) => {
+      await applyWinningUnbind(targetPairId, userB.id, 'keep', now + 1);
+      return false;
+    };
+
+    await expect(service.unbind(userA, pairId, 'delete')).rejects.toMatchObject({
+      code: 'PAIR_UNBIND_CONFLICT',
+      status: 409,
+    });
+    expect(repository.archives.get(pairId + ':' + userA.id)?.retentionStatus).toBe('pending');
+  });
+
+  it('does not finalize a pending archive through the unbind endpoint', async () => {
+    const repository = new MemoryPairRepository();
+    const service = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const pairId = await bind(repository, service, userA, userB);
+    await service.unbind(userA, pairId, 'keep');
+
+    await expect(service.unbind(userB, pairId, 'delete')).rejects.toMatchObject({
+      code: 'PAIR_NOT_ACTIVE',
+      status: 409,
+    });
+    expect(repository.archives.get(pairId + ':' + userB.id)?.retentionStatus).toBe('pending');
+    await expect(service.decideArchiveRetention(userB, pairId, 'delete')).resolves.toMatchObject({ pairDeleted: false });
+  });
+
+  it('returns not found when an archive disappears during retention finalization', async () => {
+    const repository = new MemoryPairRepository();
+    const service = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const pairId = await bind(repository, service, userA, userB);
+    await service.unbind(userA, pairId, 'keep');
+    repository.setPairArchiveRetention = async (targetPairId) => {
+      repository.archives.delete(targetPairId + ':' + userA.id);
+      repository.archives.delete(targetPairId + ':' + userB.id);
+      repository.pairUsers.delete(targetPairId);
+      return { updated: false, pairDeleted: false };
+    };
+
+    await expect(service.decideArchiveRetention(userB, pairId, 'delete')).rejects.toMatchObject({
+      code: 'PAIR_ARCHIVE_NOT_FOUND',
+      status: 404,
+    });
+  });
+
   it('physically removes the pair only after both users delete', async () => {
     const repository = new MemoryPairRepository();
     const service = new PairService(testEnv, repository, () => 1_800_000_000_000);

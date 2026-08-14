@@ -122,12 +122,26 @@ describe('AccountRepository local D1 integration', () => {
       const serviceA = new PairService(env, repository, () => 1_900_000_000_000 + round);
       const serviceB = new PairService(env, repository, () => 1_900_000_000_100 + round);
       const bothDelete = round % 2 === 0;
+      const decisionA = bothDelete ? 'delete' : 'keep';
+      const decisionB = 'delete';
       const results = await Promise.allSettled([
-        serviceA.unbind(userA, pairId, bothDelete ? 'delete' : 'keep'),
-        serviceB.unbind(userB, pairId, 'delete'),
+        serviceA.unbind(userA, pairId, decisionA),
+        serviceB.unbind(userB, pairId, decisionB),
       ]);
+      const fulfilled = results.filter((result) => result.status === 'fulfilled');
+      const rejected = results.filter((result) => result.status === 'rejected');
+      const rejectedResult = results.find((result) => result.status === 'rejected');
 
-      expect(results.every((result) => result.status === 'fulfilled')).toBe(true);
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      if (!rejectedResult || rejectedResult.status !== 'rejected') throw new Error('Expected one rejected unbind.');
+      expect(rejectedResult.reason).toMatchObject({ code: 'PAIR_UNBIND_CONFLICT', status: 409 });
+      if (results[0]?.status === 'rejected') {
+        await serviceA.decideArchiveRetention(userA, pairId, decisionA);
+      } else {
+        await serviceB.decideArchiveRetention(userB, pairId, decisionB);
+      }
+
       expect(await countRows('SELECT COUNT(*) AS count FROM active_pair_members WHERE pair_id = ?', pairId)).toBe(0);
       expect(await countRows('SELECT COUNT(*) AS count FROM pair_invites WHERE inviter_user_id IN (?, ?) AND used_at IS NULL', userA.id, userB.id)).toBe(0);
       if (bothDelete) {

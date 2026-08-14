@@ -121,12 +121,13 @@ export class PairService {
     const activePair = await this.repository.activePairByUser(user.id);
     if (activePair?.pairId === targetPairId) {
       const applied = await this.repository.unbindPair(targetPairId, user.id, retention, this.now());
-      if (applied) {
-        const archive = await this.repository.pairArchiveByUser(targetPairId, user.id);
-        return archive ? this.mutationResult(archive, false) : { archive: null, pairDeleted: true };
+      if (!applied) {
+        throw new AuthError('PAIR_UNBIND_CONFLICT', '绑定状态刚刚发生变化，请刷新后重试。', 409);
       }
+      const archive = await this.repository.pairArchiveByUser(targetPairId, user.id);
+      return archive ? this.mutationResult(archive, false) : { archive: null, pairDeleted: true };
     }
-    return this.finalizeArchiveDecision(user.id, targetPairId, retention);
+    return this.retryFinalizedUnbind(user.id, targetPairId, retention);
   }
 
   async decideArchiveRetention(
@@ -156,11 +157,28 @@ export class PairService {
     const result = await this.repository.setPairArchiveRetention(pairId, userId, retention, this.now());
     if (result.pairDeleted) return { archive: null, pairDeleted: true };
     const updated = await this.repository.pairArchiveByUser(pairId, userId);
-    if (!updated) return { archive: null, pairDeleted: true };
+    if (!updated) {
+      if (result.updated) return { archive: null, pairDeleted: true };
+      throw new AuthError('PAIR_ARCHIVE_NOT_FOUND', '旧空间不存在或已删除。', 404);
+    }
     if (!result.updated && updated.retentionStatus !== retention) {
       throw new AuthError('PAIR_RETENTION_FINAL', '数据保留选择已经确认，不能修改。', 409);
     }
     return this.mutationResult(updated, false);
+  }
+
+  private async retryFinalizedUnbind(
+    userId: string,
+    pairId: string,
+    retention: PairRetentionDecision,
+  ): Promise<PairMutationResult> {
+    const existing = await this.repository.pairArchiveByUser(pairId, userId);
+    if (!existing) throw new AuthError('PAIR_ARCHIVE_NOT_FOUND', '旧空间不存在或已删除。', 404);
+    if (existing.retentionStatus === retention) return this.mutationResult(existing, false);
+    if (existing.retentionStatus === 'pending') {
+      throw new AuthError('PAIR_NOT_ACTIVE', '当前没有可解绑的好友关系。', 409);
+    }
+    throw new AuthError('PAIR_RETENTION_FINAL', '数据保留选择已经确认，不能修改。', 409);
   }
 
   private validPairId(pairId: string): string {
