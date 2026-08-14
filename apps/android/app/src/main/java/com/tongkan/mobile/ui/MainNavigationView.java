@@ -16,7 +16,10 @@ import android.widget.TextView;
 import com.tongkan.mobile.R;
 import com.tongkan.mobile.account.AccountModels;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public final class MainNavigationView {
@@ -30,6 +33,8 @@ public final class MainNavigationView {
         void onAcceptInvite(String code);
         void onRefresh();
         void onInviteWatch();
+        void onRequestUnbind();
+        void onChooseArchiveRetention(AccountModels.PairArchive archive);
         void onLogout();
     }
 
@@ -129,20 +134,22 @@ public final class MainNavigationView {
     public View pairPage(
         String nickname,
         String email,
-        AccountModels.Pair pair,
+        AccountModels.PairState pairState,
         AccountModels.PairInvite invite,
         String message,
         boolean loading,
         PairActions actions
     ) {
+        AccountModels.Pair pair = pairState == null ? null : pairState.pair;
         ScrollView scroll = components.screen();
         LinearLayout content = components.column(21, 22, 28);
         scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         content.addView(components.code("04 / US"), components.matchWrap());
         content.addView(components.title("我们的空间", 32), components.margin(components.matchWrap(), 0, 7, 0, 0));
+        boolean hasArchives = pairState != null && (!pairState.pendingArchives.isEmpty() || !pairState.archives.isEmpty());
         content.addView(components.body(pair == null
-            ? "每个账号只能绑定一位好友。邀请码一次性使用，24 小时后失效。"
-            : "你们已经连接。片库、日历和共同历史会在后续阶段逐步开放。"), components.margin(components.matchWrap(), 0, 8, 0, 0));
+            ? (hasArchives ? "当前没有绑定好友。旧空间由你独立决定保留或删除，也可以继续绑定新好友。" : "每个账号只能绑定一位好友。邀请码一次性使用，24 小时后失效。")
+            : "你们已经连接。解除绑定不会退出账号，也不会影响匿名临时房间。"), components.margin(components.matchWrap(), 0, 8, 0, 0));
 
         LinearLayout accountPanel = components.panel(18);
         accountPanel.addView(components.code("ACCOUNT / CONNECTED"), components.matchWrap());
@@ -197,7 +204,28 @@ public final class MainNavigationView {
             start.setEnabled(!loading);
             start.setOnClickListener(view -> actions.onInviteWatch());
             pairPanel.addView(start, components.margin(components.matchHeight(50), 0, 18, 0, 0));
+            Button unbind = components.button(loading ? "正在处理…" : "解除好友绑定", false);
+            unbind.setEnabled(!loading);
+            unbind.setOnClickListener(view -> actions.onRequestUnbind());
+            pairPanel.addView(unbind, components.margin(components.matchHeight(50), 0, 10, 0, 0));
             content.addView(pairPanel, components.margin(components.matchWrap(), 0, 16, 0, 0));
+        }
+
+        if (pairState != null && !pairState.pendingArchives.isEmpty()) {
+            content.addView(components.code("ARCHIVE / ACTION REQUIRED"), components.margin(components.matchWrap(), 0, 22, 0, 0));
+            content.addView(components.section("待处理的旧空间"), components.margin(components.matchWrap(), 0, 10, 0, 0));
+            content.addView(components.body("每个旧空间都需要由你本人选择保留只读归档或删除访问权。选择确认后不能修改。"), components.margin(components.matchWrap(), 0, 7, 0, 0));
+            for (AccountModels.PairArchive archive : pairState.pendingArchives) {
+                content.addView(archivePanel(archive, true, loading, actions), components.margin(components.matchWrap(), 0, 12, 0, 0));
+            }
+        }
+
+        if (pairState != null && !pairState.archives.isEmpty()) {
+            content.addView(components.code("ARCHIVE / READ ONLY"), components.margin(components.matchWrap(), 0, 22, 0, 0));
+            content.addView(components.section("保留的旧空间"), components.margin(components.matchWrap(), 0, 10, 0, 0));
+            for (AccountModels.PairArchive archive : pairState.archives) {
+                content.addView(archivePanel(archive, false, loading, actions), components.margin(components.matchWrap(), 0, 12, 0, 0));
+            }
         }
 
         if (message != null && !message.isEmpty()) {
@@ -213,6 +241,39 @@ public final class MainNavigationView {
         content.addView(logout, components.margin(components.matchHeight(50), 0, 10, 0, 0));
         components.applyTheme(scroll);
         return scroll;
+    }
+
+    private LinearLayout archivePanel(
+        AccountModels.PairArchive archive,
+        boolean pending,
+        boolean loading,
+        PairActions actions
+    ) {
+        LinearLayout panel = components.panel(18);
+        panel.addView(components.code(pending ? "DECISION / PENDING" : "ARCHIVE / KEPT"), components.matchWrap());
+        LinearLayout partner = components.row();
+        partner.addView(components.avatar(initial(archive.partner.nickname), pending), new LinearLayout.LayoutParams(components.dp(44), components.dp(44)));
+        LinearLayout details = components.column(0, 0, 0);
+        details.addView(components.section(archive.partner.nickname), components.matchWrap());
+        details.addView(components.body(archive.partner.email), components.margin(components.matchWrap(), 0, 3, 0, 0));
+        LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        detailsParams.setMargins(components.dp(12), 0, 0, 0);
+        partner.addView(details, detailsParams);
+        panel.addView(partner, components.margin(components.matchWrap(), 0, 15, 0, 0));
+        panel.addView(components.body("绑定于 " + formatDate(archive.boundAt) + " · 解绑于 " + formatDate(archive.unboundAt)), components.margin(components.matchWrap(), 0, 8, 0, 0));
+        if (pending) {
+            Button choose = components.button(loading ? "正在处理…" : "选择保留或删除", true);
+            choose.setEnabled(!loading);
+            choose.setOnClickListener(view -> actions.onChooseArchiveRetention(archive));
+            panel.addView(choose, components.margin(components.matchHeight(50), 0, 15, 0, 0));
+        } else {
+            panel.addView(components.body("只读归档 · 不参与当前好友关系和新的双人空间"), components.margin(components.matchWrap(), 0, 8, 0, 0));
+        }
+        return panel;
+    }
+
+    private static String formatDate(long timestamp) {
+        return new SimpleDateFormat("yyyy.MM.dd", Locale.CHINA).format(new Date(timestamp));
     }
 
     private static String initial(String value) {
