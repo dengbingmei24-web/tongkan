@@ -1,5 +1,4 @@
 # 同看公网部署与移动端路线
-
 ## 当前结论
 
 当前版本的房间、B站桌面同步、视频直链和桌面屏幕共享已经形成基础闭环。公网化以后，电脑和手机都可以打开房间网页；但手机浏览器不能安装 Edge 扩展，所以手机端暂时只能使用创建/加入房间、聊天、观看对方共享画面和浏览器可直接播放的视频。B站的双向原生控制需要在 Android App 阶段由 App 内桥接替代桌面扩展。
@@ -84,3 +83,33 @@ B站页面结构和 WebView 策略可能变化，因此 App 必须保留“打�
 4. 开发 Android B站 WebView 控制桥。
 5. 开发 Android MediaProjection 屏幕共享。
 6. 配置 TURN，完成不同网络和移动网络验收。
+
+
+## 七、Alpha 10 账号服务
+
+账号服务位于 `apps/account/`，与房间信令 Worker 分离。正式部署前依次执行：
+
+```powershell
+pnpm --filter @tongkan/account db:remote
+pnpm --filter @tongkan/account exec wrangler secret put EMAIL_HMAC_SECRET
+pnpm --filter @tongkan/account exec wrangler secret put AUTH_SECRET
+pnpm --filter @tongkan/account exec wrangler secret put SESSION_SECRET
+pnpm --filter @tongkan/account exec wrangler secret put SMTP_USERNAME
+pnpm --filter @tongkan/account exec wrangler secret put SMTP_AUTHORIZATION_CODE
+pnpm --filter @tongkan/account exec wrangler secret put SMTP_FROM
+pnpm --filter @tongkan/account exec wrangler deploy --env=""
+```
+
+生产环境固定 `AUTH_TEST_MODE=false`。QQ 邮箱使用 SMTP 授权码，不使用邮箱登录密码。默认连接 `smtp.qq.com:465` 隐式 TLS；2026-08-13 已通过 Cloudflare HKG 边缘定时探针收到 QQ Mail `220` 欢迎语，耗时约 1.16 秒。真实投递、鉴权错误和频率限制仍需在用户提供专用发件邮箱及授权码后验证。
+
+预览环境使用 `tongkan-account-preview` D1 和 `AUTH_TEST_MODE=true`，只用于开发验证，不能作为公开生产登录入口。`.dev.vars` 和所有 Secret 值均被 Git 忽略。
+
+### 账号预览联调
+
+账号联调环境使用独立 Worker `tongkan-account-preview` 和独立 D1，通过 Pages Service Binding 暴露为同域 `/account-api/*`：
+
+- `apps/web/functions/_middleware.js` 将 `/account-api` 前缀移除后转发到 `ACCOUNT` binding。
+- 预览 Worker 关闭 `workers.dev` 和 Preview URL，不提供独立公网入口。
+- 除 `/health` 外，预览 API 要求 `X-Tongkan-Test-Key`；令牌只存 Cloudflare Secret 和仓库外临时构建目录。
+- 预览模式返回 `debugCode`，不发送邮件，数据只写入 `tongkan-account-preview`。
+- 联调 APK 会包含可提取的临时测试令牌，因此只能用于小范围测试；完成真实 SMTP 后必须轮换/删除令牌并构建不含测试令牌的正式包。

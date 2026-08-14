@@ -21,6 +21,7 @@
     "android:lint": "node scripts/run-android-gradle.mjs lintDebug",
     "android:build": "node scripts/run-android-gradle.mjs assembleDebug",
     "android:check": "node scripts/run-android-gradle.mjs testDebugUnitTest lintDebug assembleDebug",
+    "fcm:configure": "node scripts/run-fcm-configure.mjs",
     "dev:web": "pnpm --filter @tongkan/web dev",
     "dev:signaling": "pnpm --filter @tongkan/signaling dev"
   },

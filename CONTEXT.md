@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-13T11:09:21+08:00
-current_version: 1.0.0-alpha10.0-p0.1 (versionCode 19) is the current physically verified Android UI baseline; Auth/Home safe areas, black/white theme switching, four-tab shell and anonymous room/player regression passed user testing
-target_version: Alpha 10.0 account foundation: email one-time-code login, secure sessions and account UI, followed by one-active-friend pairing, shared library, calendar plans and joint watch history/statistics
-status: Alpha 10 Android P0 Java View shell is complete and physically verified. Breath Tech Theme/Drawables/Components, Auth screen, anonymous Home screen and four-tab navigation are the accepted Android baseline; existing create/join/restore/share/player/landscape/fullscreen behavior remains working. Development now moves to the Alpha 10.0 account foundation: SMTP feasibility, account Worker/D1, secure sessions and real Android email-code login.
+last_updated: 2026-08-14T11:28:40+08:00
+current_version: 1.0.0-alpha10.1-p0.6-fcm (versionCode 27) production-configured APK built; real two-device notification delivery pending
+target_version: Alpha 10.1 baseline repair and commit, then reviewer/worker workflow pilot
+status: The user accepted the reviewer-owned multi-session workflow in D-079. All independent-review changes for the Alpha 10.1 account/pair/push baseline are repaired: UTF-8 documents and security findings are fixed, typecheck/tests/build/Android checks pass, credential scanning is clean, and production plus preview D1 migrations are current. The reviewed baseline is committed in this turn before Spec Kit/worktree initialization. FCM two-device physical delivery remains explicitly postponed, and SMTP authorization-code rotation remains required.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -20,6 +20,26 @@ status: Alpha 10 Android P0 Java View shell is complete and physically verified.
 - Never leave a conversation without synchronizing the latest development state into this system.
 
 ## Completed
+
+- [x] User accepted the reviewer/controller plus isolated worker-session workflow, Spec Kit artifacts, GitHub Issues/Draft PR handoff, per-task worktrees and reviewer-owned acceptance gates (D-079).
+
+- [x] Reconstructed the corrupted `DECISIONS.md`, `ACCOUNT_PAIR_SPACE_PRD.md` and `apps/account/README.md` from clean UTF-8 sources; added Firebase/service-account ignore patterns, explicit Android test-token opt-in and redacted FCM failure logging.
+
+- [x] Passed `pnpm typecheck`, 97 workspace tests, `pnpm build`, Android `testDebugUnitTest lintDebug assembleDebug`, `git diff --check` and a tracked/unignored credential scan after review repairs. Production D1 had no pending migration; applied `0003_device_tokens.sql` to preview D1 and verified schema parity.
+
+- [x] User physically verified `1.0.0-alpha10.0-p0.3`: preview email-code login, in-App test code, secure session restore, logout, anonymous room fallback, theme and player regression passed on a real device.
+
+- [x] Implemented Alpha 10.1 P0.1 unique-friend binding. Added D1 migration `0002_pairing.sql`, one-time 24-hour invite codes stored only as HMAC, replacement-code invalidation, `pairs` and unique `active_pair_members` constraints, create/accept/query APIs, PairService tests, Android pair models/client calls, and a functional Us page with generate/copy/accept/refresh/paired states. Applied the preview migration, deployed Worker version `66c764f9-eb74-4935-849a-41cc7fde123f` at 100%, and passed online two-account create/accept/query plus old-code rejection loops. Android 18 tests passed, Lint reported 0 errors and 11 warnings, full workspace typecheck/93 tests/build passed. Built `release/tongkan-android-1.0.0-alpha10.1-p0.1.apk` with SHA-256 `2ECCEDFE6187C31B61B4B9D2952963C6BF1832CAEE4C3477D5F0638DAAFFB079`.
+
+- [x] Built the Alpha 10 P0.2 Android account-integration test candidate: added `AccountClient`, response models, Android Keystore AES-GCM `SessionStore`, two-stage email-code UI, service-unavailable/anonymous fallback, session restore/refresh/logout, logged-in Home and account summary states, and Gradle `tongkanAccountApiOrigin` injection. Preserved deep links, anonymous rooms, WebView, WebSocket and player code paths. Clean `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed with 17 tests, 0 errors and 10 non-blocking warnings; full workspace typecheck, 87 tests and builds passed. Built `release/tongkan-android-1.0.0-alpha10.0-p0.2.apk` with SHA-256 `C4E977D9CC24A6824DC1E991D753348B95178890FA0C88B28BFD0B87FE01870C`. The APK has an empty account origin and is for UI/anonymous regression only until the Worker is deployed.
+
+- [x] Committed the physically verified Alpha 10 P0 Android baseline as `e577b23 feat(android): establish alpha 10 p0 baseline`; the unrelated untracked `videos/` workspace remained outside the commit.
+
+- [x] Created and security-reviewed the Alpha 10 account foundation in `apps/account`: independent Worker/D1 architecture, production database `tongkan-account`, preview database `tongkan-account-preview`, migration `0001_auth.sql`, HMAC-only email index, hashed verification codes, atomic one-time consumption, opaque session tokens, send-code/verify/refresh/logout/me APIs, fixed QQ SMTP 465 implicit-TLS adapter, isolated test mode and six AuthService tests. Applied both remote D1 migrations, passed a full local HTTP login/refresh/logout flow, and passed workspace typecheck, 87 tests and production dry-run builds.
+
+- [x] Verified QQ SMTP connectivity without credentials: local Windows TLS 1.3 handshake to `smtp.qq.com:465` succeeded; a temporary Cloudflare scheduled Worker in HKG received `220 ... QQ Mail Server` in 1,162 ms and was deleted immediately after the result was recorded.
+- [x] Configured production QQ SMTP secrets without printing their values, deployed `tongkan-account` version `2a2aa2d2-f8c2-4f30-8ac2-7ce212ce59bf`, switched Pages `ACCOUNT` binding to production, and verified `GET /account-api/health` returns `testMode: false`. A real `POST /account-api/api/auth/send-code` to `28***@qq.com` returned HTTP 202 with no `debugCode` after the resend window elapsed.
+- [x] Built the production-account Android candidate `release/tongkan-android-1.0.0-alpha10.1-p0.2.apk` (versionCode 23) with `https://tongkan-personal.pages.dev/account-api` and an empty `ACCOUNT_TEST_ACCESS_TOKEN`. Android unit tests, Lint and APK assembly passed; SHA-256: `521EAFA140FD7A20DC65B2561220FA43F8E40262472D33C66D5756D4A9319168`.
 
 - [x] User confirmed `1.0.0-alpha10.0-p0.1` passed real-device testing on 2026-08-13; P0 Breath Tech Auth/Home/navigation, safe areas, light/dark themes and anonymous room/player compatibility are now the accepted Alpha 10 Android baseline.
 
@@ -157,13 +177,25 @@ status: Alpha 10 Android P0 Java View shell is complete and physically verified.
 - [x] Committed and pushed D-055 as `ece55c0 feat(web): add no-extension Bilibili sharing`
 - [x] Published production Pages deployment `f71c6cf2` and verified canonical room `a07c14b27ccc3859a0dc9956405021d3` reached 鈥滄埧闂村凡杩炴帴鈥?with the new CTA, audio checklist and sharing status
 
+
+- [x] Added Alpha 10.1 push foundation: D1 migration `0003_device_tokens.sql`, encrypted device-token storage with HMAC lookup, register/unregister APIs, logout token revocation, provider abstraction with optional webhook adapter, and `/api/pair/watch-invites` authorization/validation/delivery reporting. Added `PushService` tests; Account Worker typecheck, dry-run build and 15 tests passed.
+- [x] Added Android `PushTokenProvider` boundary and safe `NoopPushTokenProvider`; account client models/APIs now support device registration and watch-invite notification calls. Invite flow prefers notification when a concrete token/provider exists and keeps Android system sharing as fallback. Android `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed with JDK 17 in `C:\tmp\android-build\project`.
+- [x] Applied production D1 migration `0003_device_tokens.sql` to `tongkan-account`, deployed `tongkan-account` Worker version `fa0d8a5a-dced-442d-8dfc-952bcef6cfed`, verified `/account-api/health` returns `testMode: false`, and confirmed all three push/device endpoints return `401` without authentication. Account Worker regression remains green at 15/15 tests. Real provider delivery is intentionally not enabled.
+
+- [x] Selected FCM as the first real push provider (D-078). Added Android Firebase Messaging dependency with AndroidX compatibility, configurable Firebase client fields, Android 13 notification permission request, token refresh/register on login/restore/foreground, token unregister on logout, notification channel and validated room deep-link click handling. Added Account Worker FCM HTTP v1 JWT/OAuth Provider without storing private keys in code.
+- [x] Hardened FCM delivery: added `TongkanApplication` cold-start initialization, immediate server registration from `onNewToken`, ordered old-token revocation, cached-token logout cleanup, high-priority data-only messages, invite TTL/expiry checks, strict invite fragments, and server-side prevention of one device token remaining active on two accounts.
+- [x] Added `scripts/configure-fcm.ps1` plus `scripts/run-fcm-configure.mjs`: Firebase files must stay outside Git; `-ValidateOnly` checks package/project matching without build or network changes; full mode tests/builds Android, configures three Worker Secrets without printing values, deploys, checks health, hashes the APK and opens Explorer. Added ignore rules and setup documentation. A fake external configuration passed validation without leaking dummy API key, service email or private-key text.
 ## In Progress
+
+- [ ] Commit the reviewed Alpha 10.1 baseline, then install Spec Kit and create reviewer/worker templates without replacing the existing context system.
+
+- [ ] Install `1.0.0-alpha10.1-p0.6-fcm` on two supported Android devices and complete notification delivery, background receipt and click-to-room verification.
 
 - [x] Real-device test `1.0.0-alpha10.0-p0.1` passed: Auth/Home spacing, light/dark switching, four-tab shell and anonymous room/player compatibility were accepted by the user
 
 - [ ] Await user review of the HyperFrames Studio preview; revise timing, copy or visuals if requested, and render only after explicit approval
 
-- [ ] Validate Cloudflare Worker TLS/SMTP connectivity to QQ Mail and configure a dedicated sender mailbox plus SMTP authorization code
+- [ ] Configure a dedicated QQ sender mailbox and SMTP authorization code, set production Cloudflare Secrets, then verify real SMTP AUTH, delivery latency, invalid-recipient handling and QQ frequency limits
 
 - [ ] Decide the clarity route after confirming Bilibili anonymous Embed quality behavior: 360P is the highest non-login option; 480P/720P/1080P require official Bilibili login or membership
 
@@ -234,33 +266,36 @@ status: Alpha 10 Android P0 Java View shell is complete and physically verified.
 
 ## Active Tasks
 
-1. Install `release/tongkan-android-1.0-alpha9.3.5.apk` and verify the transparent landscape/fullscreen control layer on a real phone.
-2. Confirm time, progress, play, danmaku, speed and exit buttons remain clear and clickable without a full-width black strip.
-3. Recheck Alpha 9.3.4 loading feedback, orientation-state preservation, navigation blocking and Alpha 9.3.2 two-device buffering/reconnect behavior.
-4. Continue P0 after physical verification: complete error recovery actions and playback-completion state; do not push, tag or publish yet.
+1. Compile and validate the repaired Alpha 10.1 account, pair and FCM baseline.
+2. Confirm production and preview D1 migrations have no pending changes.
+3. Stage and commit only the reviewed baseline, excluding `videos/`, Firebase JSON, service-account files, Secrets, APKs and build artifacts.
+4. Install Spec Kit and create the reviewer/worker coordination templates plus the unilateral-unbind pilot specification.
+
 ## Known Issues
 
-1. The exact bottom interaction area is undecided: reaction-only, collapsible text chat, or both.
-2. A repeatable two-device regression matrix for create/join, media switching, speed, seek and reconnect should be completed before Beta.
-3. Alpha 9.3.3 inherits the accepted Alpha 9.3.2 buffering debounce and one-report-per-buffering-episode guard; two-device physical verification is pending.
-4. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
-5. Android Release signing is not configured; Alpha artifacts use Debug signing. Configure a stable Release keystore before publishing the account-enabled Android app.
-6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
-7. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
-8. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
-9. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
-10. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
-11. Alpha 9.3.1 footer visibility is physically verified. Remaining release-gate feedback covers first-screen spacing, button sizing, theme switching and immersive landscape controls.
+1. The current candidate is `1.0.0-alpha10.1-p0.6-fcm` with matching Firebase client parameters and production Worker Secrets. Google authentication and the FCM API route passed, but real device token registration, notification delivery and click-to-room remain physically unverified.
+2. The exact bottom interaction area is undecided: reaction-only, collapsible text chat, or both.
+3. A repeatable two-device regression matrix for create/join, media switching, speed, seek and reconnect should be completed before Beta.
+4. Alpha 9.3.3 inherits the accepted Alpha 9.3.2 buffering debounce and one-report-per-buffering-episode guard; two-device physical verification is pending.
+5. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
+6. Android Release signing is not configured; Alpha artifacts use Debug signing. Configure a stable Release keystore before publishing the account-enabled Android app.
+7. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
+8. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
+9. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
+10. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
+11. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
+12. Alpha 9.3.1 footer visibility is physically verified. Remaining release-gate feedback covers first-screen spacing, button sizing, theme switching and immersive landscape controls.
 12. The test recording shows roughly 10鈥?1 seconds of black/paused player state after entering the viewing page before the Bilibili video becomes visible; there is no clear app-level loading progress, timeout or retry action. Treat this as a P1 loading-feedback issue unless it reproduces as an actual stuck load.
 13. Alpha 9.3.3 implements native Bilibili control suppression, an App-owned transparent interaction layer and user-gesture main-frame navigation blocking. Static/build validation passed, but physical verification is still required because Bilibili DOM classes and WebView gesture behavior can vary by player version.
 14. The landscape stage is genuinely horizontal in the cropped frames; the large black areas in the portrait recording are caused by recording a landscape screen into a fixed 432x960 portrait canvas. The 16:9 video's left/right pillarboxing is normal. However, after the 51.9鈥?2.3s rotation back to portrait the player is paused at about 05:37鈥?5:38; the recording cannot prove whether this was an intentional tap or an unintended rotation side effect, so add a focused enter/exit-landscape playback-state regression.
 15. This was a single-device visual recording only. It does not verify two-device synchronization, long/short buffering behavior, reconnect, hard-sync notices, peer media switching or completion-state behavior for Alpha 9.3.2.
 16. Bilibili Embed currently exposes only Auto(360P) without a Bilibili login. `high_quality=1`, `quality=64`, `qn=64` and `quality=80&qn=80` all remain at 360P. Real clarity improvement requires an optional official Bilibili login flow and highest-available-quality selection; CSS sharpening cannot restore missing source detail.
-17. Alpha 10 email login will initially use QQ Mail SMTP. Direct Worker-to-SMTP TLS connectivity, QQ anti-abuse/frequency limits, delivery latency and failure handling still require a technical spike; use a dedicated sender and SMTP authorization code in Cloudflare secrets, never the mailbox password.
+17. Alpha 10 email login uses QQ Mail SMTP through `smtp.qq.com:465` implicit TLS. Production delivery was accepted and user-confirmed during testing; the authorization code was exposed in chat and must be rotated. Never use or store the mailbox password.
 18. Unbind/data ownership is resolved by D-066: either party may unbind immediately after confirmation; each party independently keeps or deletes access to a read-only archive, and underlying pair data is physically deleted only when both choose delete. Account-deletion interaction with retained archives still requires implementation-level validation.
 19. The current Android UI is concentrated in `MainActivity.java`; Alpha 10 should introduce plain-Java account/session clients and separate auth/watch screen responsibilities without Kotlin, Compose or a large framework rewrite.
 20. The HyperFrames promo preview is intentionally silent and local-only for review. TTS/BGM dependencies are unavailable offline, and final MP4 rendering is explicitly deferred until user approval.
-21. Alpha 10.0 P0 currently implements only the native UI shell. Email code login deliberately returns a service-not-ready message; Library, Calendar and Us tabs are labelled placeholders until the account Worker/D1 APIs and screen slices are implemented. Real-device regression against the Alpha 9.3.6 player is pending.
+21. Production Account Worker and Pages `/account-api` routing are live, but the current test APK still needs the next provider-enabled build for real push validation. Library and Calendar remain placeholders, while Us contains the account/pair shell and one-tap invite flow.
+22. Production device-token storage is migrated and protected by HMAC lookup plus AES-GCM ciphertext. With no `PUSH_PROVIDER`/FCM secrets configured, the Worker returns `fallbackRequired` rather than claiming delivery; Android continues with system sharing.
 
 ## Architecture Decisions
 
@@ -294,14 +329,16 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Active Android Test Artifact
 
-- APK: `release/tongkan-android-1.0-alpha9.3.6.apk`
-- Size: 1,402,039 bytes (1.34 MiB)
-- SHA-256: `D148D582E934514EDAA6F2E6F9789A6E983A8EFD8F9886B415352DF9109B67E3`
-- Validation: bridge JavaScript syntax, current Bilibili DOM selector regression, `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed on 2026-08-11
-- Unit tests: 15 passed, 0 failed; Lint: 0 errors, 7 non-blocking warnings
-- Physical verification: user confirmed visible video picture and audio playback on 2026-08-11
-- P0 scope: video-layer visibility fix plus inherited buffering/loading/orientation, transparent immersive controls, hidden native controls and navigation protection
-- Build directory: `C:\tmp\android-build\project-alpha936-video-visible-20260811-1438`
+- APK: `release/tongkan-android-1.0.0-alpha10.0-p0.2.apk`
+- Size: 1,438,115 bytes
+- SHA-256: `C4E977D9CC24A6824DC1E991D753348B95178890FA0C88B28BFD0B87FE01870C`
+- Version: `1.0.0-alpha10.0-p0.2`, versionCode 20
+- Validation: clean `testDebugUnitTest`, `lintDebug` and `assembleDebug` passed on 2026-08-13
+- Tests: 17 passed; Lint: 0 errors, 10 non-blocking warnings
+- Account configuration: empty `ACCOUNT_API_ORIGIN`; verifies UI and anonymous fallback only, not real email delivery
+- Build directory: `C:\tmp\android-build\project-alpha10-account-20260813-1205`
+- Physical verification: pending
+- Committed rollback baseline: `e577b23` / p0.1
 - Signing: Android Debug signing; manual installation only
 
 ## Previous Verified Alpha 9.3.1 Artifact
@@ -334,14 +371,12 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Freeze the accepted P0 baseline when the user requests a commit, then begin Alpha 10.0 with a QQ SMTP connectivity spike and a minimal `apps/account` Worker + D1 authentication skeleton.
-2. Prepare a dedicated QQ sender mailbox, enable SMTP and obtain an authorization code; store it only in Cloudflare secrets and do not record it in project files.
-3. Run a Cloudflare Worker-to-QQ-SMTP TLS connectivity and delivery spike, including timeout, invalid-recipient, rate-limit and retry behavior.
-4. Create the Alpha 10.0 architecture slice: planned `apps/account` Worker, D1 schema/migrations, email challenge/session API contracts, replaceable mail adapter and Android `AccountClient`/`SessionStore`.
-5. Build the Android email login and first-profile flow while retaining the anonymous-room button; then implement one-active-friend binding, shared library, calendar and history in Alpha 10.1-10.4.
-6. Prepare the user-provided built-in avatar asset pack and the four-tab account-space UI preview before the corresponding Android screens are finalized.
-7. After P0 real-device approval, implement the Account Worker/D1/email challenge foundation and Android `AccountClient`/`SessionStore`; keep Bilibili login and quality selection deferred. Do not commit, push, tag or publish until explicitly requested.
-8. Review `http://localhost:4317/#project/tongkan-promo`; after approval, optionally add Chinese voice/BGM and run the explicit HyperFrames render step.
+1. Complete review repairs and commit the accepted Alpha 10.1 account/pair/push baseline.
+2. Install `uv` and Spec Kit only after the clean baseline commit, then initialize the existing repository without replacing `CONTEXT.md` or `DECISIONS.md`.
+3. Add reviewer/worker task contracts, Issue/PR templates, write-scope rules and acceptance checklists.
+4. Pilot the workflow with unilateral unbind and independent archive-retention choices.
+5. Keep the FCM two-device test paused until the user resumes it, then run the existing notification QA matrix.
+6. Rotate the exposed QQ SMTP authorization code and verify the replacement secret remains private.
 
 ## Key Files
 
@@ -407,6 +442,13 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 
 ## Conversation Log
 
+- 2026-08-14 (155): Continued real FCM enablement. Confirmed the machine has no Firebase CLI, `google-services.json`, service-account JSON or FCM Worker Secrets. Added `scripts/configure-fcm.ps1`, `scripts/run-fcm-configure.mjs` and `pnpm run fcm:configure`; the workflow rejects Firebase files inside the repository, validates package/project matching, supports `-ValidateOnly`, runs Android tests/Lint/provider-enabled build before changing production, writes `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL` and `FCM_PRIVATE_KEY` through Wrangler stdin without echoing values, deploys, checks health, hashes the APK and opens Explorer. Added `.gitignore` protections and Android/Account documentation. Validation with fake files in the system temp directory passed and output contained none of the dummy API key, service email or private-key text. Actual FCM delivery remains blocked only by obtaining the two matching Firebase files. No commit or push was made.
+- 2026-08-14 (156): Resumed the FCM rollout, reread the project context/decision and preserved the existing dirty worktree. Searched Downloads, Desktop and Documents recursively without exposing file contents; no matching `google-services.json` or Firebase service-account JSON was found. Opened the official Firebase console so the user can create/select a project, register Android package `com.tongkan.mobile` and download the two matching external JSON files. No code, production Secret, deployment, APK, commit or push changed; the next action is for the user to provide only the two absolute file paths, after which `pnpm run fcm:configure` can complete validation, deployment and the FCM-enabled APK build.
+- 2026-08-14 (157): User reached the Firebase new-project naming screen and asked how to fill it. Recommended project name `Tongkan` (this field is not the Android package), leaving the auto-generated project ID unless Firebase reports a conflict, keeping the required Firebase terms accepted, disabling the optional Google developer program, and disabling Google Analytics on the next screen because Alpha 10.1 currently needs only FCM. No code, Secret, deployment, APK, commit or push changed.
+- 2026-08-14 (158): User completed Firebase project creation and reached the Tongkan project overview. Directed them to click `+ 添加应用`, select the Android icon, enter exact case-sensitive package `com.tongkan.mobile`, use optional nickname `同看 Android` and leave SHA certificate fields empty for FCM-only setup. The next required artifact is `google-services.json`. No code, Secret, deployment, APK, commit or push changed.
+- 2026-08-14 (159): User provided external path `C:\Users\dengbingmei\Downloads\google-services.json`. Safely validated existence, package `com.tongkan.mobile`, project ID, mobile application ID and API key without printing any values; the file is outside the repository and valid for the Android build. Searched Downloads for a matching Firebase Admin/service-account JSON and found none. The remaining setup action is Firebase console Settings > Service accounts > Firebase Admin SDK > Generate new private key, then provide only its absolute path. No code, production Secret, deployment, APK, commit or push changed.
+- 2026-08-14 (160): User provided the external Firebase service-account JSON. `pnpm run fcm:configure` ValidateOnly confirmed both files match package `com.tongkan.mobile` and the same Firebase project without printing sensitive values. The full workflow passed Android unit tests, Lint and assemble, configured `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL` and `FCM_PRIVATE_KEY` as Cloudflare Secrets, deployed Account Worker version `7dbd0456-b2ed-431f-810b-42cd1e1d13cf` at 100%, and passed production health. A local service-account smoke test successfully obtained a Google OAuth token and reached FCM HTTP v1; the deliberate fake registration token returned HTTP 400 `INVALID_ARGUMENT`, confirming authentication/API availability without sending a real notification. Built and opened `release/tongkan-android-1.0.0-alpha10.1-p0.6-fcm.apk` (3,906,102 bytes), SHA-256 `12884431DAEEF47FD36F1914E80867BC8BAE67930B79BE73C8218D99AAD45BF4`. Real two-device delivery and notification click verification remain pending. No commit or push was made.
+- 2026-08-14 (161): User postponed FCM physical testing and requested a cross-session development model with one global review window and multiple parallel execution windows, including result submission, rejection and revision loops, and asked to consider GitHub Spec Kit. Reviewed the official Spec Kit workflow and Codex integration. Proposed using Spec Kit for constitution/specification/plan/tasks/analyze/checklists, GitHub Issues and draft PRs as the durable cross-session communication bus, and one Git branch/worktree per worker for isolation; the review window owns integration, global context and verdicts. Spec Kit itself does not provide live session messaging. Local inspection found Python 3.12 available but no `uv`, `specify`, `pipx` or `gh`; only the master worktree exists. Because the current Alpha 10.1 account/pair/push implementation is still largely uncommitted while HEAD is `e577b23`, a reviewed baseline commit is mandatory before spawning worktrees or they will start from stale code. No installation, branch, worktree, commit, push or long-term decision was made; user approval of the collaboration model is pending.
 - 2026-08-03~05: Android Alpha 1 initial development
 - 2026-08-06 (1): Alpha 2 - IPv4/IPv6 rotation, detailed errors, timeout
 - 2026-08-06 (2): Alpha 3 - NPE fix, java-websocket 1.6.0
@@ -600,6 +642,18 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 
 - 2026-08-13 (140): User confirmed all Alpha 10 P0.1 real-device tests passed and asked for the subsequent development order. Promoted `1.0.0-alpha10.0-p0.1` to the physically verified Android UI baseline. The recommended critical path is: freeze P0 baseline; validate QQ SMTP; build Account Worker/D1 and secure auth APIs; connect Android AccountClient/Keystore session and complete real email login; then deliver unique friend binding, shared library, calendar, history/statistics, and only afterward migrate player responsibilities and run full two-device regression. No code, build, commit, push or deployment changed in this turn.
 
+- 2026-08-13 (141): User requested committing the accepted P0 baseline and immediately starting QQ SMTP validation plus the Account Worker/D1 skeleton. Committed `e577b23 feat(android): establish alpha 10 p0 baseline`, excluding the unrelated untracked `videos/` directory. Created production and preview D1 databases, applied `0001_auth.sql`, implemented the independent account Worker with hashed email/code/session storage, QQ SMTP 465 adapter and authentication APIs, passed five unit tests and a complete local HTTP login/refresh/logout flow, and passed full workspace typecheck, 86 tests and builds. Verified `smtp.qq.com:465` locally with TLS 1.3 and from a temporary Cloudflare HKG scheduled Worker, which received a QQ Mail `220` greeting in 1,162 ms; deleted the temporary probe and table afterward. Recorded D-074. Real SMTP AUTH/delivery and Android account integration await a dedicated QQ sender mailbox and authorization code. The account skeleton remains uncommitted unless the user explicitly requests another commit.
+
+- 2026-08-13 (142): Completed the post-scaffold account security review. Fixed the Account Worker SMTP adapter to the verified QQ 465 implicit-TLS route only, removed the unverified STARTTLS runtime branch, made verification-code consumption atomic in D1, added a consumed-code regression test, and minimized `pnpm-lock.yaml` to the single required `apps/account` importer. Account typecheck, six tests and Worker dry-run passed; full workspace typecheck, 87 tests and builds passed. The P0 baseline remains committed as `e577b23`; the account skeleton and documentation remain intentionally uncommitted, `videos/` remains excluded, and no push or deployment occurred. Real SMTP AUTH/delivery still awaits a dedicated QQ sender mailbox and authorization code.
+
+- 2026-08-13 (143): Continued Alpha 10 by implementing the Android account client slice without waiting for QQ SMTP credentials. Added a configurable HTTPS `AccountClient`, JSON account models, Android Keystore AES-GCM `SessionStore`, two-stage email-code AuthScreen, session restore/refresh/logout, logged-in Home/Us states, and explicit anonymous fallback. Incremented the development candidate to `1.0.0-alpha10.0-p0.2` / versionCode 20. Clean Android tests, Lint and APK assembly passed with 17 tests, 0 errors and 10 warnings; full workspace typecheck, 87 tests and builds passed. Generated `release/tongkan-android-1.0.0-alpha10.0-p0.2.apk` (SHA-256 `C4E977D9CC24A6824DC1E991D753348B95178890FA0C88B28BFD0B87FE01870C`). The artifact intentionally has no account origin and therefore tests UI/anonymous fallback only. Account Worker code, Android changes and docs remain uncommitted; no push or deployment occurred; `videos/` remains excluded.
+
+- 2026-08-13 (144): User confirmed the `1.0.0-alpha10.0-p0.3` preview account APK passed real-device testing, including login, displayed test code, secure session recovery, logout and anonymous/player regression. Promoted the preview login loop to the physically verified Alpha 10.0 account baseline.
+
+- 2026-08-13 (145): Started Alpha 10.1 immediately after the confirmed account baseline. Added the unique-friend D1 schema, invite hashing and 24-hour expiry, replacement-code invalidation, atomic active-pair uniqueness, create/accept/query endpoints and Android Us-page integration. Account tests reached 12, Android tests reached 18, Lint had 0 errors, and full workspace reached 93 passing tests. Applied preview migration `0002_pairing.sql`, deployed preview Worker version `66c764f9-eb74-4935-849a-41cc7fde123f`, verified reciprocal pair data for two fresh online accounts, and confirmed a replaced invite is rejected while the new code succeeds. Built `release/tongkan-android-1.0.0-alpha10.1-p0.1.apk` with SHA-256 `2ECCEDFE6187C31B61B4B9D2952963C6BF1832CAEE4C3477D5F0638DAAFFB079`; code remains uncommitted and `videos/` remains excluded.
+- 2026-08-13 (146): User reported not receiving the email verification code. Confirmed the released `1.0.0-alpha10.1-p0.1` APK is configured for the isolated Pages `/account-api` preview Worker with a test access token. Confirmed online `POST /api/auth/send-code` returns `debugCode` and `AUTH_TEST_MODE=true` uses `NoopMailer`, so no email is sent by design. No code or deployment changed; real QQ SMTP remains the next release-blocking step.
+- 2026-08-13 (147): User agreed to complete real email delivery. Confirmed production `tongkan-account` did not exist, created it through production secret setup, generated and stored `EMAIL_HMAC_SECRET`, `AUTH_SECRET` and `SESSION_SECRET` without printing values, and applied production D1 migration `0002_pairing.sql`. Production SMTP credentials, Pages binding switch, real delivery verification and a clean APK remain pending; no SMTP secret was requested or exposed in chat.
+
 ---
 
 Maintenance rules:
@@ -608,3 +662,16 @@ Maintenance rules:
 - Critical decisions in Known Issues or Architecture Decisions
 - Build artifacts (APK path, SHA-256) in corresponding Completed entries
 - Update the follow-up PRD whenever a product decision is agreed with the user
+
+
+- 2026-08-13 (148): User supplied QQ SMTP credentials for the temporary production verification. Deployed production `tongkan-account` version `2a2aa2d2-f8c2-4f30-8ac2-7ce212ce59bf`, switched Pages `/account-api` to the production Worker, and verified health reports `testMode: false`. After the 60-second resend limit, a real send-code request to `28***@qq.com` returned HTTP 202 with no `debugCode`, confirming the Worker accepted the SMTP delivery path; inbox arrival remains user-confirmed. Built and opened `release/tongkan-android-1.0.0-alpha10.1-p0.2.apk` with production account origin, empty test token, passed Android tests/Lint/assemble, SHA-256 `521EAFA140FD7A20DC65B2561220FA43F8E40262472D33C66D5756D4A9319168`. Because the SMTP authorization code was exposed in chat, it must be rotated after this verification and replaced in Cloudflare Secret. No commit or push was made.
+- 2026-08-13 (149): User confirmed the production Android candidate can receive the real QQ verification email and complete login. This closes the real email-login blocker for Alpha 10.1 P0.2. No code or deployment changed; the next validation is two-account unique-friend pairing and session recovery. The exposed SMTP authorization code still must be rotated after testing. No commit or push was made.
+- 2026-08-13 (150): User reported that reopening the app stayed on the login screen for a long time while restoring the account. Root cause was startup showing `AuthScreen` and waiting for network `me/refresh` before rendering the authenticated home. Changed `MainActivity.restoreAccountSession()` to render the cached authenticated entry screen immediately, keep network validation in the background, silently ignore non-authentication network failures, and still clear the session and require login on explicit authentication failure. Built and opened `release/tongkan-android-1.0.0-alpha10.1-p0.3.apk` (versionCode 24), SHA-256 `7182155CF75B7BD3214EC5574143D667BE5EF9D4F1D66EE462BED3E2835A1FB4`; Android unit tests, Lint and assemble passed. No commit or push was made.
+- 2026-08-13 (151): User confirmed two-person binding works and requested a one-tap invitation flow similar to Douyin一起看. Added `邀请一起看` to the bound-friend Us page; clicking it reuses the existing room creation path, then `pendingAutoShare` opens the Android system share sheet after the host connects. The friend can open the shared `/room/{roomId}#join={inviteKey}` deep link to enter the room. Built and opened `release/tongkan-android-1.0.0-alpha10.1-p0.4.apk` (versionCode 25), SHA-256 `31EAA3F867BE4BF3C1706B60C5F435965610EADDF1B17489884F9FA2AA992F1F`; Android unit tests, Lint and assemble passed. No commit or push was made.
+
+- 2026-08-13 (152): User requested device notification tokens and push service for bound-friend one-tap invitations. Added `0003_device_tokens.sql`, `DeviceTokenRecord`, encrypted token storage with HMAC lookup, registration/unregistration endpoints, logout revocation, provider abstraction with optional webhook adapter, and `/api/pair/watch-invites` with pair authorization, Tongkan room URL validation, expiry and fallback reporting. Added Android `PushTokenProvider`/`NoopPushTokenProvider`, AccountClient models and calls, and notification-first/system-share-fallback orchestration. Account Worker typecheck, 15 tests and dry-run build passed; Android unit tests, Lint and assembleDebug passed in `C:\tmp\android-build\project`. No remote migration, deployment, commit, push or release APK was created. Real notifications remain blocked on choosing/configuring FCM, Huawei Push or a trusted provider; the current No-op provider intentionally generates no fake token or notification.
+- 2026-08-13 (153): Continued the device-notification rollout. Applied production D1 migration `0003_device_tokens.sql` to `tongkan-account`; deployed Worker version `fa0d8a5a-dced-442d-8dfc-952bcef6cfed`; verified Pages `/account-api/health` returns HTTP 200 with `testMode: false`; verified unauthenticated device registration, unregister and watch-invite requests return HTTP 401; confirmed remote D1 has no migrations pending and Account Worker tests pass 15/15. No APK, commit or push was created. The production Worker still uses the intentional no-op Provider because real Android push credentials/SDK are not configured.
+
+- 2026-08-13 (154): Selected FCM as the first real push provider. Added configurable Firebase Messaging client integration to Android, Android 13 notification permission/channel handling, token refresh/register/unregister lifecycle, and notification click validation into the existing room deep-link flow. Added Account Worker FCM HTTP v1 JWT/OAuth provider and deployed Worker version 338bbe45-a3f5-4c2a-965a-8f1f3487ad3e; production health returned HTTP 200 and D1 has no pending migrations. Built and opened `release/tongkan-android-1.0.0-alpha10.1-p0.5.apk` (versionCode 26, SHA-256 AED925A5B5AEFAAF4BBBD925C6419BE4E4ACF81FB4C406028888CCA3689D4C6C). Android tests, Lint and assemble passed. Firebase project values and service-account Secrets were intentionally not configured, so real notification delivery remains pending and system sharing remains the fallback. No commit or push was created.
+
+- 2026-08-14 (162): User accepted the proposed multi-session development model: one reviewer/controller task, up to three isolated worker tasks, Spec Kit for specification/plan/tasks/checklists, GitHub Issues and Draft PRs for durable communication, and one `codex/TK-xxx-*` branch/worktree per worker. Recorded D-079. Independent reviewers requested changes to the dirty Alpha 10.1 baseline; repaired the disconnected pair-page/invite wiring and cached-login rendering, added security hardening for ignored credentials, explicit test-token opt-in and FCM log redaction, and reconstructed corrupted account/decision/PRD documentation. `pnpm typecheck`, 97 tests, production builds and Android checks passed; credential scanning was clean. Production D1 was current and preview D1 received `0003_device_tokens.sql`. The reviewed baseline is committed before any Spec Kit installation or worker worktree creation.

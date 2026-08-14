@@ -92,6 +92,15 @@ Select-String -Path DECISIONS.md -Pattern "片单|主题|全屏|协议"
 | D-068 | 账号仅使用内置头像 | 已接受 | 2026-08-11 |
 | D-069 | 共同观看时长采用有效播放重叠模型 | 已接受 | 2026-08-11 |
 | D-070 | 日历日期必填、时间与备注可选 | 已接受 | 2026-08-11 |
+| D-071 | Alpha 10 保留三套色系并共享统一组件系统 | 已取代（D-073） | 2026-08-11 |
+| D-072 | Alpha 10 选择 Air 作为主设计并采用克制立体按钮 | 已取代（D-073） | 2026-08-11 |
+| D-073 | Alpha 10 采用 Breath Tech 黑白双主题 | 已接受 | 2026-08-11 |
+| D-074 | 账号服务使用独立 Worker、D1 与 QQ SMTP 465 | 已接受 | 2026-08-12 |
+| D-075 | 预览账号服务只通过 Pages 同域入口开放 | 已接受 | 2026-08-12 |
+| D-076 | 绑定好友后一键邀请进入同看房间 | 已接受 | 2026-08-13 |
+| D-077 | 设备通知采用 Provider 抽象并保留系统分享兜底 | 已接受 | 2026-08-13 |
+| D-078 | Alpha 10.1 首选 FCM 推送 | 已接受 | 2026-08-13 |
+| D-079 | 复杂任务采用审查窗口与隔离执行窗口 | 已接受 | 2026-08-14 |
 
 ## D-001 房间固定最多两人
 
@@ -781,3 +790,59 @@ Select-String -Path DECISIONS.md -Pattern "片单|主题|全屏|协议"
 - 决策：推翻 D-071 与 D-072 的 Air/Cinema/Together 生产方向，Alpha 10 改用唯一的 Breath Tech 设计体系。界面只保留中性白和中性黑两套完整主题，默认白色；冷光蓝仅用于连接、焦点、选中和计划状态。页面以精确网格、状态编码、弱边界、边到边列表、大面积留白和单色反转按钮表达科技感与呼吸轻盈感。
 - 原因：用户明确认为 Air 方案仍显古早，旧式高光渐变、立体下沉和多配色主题不能满足长期使用的现代感。收束为黑白双主题可以减少视觉噪音，提高 Android 原生实现一致性，同时保留同看特有的双人连接表达。
 - 影响：`design/alpha10-ui/SELECTED_DESIGN.md` 更新为 Breath Tech 真源；`options.html` 进入新原型。D-071/D-072 保留历史记录但不再指导生产实现。Android 继续使用 Java View，所有触控目标至少 48dp，按钮必须有 80-150ms 即时反馈、加载禁用和结果反馈。观看页仍保持独立黑色沉浸结构，只迁移 Breath Tech 的控件和状态规范。
+## D-074 账号服务使用独立 Worker、D1 与 QQ SMTP 465
+
+- 日期：2026-08-12
+- 状态：已接受
+- 范围：账号架构、Cloudflare、邮件、安全
+- 决策：账号、邮箱验证码、会话、唯一好友和设备令牌由独立 `apps/account` Cloudflare Worker 与独立 D1 承载；生产验证码通过 QQ SMTP 465 隐式 TLS 发送，密钥只保存为 Cloudflare Secret。
+- 原因：账号数据与高频房间信令的生命周期、隐私和发布风险不同，独立服务能降低播放器迭代对身份系统的影响，也便于预览与生产隔离。
+- 影响：新增 `apps/account`、独立 D1 migration、Pages `ACCOUNT` Service Binding、Android `AccountClient` 与安全会话存储；不得把 SMTP 授权码、验证码或会话令牌写入 Git、APK 或日志。
+- 替代方案：把账号接口直接放入 `apps/signaling`，因耦合过高而不采用。
+
+## D-075 预览账号服务只通过 Pages 同域入口开放
+
+- 日期：2026-08-12
+- 状态：已接受
+- 范围：账号预览环境、Pages、访问控制
+- 决策：账号 API 统一通过 Pages `/account-api/*` 同域入口访问；预览 Worker 关闭独立公网路由并使用独立 D1 与测试访问控制，Android 通过构建参数注入账号 API 地址。
+- 原因：`workers.dev` 在目标网络环境中可能不可达，同域入口更稳定；预览和生产隔离可避免测试验证码、测试账号和生产数据混用。
+- 影响：`apps/web/functions/_middleware.js` 与 `apps/web/wrangler.toml` 增加 `ACCOUNT` Binding；预览令牌只允许专用测试构建显式启用，生产 APK 必须为空。
+
+## D-076 绑定好友后一键邀请进入同看房间
+
+- 日期：2026-08-13
+- 状态：已接受
+- 范围：Android、唯一好友、房间邀请
+- 决策：“我们”页面在好友已绑定时提供“邀请一起看”；点击后自动创建临时房间并优先向唯一好友发送邀请通知，通知不可用或发送失败时自动打开 Android 系统分享。
+- 原因：减少复制邀请码、返回首页、创建房间和再次分享的步骤，接近用户熟悉的一键一起看体验，同时保留匿名房间和分享链路的可靠兜底。
+- 影响：Android 需要接通好友页、房间创建、推送邀请 API 和分享兜底；房间深链继续使用 `/room/{roomId}#join={inviteKey}`。
+
+## D-077 设备通知采用 Provider 抽象并保留系统分享兜底
+
+- 日期：2026-08-13
+- 状态：已接受
+- 范围：Android 通知、账号 Worker、D1、好友邀请
+- 决策：设备令牌由 Android 登录会话注册和注销，服务端以 HMAC 索引与 AES-GCM 加密值保存；推送通过可替换 `PushProvider` 发送，只允许发送给当前唯一好友。没有活动设备、Provider 未配置或推送失败时，客户端必须继续系统分享流程。
+- 原因：不同 Android 厂商和网络环境对推送支持差异较大，Provider 抽象可隔离厂商 SDK 和服务端凭据，分享兜底可避免推送成为创建房间的阻塞点。
+- 影响：新增 `0003_device_tokens.sql`、设备注册 API、好友邀请 API、Android token 生命周期管理和通知深链；不得在日志、上下文、APK 或 Git 中保存明文 token 与服务端凭据。
+
+## D-078 Alpha 10.1 首选 FCM 推送
+
+- 日期：2026-08-13
+- 状态：已接受
+- 范围：Android 设备通知、账号 Worker、好友一起看邀请、通知深链
+- 决策：第一套真实推送方案选择 Firebase Cloud Messaging（FCM）。Android 使用 Firebase Messaging SDK 获取和刷新 token；Account Worker 使用 FCM HTTP v1 Provider 发送邀请通知；Android 13+ 请求通知权限；通知点击统一进入现有 `/room/{roomId}#join={inviteKey}` 深链。无 Firebase 客户端配置或服务端凭据时继续使用 No-op Provider 与系统分享兜底。
+- 原因：官方 Android SDK 与 token 生命周期明确，通知数据可携带现有房间深链；同时保留 Provider 抽象，后续可替换华为 Push 或受控 webhook。
+- 安全边界：Firebase 客户端配置只在构建时注入，服务账号私钥只放 Cloudflare Secret；不写入 APK、Git、日志或 `CONTEXT.md`。
+- 影响：增加 Firebase Messaging 依赖、通知权限与渠道、token 注册/注销、服务端 JWT/OAuth 发送器和安全配置脚本；真实双设备送达仍需物理验收。
+
+## D-079 复杂任务采用审查窗口与隔离执行窗口
+
+- 日期：2026-08-14
+- 状态：已接受
+- 范围：开发流程、Spec Kit、Git、GitHub、跨会话协作
+- 决策：复杂任务使用一个审查窗口负责全局规格、拆分、依赖、验收、合并、部署和上下文更新；最多三个执行窗口各自在独立 `codex/TK-xxx-*` 分支与 Git worktree 中完成不重叠任务。Spec Kit 管理 constitution/spec/plan/tasks/checklist，GitHub Issue、Draft PR 和标准交接报告承担跨会话通信与退回修改。
+- 原因：不同会话不能依赖隐式聊天记忆，共享工作区并发修改也容易覆盖代码。规格文件、Issue、PR 和 worktree 能形成持久、可审计、可退回的协作链路。
+- 影响：审查窗口独占 `CONTEXT.md`、`DECISIONS.md`、PRD、合并和生产部署；执行窗口只能修改任务合同允许的写入范围，不得自行部署或提交全局文档。基线未提交、写入范围重叠、测试未通过或交接不完整时不得开始并行任务。
+- 替代方案：多个窗口直接共享同一工作目录，因覆盖和状态漂移风险不采用；Spec Kit 全自动 workflow 暂不作为首版依赖。

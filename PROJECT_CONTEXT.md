@@ -2,7 +2,7 @@
 
 > 作用：保存不会因一次开发任务结束而失效的项目背景、目录地图、文档导航和 AI 工作方法。
 > 动态状态请看 `CONTEXT.md`；长期决策请看 `DECISIONS.md`；执行规则请看 `AGENTS.md`。
-> 最后核对：2026-08-11。
+> 最后核对：2026-08-14。
 
 ## 1. 新对话启动顺序
 
@@ -33,6 +33,7 @@
 | `design/alpha10-ui/SELECTED_DESIGN.md` | Alpha 10 已选 Breath Tech 黑白双主题、组件与交互 Token 真源 | Alpha 10 生产视觉、主题或组件规则改变时 |
 | `design/alpha10-ui/ANDROID_IMPLEMENTATION_PLAN.md` | Breath Tech 原生 Java View 分层、开发顺序与首批验收 | 开始或调整 Alpha 10 Android UI 实现时 |
 | `design.md` | Web 跨页面统一设计系统 | Web 视觉、结构、主题或组件规则改变时 |
+| `apps/account/README.md` | Alpha 10 Account Worker、D1、SMTP 与本地开发入口 | 账号服务配置、Secret、迁移或开发命令变化时 |
 | `QA_CHECKLIST.md` | 发布验收清单 | 新增需回归的能力时 |
 | `DEPLOYMENT.md` | 公网部署和移动端路线 | 部署方式、域名或环境变量改变时 |
 
@@ -48,6 +49,13 @@
 6. README 或历史分析文档。
 
 如果代码行为与文档不一致，不要直接假定代码正确；先判断代码是当前实现、历史实验还是未完成改动。
+
+### 复杂任务协作
+
+- 一个审查/控制任务负责全局规格、依赖、验收、合并、部署和上下文文档。
+- 最多三个执行任务在独立 `codex/TK-xxx-*` 分支与 Git worktree 中完成互不重叠的写入范围。
+- Spec Kit 管理 specification、plan、tasks 和 checklist；GitHub Issue、Draft PR 与标准交接报告承担跨任务的持久通信。
+- 未提交基线、写入范围重叠、测试失败或交接不完整时，不创建并行 worktree，也不进入合并。
 
 ## 3. 产品定义
 
@@ -163,12 +171,23 @@ Android 约束：
 - 当前网络依赖为 OkHttp 4.12.0。
 - 中文路径可能导致 Gradle 问题，构建使用 `C:\tmp\android-build\project`。
 
+### 账号服务
+
+- `apps/account` 与高频房间信令隔离，使用独立 Cloudflare Worker 和 D1。
+- Android 账号客户端位于 `apps/android/app/src/main/java/com/tongkan/mobile/account/`：`AccountClient` 负责 HTTP API，`SessionStore` 使用 Android Keystore AES-GCM 保护 Session Token，`AccountModels` 解析账号响应；服务 Origin 通过 Gradle 属性注入。
+- Web Pages Functions 将 `/account-api/*` 通过 `ACCOUNT` Service Binding 转发到隔离账号 Worker；预览 Worker 关闭独立公网路由，生产 Worker 已部署并由 Pages 同域入口访问。
+- 邮箱验证码、邮箱索引和会话令牌只保存 HMAC/哈希；生产验证码通过 QQ SMTP 465 隐式 TLS 发送。
+- 正式 D1：`tongkan-account`；预览 D1：`tongkan-account-preview`。生产账号登录、唯一好友和设备令牌迁移已应用。
+- 生产推送选择 FCM：Android 通过 Firebase Messaging 获取设备 token，Account Worker 通过 FCM HTTP v1 发送好友同看邀请；生产 Secret 和 OAuth/FCM 鉴权冒烟测试已通过，真实双设备送达仍待物理验收。
+
 ## 9. 常用命令
 
 ```powershell
 pnpm install
 pnpm dev:signaling
 pnpm dev:web
+pnpm --filter @tongkan/account dev
+pnpm --filter @tongkan/account db:local
 pnpm test
 pnpm test:integration
 pnpm typecheck

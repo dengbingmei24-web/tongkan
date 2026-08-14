@@ -1,0 +1,22 @@
+{
+  "name": "@tongkan/account",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir dist --env=\"\"",
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:local": "wrangler d1 migrations apply tongkan-account --local",
+    "db:remote": "wrangler d1 migrations apply tongkan-account --remote",
+    "db:preview": "wrangler d1 migrations apply tongkan-account-preview --remote --env preview",
+    "deploy:preview": "wrangler deploy --env preview"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250803.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.28.1"
+  }
+}

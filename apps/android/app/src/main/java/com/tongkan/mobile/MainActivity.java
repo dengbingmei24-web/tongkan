@@ -1,5 +1,6 @@
 package com.tongkan.mobile;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -13,6 +14,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
@@ -38,6 +40,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.view.WindowManager;
 
+import com.tongkan.mobile.account.AccountClient;
+import com.tongkan.mobile.account.AccountModels;
+import com.tongkan.mobile.account.FcmPushTokenProvider;
+import com.tongkan.mobile.account.PushTokenProvider;
+import com.tongkan.mobile.account.SessionStore;
 import com.tongkan.mobile.ui.AuthScreen;
 import com.tongkan.mobile.ui.BreathTheme;
 import com.tongkan.mobile.ui.HomeScreen;
@@ -64,6 +71,17 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private final ExecutorService background = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
+    private AccountClient accountClient;
+    private SessionStore sessionStore;
+    private AccountModels.Session accountSession;
+    private AccountModels.Pair currentPair;
+    private AccountModels.PairInvite currentPairInvite;
+    private String pairMessage = "";
+    private boolean pairLoading;
+    private boolean pairLoaded;
+    private String registeredPushToken;
+    private final PushTokenProvider pushTokenProvider = new FcmPushTokenProvider();
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 7201;
     private EditText nicknameInput;
     private EditText inviteInput;
     private EditText videoInput;
@@ -135,6 +153,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean preparingLocalVideo;
     private boolean awaitingMediaConfirmation;
     private boolean pendingAutoShare;
+    private boolean pendingPairWatchInvite;
     private boolean darkMode;
     private boolean danmakuVisible;
     private boolean appFullscreen;
@@ -173,22 +192,50 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(null);
         preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
+        accountClient = new AccountClient(BuildConfig.ACCOUNT_API_BASE_URL, BuildConfig.ACCOUNT_TEST_ACCESS_TOKEN);
+        sessionStore = new SessionStore(this);
+        accountSession = sessionStore.load();
         breathTheme = new BreathTheme(this, preferences);
         darkMode = breathTheme.isDark();
         danmakuVisible = preferences.getBoolean("danmakuVisible", true);
         playerBridgeScript = readAsset("bilibili-player-bridge.js");
         buildInterface();
         configureWebView();
+        requestNotificationPermissionIfNeeded();
 
         nicknameInput.setText(preferences.getString("nickname", "我"));
-        showAuthScreen();
-        String deepLink = getIntent().getDataString();
+        String deepLink = incomingInviteUrl(getIntent());
         if (deepLink != null && InviteInfo.parse(deepLink) != null) {
             showEntryScreen();
             homeScreen.showJoinPanel();
             inviteInput.setText(deepLink);
             joinInvite(deepLink);
+        } else {
+            restoreAccountSession();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (accountSession != null) registerDeviceTokenIfAvailable();
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 && FcmPushTokenProvider.isConfigured()
+            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != getPackageManager().PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, NOTIFICATION_PERMISSION_REQUEST_CODE);
+        }
+    }
+
+    private static String incomingInviteUrl(Intent intent) {
+        String data = intent == null ? null : intent.getDataString();
+        if (data != null && InviteInfo.parse(data) != null) return data;
+        if (intent != null && intent.hasExtra("url")) {
+            String extra = intent.getStringExtra("url");
+            if (extra != null && InviteInfo.parse(extra) != null) return extra;
+        }
+        return null;
     }
 
     @Override
@@ -201,7 +248,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     protected void onNewIntent(Intent intent) {
 
         setIntent(intent);
-        String deepLink = intent.getDataString();
+        String deepLink = incomingInviteUrl(intent);
         if (deepLink != null) {
             showEntryScreen();
             homeScreen.showJoinPanel();
@@ -213,6 +260,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     @Override
     protected void onDestroy() {
         if (roomClient != null) roomClient.close();
+        if (accountClient != null) accountClient.close();
         background.shutdownNow();
         mainHandler.removeCallbacksAndMessages(null);
         hideHtmlFullscreen();
@@ -246,12 +294,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
             @Override
             public void onRequestCode(String email) {
-                authScreen.setLoading(true);
-                mainHandler.postDelayed(() -> {
-                    authScreen.setLoading(false);
-                    authScreen.showMessage("账号服务正在接入，请先使用匿名房间");
-                    Toast.makeText(MainActivity.this, "邮箱登录将在账号服务接入后开放", Toast.LENGTH_SHORT).show();
-                }, 650);
+                requestAccountCode(email);
+            }
+
+            @Override
+            public void onVerifyCode(String email, String code) {
+                verifyAccountCode(email, code);
             }
 
             @Override
@@ -718,6 +766,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void createRoom() {
+        createRoom(false);
+    }
+
+    private void createRoom(boolean inviteBoundFriend) {
         String nickname = normalizedNickname();
         createButton.setEnabled(false);
         createButton.setText("正在创建…");
@@ -728,13 +780,15 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 runOnUiThread(() -> {
                     createButton.setEnabled(true);
                     createButton.setText("创建房间");
-                    pendingAutoShare = true;
+                    pendingPairWatchInvite = inviteBoundFriend;
+                    pendingAutoShare = !inviteBoundFriend;
                     connectIdentity(result.roomId, result.hostKey, "host", result.inviteKey, nickname);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     createButton.setEnabled(true);
                     createButton.setText("创建房间");
+                    pendingPairWatchInvite = false;
                     showError("创建房间失败，请检查网络后重试");
                 });
             }
@@ -981,7 +1035,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             joinButton.setText("加入房间");
             showVideoScreen();
             applySnapshot(snapshot);
-            if (pendingAutoShare) {
+            if (pendingPairWatchInvite) {
+                pendingPairWatchInvite = false;
+                mainHandler.postDelayed(this::sendPairWatchInvite, 350);
+            } else if (pendingAutoShare) {
                 pendingAutoShare = false;
                 mainHandler.postDelayed(this::shareInvite, 350);
             }
@@ -1170,6 +1227,369 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (!appFullscreen) rootContainer.post(this::updatePlayerAspectRatio);
     }
 
+    private void restoreAccountSession() {
+        if (accountSession == null) {
+            showAuthScreen();
+            if (!accountClient.isConfigured()) authScreen.showMessage("账号服务尚未部署，请先使用匿名房间");
+            return;
+        }
+        if (!accountClient.isConfigured()) {
+            showEntryScreen();
+            Toast.makeText(this, "账号服务尚未配置，已进入本地房间模式", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (accountSession.expiresAt <= System.currentTimeMillis()) {
+            clearAccountSession();
+            showAuthScreen();
+            authScreen.showMessage("登录状态已过期，请重新获取验证码");
+            return;
+        }
+        showEntryScreen();
+        registerDeviceTokenIfAvailable();
+        long refreshWindowMs = 7L * 24L * 60L * 60L * 1000L;
+        if (accountSession.expiresAt - System.currentTimeMillis() <= refreshWindowMs) {
+            accountClient.refresh(accountSession.token, new AccountClient.ResultCallback<AccountModels.Session>() {
+                @Override public void onSuccess(AccountModels.Session session) {
+                    runOnUiThread(() -> finishAccountRestore(session));
+                }
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> handleAccountRestoreFailure(failure));
+                }
+            });
+        } else {
+            AccountModels.Session cached = accountSession;
+            accountClient.me(cached.token, new AccountClient.ResultCallback<AccountModels.User>() {
+                @Override public void onSuccess(AccountModels.User user) {
+                    runOnUiThread(() -> finishAccountRestore(new AccountModels.Session(cached.token, cached.expiresAt, user)));
+                }
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> handleAccountRestoreFailure(failure));
+                }
+            });
+        }
+    }
+
+    private void requestAccountCode(String email) {
+        authScreen.setRequestLoading(true);
+        accountClient.sendCode(email, new AccountClient.ResultCallback<AccountModels.SendCodeResult>() {
+            @Override public void onSuccess(AccountModels.SendCodeResult result) {
+                runOnUiThread(() -> {
+                    authScreen.setRequestLoading(false);
+                    String message = "验证码已发送，" + Math.max(1, result.expiresInSeconds / 60) + " 分钟内有效";
+                    if (!result.debugCode.isEmpty()) message += " · 测试码 " + result.debugCode;
+                    authScreen.showCodeStep(message);
+                });
+            }
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    authScreen.setRequestLoading(false);
+                    authScreen.showMessage(failure.getMessage());
+                });
+            }
+        });
+    }
+
+    private void verifyAccountCode(String email, String code) {
+        authScreen.setVerifyLoading(true);
+        String deviceName = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
+        accountClient.verifyCode(email, code, deviceName.trim(), new AccountClient.ResultCallback<AccountModels.Session>() {
+            @Override public void onSuccess(AccountModels.Session session) {
+                runOnUiThread(() -> {
+                    authScreen.setVerifyLoading(false);
+                    if (!saveAccountSession(session)) {
+                        authScreen.showMessage("无法安全保存登录状态，请检查系统安全设置");
+                        accountClient.logout(session.token, new AccountClient.ResultCallback<Void>() {
+                            @Override public void onSuccess(Void ignored) {}
+                            @Override public void onFailure(AccountClient.Failure failure) {}
+                        });
+                        return;
+                    }
+                    Toast.makeText(MainActivity.this, "登录成功", Toast.LENGTH_SHORT).show();
+                    registerDeviceTokenIfAvailable();
+                    showEntryScreen();
+                });
+            }
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    authScreen.setVerifyLoading(false);
+                    authScreen.showMessage(failure.getMessage());
+                });
+            }
+        });
+    }
+
+    private void registerDeviceTokenIfAvailable() {
+        if (accountSession == null || !accountClient.isConfigured()) return;
+        pushTokenProvider.refreshToken(this, new PushTokenProvider.Callback() {
+            @Override public void onToken(String token) {
+                if (token == null || token.trim().isEmpty() || accountSession == null) return;
+                String normalized = token.trim();
+                String previous = registeredPushToken;
+                registeredPushToken = normalized;
+                if (previous != null && !previous.equals(normalized)) {
+                    accountClient.unregisterDevice(accountSession.token, previous, pushTokenProvider.providerId(), new AccountClient.ResultCallback<Void>() {
+                        @Override public void onSuccess(Void ignored) {}
+                        @Override public void onFailure(AccountClient.Failure failure) {}
+                    });
+                }
+                String deviceName = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
+                accountClient.registerDevice(accountSession.token, normalized, pushTokenProvider.providerId(), deviceName.trim(), BuildConfig.VERSION_NAME,
+                    new AccountClient.ResultCallback<AccountModels.DeviceRegistration>() {
+                        @Override public void onSuccess(AccountModels.DeviceRegistration result) {}
+                        @Override public void onFailure(AccountClient.Failure failure) {
+                            if (failure.isAuthenticationFailure()) runOnUiThread(() -> handleAccountRestoreFailure(failure));
+                        }
+                    });
+            }
+            @Override public void onUnavailable() {}
+        });
+    }
+    private void finishAccountRestore(AccountModels.Session session) {
+        if (!saveAccountSession(session)) {
+            clearAccountSession();
+            showAuthScreen();
+            authScreen.showMessage("无法恢复安全登录状态，请重新登录");
+            return;
+        }
+        registerDeviceTokenIfAvailable();
+        showEntryScreen();
+    }
+
+    private void handleAccountRestoreFailure(AccountClient.Failure failure) {
+        if (failure.isAuthenticationFailure()) {
+            clearAccountSession();
+            showAuthScreen();
+            authScreen.showMessage("登录状态已失效，请重新获取验证码");
+            return;
+        }
+        showEntryScreen();
+        Toast.makeText(this, failure.getMessage() + "，房间功能仍可使用", Toast.LENGTH_LONG).show();
+    }
+
+    private boolean saveAccountSession(AccountModels.Session session) {
+        try {
+            boolean accountChanged = accountSession == null || !accountSession.user.id.equals(session.user.id);
+            sessionStore.save(session);
+            accountSession = session;
+            if (accountChanged) resetPairState();
+            preferences.edit().putString("nickname", session.user.nickname).apply();
+            return true;
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    private void clearAccountSession() {
+        accountSession = null;
+        registeredPushToken = null;
+        resetPairState();
+        sessionStore.clear();
+        homeScreen.setAnonymousState();
+    }
+
+    private void resetPairState() {
+        currentPair = null;
+        currentPairInvite = null;
+        pairMessage = "";
+        pairLoading = false;
+        pairLoaded = false;
+    }
+
+    private View pairPage() {
+        return mainNavigationView.pairPage(
+            accountSession.user.nickname,
+            accountSession.user.email,
+            currentPair,
+            currentPairInvite,
+            pairMessage,
+            pairLoading,
+            new MainNavigationView.PairActions() {
+                @Override public void onCreateInvite() { createPairInvite(); }
+                @Override public void onCopyInvite() { copyPairInvite(); }
+                @Override public void onAcceptInvite(String code) { acceptPairInvite(code); }
+                @Override public void onRefresh() { refreshPairState(true); }
+                @Override public void onInviteWatch() { inviteBoundFriendToWatch(); }
+                @Override public void onLogout() { confirmAccountLogout(); }
+            }
+        );
+    }
+
+    private void createPairInvite() {
+        if (accountSession == null || pairLoading) return;
+        pairLoading = true;
+        pairMessage = "正在生成一次性邀请码…";
+        showMainTab("pair");
+        accountClient.createPairInvite(accountSession.token, new AccountClient.ResultCallback<AccountModels.PairInvite>() {
+            @Override public void onSuccess(AccountModels.PairInvite invite) {
+                runOnUiThread(() -> {
+                    currentPairInvite = invite;
+                    pairLoading = false;
+                    pairLoaded = true;
+                    pairMessage = "邀请码已生成，24 小时内有效。";
+                    showMainTab("pair");
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handlePairFailure(failure));
+            }
+        });
+    }
+
+    private void copyPairInvite() {
+        if (currentPairInvite == null) return;
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("同看好友邀请码", currentPairInvite.code));
+        Toast.makeText(this, "邀请码已复制", Toast.LENGTH_SHORT).show();
+    }
+
+    private void acceptPairInvite(String code) {
+        if (accountSession == null || pairLoading) return;
+        String normalized = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            pairMessage = "请输入好友发来的邀请码。";
+            showMainTab("pair");
+            return;
+        }
+        pairLoading = true;
+        pairMessage = "正在建立双人连接…";
+        showMainTab("pair");
+        accountClient.acceptPairInvite(accountSession.token, normalized, new AccountClient.ResultCallback<AccountModels.Pair>() {
+            @Override public void onSuccess(AccountModels.Pair pair) {
+                runOnUiThread(() -> {
+                    currentPair = pair;
+                    currentPairInvite = null;
+                    pairLoading = false;
+                    pairLoaded = true;
+                    pairMessage = "绑定成功，现在可以一键邀请一起看。";
+                    showMainTab("pair");
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handlePairFailure(failure));
+            }
+        });
+    }
+
+    private void refreshPairState(boolean userInitiated) {
+        if (accountSession == null || pairLoading) return;
+        pairLoading = true;
+        if (userInitiated) pairMessage = "正在刷新绑定状态…";
+        showMainTab("pair");
+        accountClient.getPair(accountSession.token, new AccountClient.ResultCallback<AccountModels.Pair>() {
+            @Override public void onSuccess(AccountModels.Pair pair) {
+                runOnUiThread(() -> {
+                    currentPair = pair;
+                    if (pair != null) currentPairInvite = null;
+                    pairLoading = false;
+                    pairLoaded = true;
+                    pairMessage = userInitiated ? (pair == null ? "当前还没有绑定好友。" : "绑定状态已更新。") : "";
+                    showMainTab("pair");
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handlePairFailure(failure));
+            }
+        });
+    }
+
+    private void handlePairFailure(AccountClient.Failure failure) {
+        pairLoading = false;
+        if (failure.isAuthenticationFailure()) {
+            handleAccountRestoreFailure(failure);
+            return;
+        }
+        pairMessage = failure.getMessage();
+        showMainTab("pair");
+    }
+
+    private void inviteBoundFriendToWatch() {
+        if (currentPair == null) {
+            pairMessage = "请先完成好友绑定。";
+            showMainTab("pair");
+            return;
+        }
+        createRoom(true);
+    }
+
+    private void sendPairWatchInvite() {
+        AccountModels.Session session = accountSession;
+        if (session == null || currentRoomId == null || currentInviteKey == null) {
+            shareInvite();
+            return;
+        }
+        String url = PUBLIC_ORIGIN + "/room/" + currentRoomId + "#join=" + currentInviteKey;
+        long expiresAt = System.currentTimeMillis() + 10L * 60L * 1000L;
+        accountClient.sendWatchInvite(session.token, url, "一起看 B站视频", expiresAt,
+            new AccountClient.ResultCallback<AccountModels.WatchInviteResult>() {
+                @Override public void onSuccess(AccountModels.WatchInviteResult result) {
+                    runOnUiThread(() -> {
+                        if (result.fallbackRequired || result.delivered <= 0) {
+                            Toast.makeText(MainActivity.this, "好友暂时收不到通知，已打开系统分享", Toast.LENGTH_LONG).show();
+                            shareInvite();
+                            return;
+                        }
+                        Toast.makeText(MainActivity.this, "已向好友发送一起看邀请", Toast.LENGTH_SHORT).show();
+                    });
+                }
+
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> {
+                        Toast.makeText(MainActivity.this, "推送未送达，已打开系统分享", Toast.LENGTH_LONG).show();
+                        if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
+                        shareInvite();
+                    });
+                }
+            });
+    }
+
+    private void applyAccountStateToHome() {
+        if (accountSession == null) {
+            homeScreen.setAnonymousState();
+            return;
+        }
+        homeScreen.setAccountState(accountSession.user.nickname, accountSession.user.email);
+        nicknameInput.setText(accountSession.user.nickname);
+    }
+
+    private void confirmAccountLogout() {
+        new AlertDialog.Builder(this)
+            .setTitle("退出同看账号？")
+            .setMessage("退出后本机将清除登录状态，匿名房间仍然可以继续使用。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("退出", (dialog, which) -> logoutAccount())
+            .show();
+    }
+
+    private void logoutAccount() {
+        AccountModels.Session session = accountSession;
+        String pushToken = registeredPushToken != null ? registeredPushToken : FcmPushTokenProvider.cachedToken(this);
+        if (session != null && pushToken != null && !pushToken.isEmpty() && accountClient.isConfigured()) {
+            accountClient.unregisterDevice(session.token, pushToken, pushTokenProvider.providerId(), new AccountClient.ResultCallback<Void>() {
+                @Override public void onSuccess(Void ignored) {}
+                @Override public void onFailure(AccountClient.Failure failure) {}
+            });
+        }
+        clearAccountSession();
+        authScreen.resetCodeStep();
+        authScreen.showMessage("已退出账号");
+        showAuthScreen();
+        if (session == null || !accountClient.isConfigured()) return;
+        accountClient.logout(session.token, new AccountClient.ResultCallback<Void>() {
+            @Override public void onSuccess(Void ignored) {}
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> Toast.makeText(
+                    MainActivity.this,
+                    "本机已退出；服务器会话将在过期后自动失效",
+                    Toast.LENGTH_LONG
+                ).show());
+            }
+        });
+    }
+
     private void showAuthScreen() {
         appFullscreen = false;
         setImmersiveControlsVisible(false, false);
@@ -1201,6 +1621,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             && preferences.getString("key", null) != null
             && preferences.getString("role", null) != null;
         continueButton.setVisibility(hasLastRoom ? View.VISIBLE : View.GONE);
+        applyAccountStateToHome();
         showMainTab("home");
         applyTheme();
     }
@@ -1216,7 +1637,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 content = mainNavigationView.placeholder("03 / CALENDAR", "观看日历", "日期计划、当天片单和观看安排将在日历阶段接入。");
                 break;
             case "pair":
-                content = mainNavigationView.placeholder("04 / US", "我们的空间", "唯一好友绑定、共同历史和观看统计将在账号服务接入后开放。");
+                if (accountSession == null) {
+                    content = mainNavigationView.placeholder("04 / US", "我们的空间", "登录后可进入唯一好友绑定、共同历史和观看统计。匿名房间仍然可以继续使用。");
+                } else {
+                    content = pairPage();
+                }
                 break;
             case "home":
             default:
@@ -1231,6 +1656,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         mainNavigationView.select(target);
         mainNavigationView.showContent(content);
         mainNavigationView.applyTheme();
+        if ("pair".equals(target) && accountSession != null && !pairLoaded && !pairLoading) {
+            mainHandler.post(() -> refreshPairState(false));
+        }
     }
 
     private void showVideoScreen() {
@@ -1462,8 +1890,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (entryHost.getVisibility() == View.VISIBLE && mainNavigationView.getView().getParent() == entryHost) {
             if (!"home".equals(mainNavigationView.getCurrentPage())) {
                 showMainTab("home");
-            } else {
+            } else if (accountSession == null) {
                 showAuthScreen();
+            } else {
+                super.onBackPressed();
             }
             return;
         }

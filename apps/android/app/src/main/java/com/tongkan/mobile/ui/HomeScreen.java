@@ -34,6 +34,8 @@ public final class HomeScreen {
     private final Button continueButton;
     private final ImageButton themeButton;
     private final TextView connectionText;
+    private final TextView modeText;
+    private final TextView accountText;
     private final LinearLayout joinPanel;
 
     public HomeScreen(Context context, BreathTheme theme, String quote, String quoteSource, Listener listener) {
@@ -66,12 +68,14 @@ public final class HomeScreen {
         people.addView(peerAvatar, new LinearLayout.LayoutParams(components.dp(40), components.dp(40)));
         presence.addView(people, components.matchWrap());
         LinearLayout presenceCopy = components.row();
-        TextView localMode = components.text("● 匿名模式", 11, BreathComponents.ROLE_ACCENT_TEXT);
-        presenceCopy.addView(localMode, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        modeText = components.text("● 匿名模式", 11, BreathComponents.ROLE_ACCENT_TEXT);
+        presenceCopy.addView(modeText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView limit = components.text("最多 2 人", 11, BreathComponents.ROLE_MUTED_TEXT);
         limit.setGravity(Gravity.END);
         presenceCopy.addView(limit, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         presence.addView(presenceCopy, components.margin(components.matchWrap(), 0, 12, 0, 0));
+        accountText = components.text("房间功能无需登录即可使用", 11, BreathComponents.ROLE_MUTED_TEXT);
+        presence.addView(accountText, components.margin(components.matchWrap(), 0, 7, 0, 0));
         content.addView(presence, components.margin(components.matchWrap(), 0, 22, 0, 0));
 
         LinearLayout roomCard = components.panel(18);
@@ -178,6 +182,17 @@ public final class HomeScreen {
 
     public TextView getConnectionText() {
         return connectionText;
+    }
+
+    public void setAccountState(String nickname, String email) {
+        modeText.setText("● 已登录");
+        accountText.setText(nickname + " · " + email);
+        nicknameInput.setText(nickname);
+    }
+
+    public void setAnonymousState() {
+        modeText.setText("● 匿名模式");
+        accountText.setText("房间功能无需登录即可使用");
     }
 
     public void showJoinPanel() {

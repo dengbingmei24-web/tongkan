@@ -1,6 +1,6 @@
 # Breath Tech Android 实现计划
 
-> 状态：P0 首批 Java View 已通过真机验收；下一阶段进入 Alpha 10.0 账号后端、安全会话与真实邮箱登录。
+> 状态：P0.1-P0.3、生产 QQ 邮箱登录和唯一好友绑定已通过真机验收；Alpha 10.1 P0.6 已接入一键邀请、设备 token 与 FCM，双设备通知送达暂缓验收。
 > 日期：2026-08-11
 > 目标：在不破坏 Alpha 9.3.6 播放器基线的前提下，用原生 Java View 落地 Alpha 10 账号与双人空间界面。
 
@@ -11,7 +11,7 @@
 - 页面状态、网络状态和 View 创建逻辑分离，避免继续扩大当前约 80KB 的 `MainActivity.java`。
 - 白色主题默认，黑色主题通过 `SharedPreferences` 持久化。
 - Android 触控目标至少 48dp；按钮按压反馈必须在 80-150ms 内出现。
-- 所有账号页面先支持 Mock 数据，再接入 `AccountClient`，避免 UI 和后端互相阻塞。
+- 账号页面通过可配置 `AccountClient` 接入；服务地址未配置或不可用时必须保留匿名房间降级。
 
 ## 2. 建议目录
 
@@ -115,14 +115,14 @@ watch/
 1. 创建 Theme、Drawable 和 Components 底座。
 2. 将现有 Alpha 9 房间入口套入 Breath Tech Auth/Home 外壳。
 3. 加入四入口导航和 Mock 页面。
-4. 接入邮箱登录与 SessionStore。
-5. 接入好友绑定和首页真实状态。
+4. [已完成并真机验收] 接入邮箱登录、`AccountClient`、Keystore `SessionStore` 与快速缓存恢复。
+5. [已完成并真机验收] 接入唯一好友绑定、首页真实状态和好友一键同看邀请。
 6. 接入共享片库。
 7. 接入日历。
 8. 接入历史统计和解绑归档。
 9. 最后迁移播放器职责并做双设备回归。
 
-## 8. 第一批代码范围
+## 8. 第一批代码范围（已完成）
 
 第一批只修改 Android UI 架构，不依赖账号后端完成：
 
@@ -143,3 +143,43 @@ watch/
 - 360×640 至 1440×3200 Android 画布无关键控件裁切。
 - TalkBack 能读出主要按钮、输入框、导航和主题切换含义。
 - `assembleDebug`、现有单元测试和 Android Lint 通过。
+
+## 10. P0.2 账号接线结果
+
+- 新增 `account/AccountClient.java`、`AccountModels.java` 和 `SessionStore.java`。
+- 实现发送验证码、验证码登录、`/api/me` 会话校验、临近过期刷新和退出。
+- Session Token 通过 Android Keystore AES-GCM 加密保存；无法安全保存时拒绝保留登录状态。
+- AuthScreen 支持邮箱、验证码、重新获取、更换邮箱、加载状态和错误文案。
+- HomeScreen 显示匿名/已登录状态；“我们”页提供当前账号摘要和退出入口。
+- 构建参数 `-PtongkanAccountApiOrigin=https://...` 注入账号 Worker Origin；默认空值不会误连未部署服务。
+- 深链、匿名房间、WebView、WebSocket、播放器和横屏逻辑未改变。
+- 静态验收：17 个 Android JVM 测试、Lint 和 Debug APK 构建通过。
+- 剩余验收：QQ SMTP 真实投递、生产 Account Worker 部署、两台设备真机登录/恢复/退出和匿名回归。
+
+## 11. P0.3 预览账号联调
+
+- 预览账号 Worker、独立 D1 和 Pages 同域 `/account-api` Service Binding 已部署。
+- 预览 API 使用临时访问令牌，验证码作为 `debugCode` 返回并在 App 内显示，不发送邮件。
+- 服务端发送、验证、`/api/me`、刷新、旧 Token 失效和退出闭环已在线验证。
+- Android 版本升级为 `1.0.0-alpha10.0-p0.3` / versionCode 21。
+- 临时令牌只存在 Cloudflare Secret、仓库外构建目录和测试 APK，不写入仓库。
+- 本阶段目标仅是验证 Android 登录/Keystore/会话 UX；真实 SMTP 完成后必须移除测试令牌。
+
+## 12. Alpha 10.1 P0.1 唯一好友闭环
+
+- 新增 `0002_pairing.sql`：一次性邀请、双人关系和 `user_id` 主键唯一的活动关系成员表。
+- 邀请码有效期 24 小时，服务端只保存 HMAC；接受时原子检查双方未绑定并创建唯一 `pairId`。
+- 新增 `POST /api/pair/invites`、`POST /api/pair/invites/{code}/accept` 和 `GET /api/pair`。
+- Android“我们”页支持生成、复制、输入并接受邀请码、刷新状态，以及绑定后的双人资料和开始同看入口。
+- 预览 D1 迁移和 Worker 已部署；双账号在线生成、接受和双方查询闭环通过。
+- 静态验收：18 个 Android JVM 测试、Lint 0 错误、Account 12 项测试、全仓 93 项测试和生产构建通过。
+- 下一验收：双账号真机操作、会话重启恢复、双方状态刷新和匿名房间/播放器回归。
+
+## 13. Alpha 10.1 P0.2-P0.6 生产接线结果
+
+- QQ SMTP 465 生产验证码投递和 Android 登录已通过真机验收；账号服务通过 Pages `/account-api` 同域入口访问。
+- 关闭并重启 App 时先显示本地缓存账号主页，再在后台校验或刷新会话；仅明确鉴权失败才清除登录状态。
+- “我们”页已连接唯一好友状态、邀请码创建/复制/接受/刷新和绑定后的一键同看邀请。
+- 一键邀请先创建房间并尝试向好友活动设备发送 FCM；无 token、权限拒绝或推送失败时自动打开系统分享兜底。
+- 生产 FCM Secret、Google OAuth 和 FCM HTTP v1 鉴权冒烟测试已通过；真实双设备通知送达、后台接收和点击进房暂缓。
+- 当前审查门槛：账号/好友 UI 必须可达、缓存登录不能阻塞首屏、测试访问令牌必须显式选择、推送错误不得记录服务端响应正文。

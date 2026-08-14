@@ -14,6 +14,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.tongkan.mobile.R;
+import com.tongkan.mobile.account.AccountModels;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,6 +22,15 @@ import java.util.Map;
 public final class MainNavigationView {
     public interface Listener {
         void onTabSelected(String page);
+    }
+
+    public interface PairActions {
+        void onCreateInvite();
+        void onCopyInvite();
+        void onAcceptInvite(String code);
+        void onRefresh();
+        void onInviteWatch();
+        void onLogout();
     }
 
     private final Context context;
@@ -96,6 +106,118 @@ public final class MainNavigationView {
 
     public String getCurrentPage() {
         return currentPage;
+    }
+
+    public View accountPage(String nickname, String email, View.OnClickListener logoutListener) {
+        ScrollView scroll = components.screen();
+        LinearLayout content = components.column(21, 22, 28);
+        scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content.addView(components.code("04 / US"), components.matchWrap());
+        content.addView(components.title("我们的空间", 32), components.margin(components.matchWrap(), 0, 7, 0, 0));
+        content.addView(components.body("账号已经连接。唯一好友、共同历史和观看统计将在后续阶段接入。"), components.margin(components.matchWrap(), 0, 8, 0, 0));
+        LinearLayout panel = components.panel(18);
+        panel.addView(components.code("ACCOUNT / CONNECTED"), components.matchWrap());
+        panel.addView(components.title(nickname, 22), components.margin(components.matchWrap(), 0, 18, 0, 0));
+        panel.addView(components.body(email), components.margin(components.matchWrap(), 0, 5, 0, 0));
+        Button logout = components.button("退出账号", false);
+        logout.setOnClickListener(logoutListener);
+        panel.addView(logout, components.margin(components.matchHeight(50), 0, 18, 0, 0));
+        content.addView(panel, components.margin(components.matchWrap(), 0, 24, 0, 0));
+        return scroll;
+    }
+
+    public View pairPage(
+        String nickname,
+        String email,
+        AccountModels.Pair pair,
+        AccountModels.PairInvite invite,
+        String message,
+        boolean loading,
+        PairActions actions
+    ) {
+        ScrollView scroll = components.screen();
+        LinearLayout content = components.column(21, 22, 28);
+        scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content.addView(components.code("04 / US"), components.matchWrap());
+        content.addView(components.title("我们的空间", 32), components.margin(components.matchWrap(), 0, 7, 0, 0));
+        content.addView(components.body(pair == null
+            ? "每个账号只能绑定一位好友。邀请码一次性使用，24 小时后失效。"
+            : "你们已经连接。片库、日历和共同历史会在后续阶段逐步开放。"), components.margin(components.matchWrap(), 0, 8, 0, 0));
+
+        LinearLayout accountPanel = components.panel(18);
+        accountPanel.addView(components.code("ACCOUNT / CONNECTED"), components.matchWrap());
+        accountPanel.addView(components.title(nickname, 21), components.margin(components.matchWrap(), 0, 16, 0, 0));
+        accountPanel.addView(components.body(email), components.margin(components.matchWrap(), 0, 4, 0, 0));
+        content.addView(accountPanel, components.margin(components.matchWrap(), 0, 24, 0, 0));
+
+        if (pair == null) {
+            LinearLayout invitePanel = components.panel(18);
+            invitePanel.addView(components.code("PAIR / INVITE"), components.matchWrap());
+            invitePanel.addView(components.section("邀请你的唯一好友"), components.margin(components.matchWrap(), 0, 16, 0, 0));
+            if (invite != null) {
+                TextView code = components.title(invite.code, 25);
+                code.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+                invitePanel.addView(code, components.margin(components.matchWrap(), 0, 14, 0, 0));
+                invitePanel.addView(components.body("把邀请码发给对方；绑定成功后此码立即失效。"), components.margin(components.matchWrap(), 0, 7, 0, 0));
+                Button copy = components.button("复制邀请码", false);
+                copy.setEnabled(!loading);
+                copy.setOnClickListener(view -> actions.onCopyInvite());
+                invitePanel.addView(copy, components.margin(components.matchHeight(50), 0, 16, 0, 0));
+            }
+            Button create = components.button(invite == null ? "生成邀请码" : "重新生成邀请码", true);
+            create.setEnabled(!loading);
+            create.setOnClickListener(view -> actions.onCreateInvite());
+            invitePanel.addView(create, components.margin(components.matchHeight(50), 0, invite == null ? 16 : 10, 0, 0));
+            content.addView(invitePanel, components.margin(components.matchWrap(), 0, 16, 0, 0));
+
+            LinearLayout acceptPanel = components.panel(18);
+            acceptPanel.addView(components.code("PAIR / ACCEPT"), components.matchWrap());
+            acceptPanel.addView(components.section("输入好友邀请码"), components.margin(components.matchWrap(), 0, 16, 0, 0));
+            android.widget.EditText codeInput = components.textInput("例如 ABCDE-23456");
+            codeInput.setAllCaps(true);
+            acceptPanel.addView(codeInput, components.margin(components.matchHeight(52), 0, 14, 0, 0));
+            Button accept = components.button(loading ? "正在连接…" : "确认绑定", true);
+            accept.setEnabled(!loading);
+            accept.setOnClickListener(view -> actions.onAcceptInvite(codeInput.getText().toString()));
+            acceptPanel.addView(accept, components.margin(components.matchHeight(50), 0, 12, 0, 0));
+            content.addView(acceptPanel, components.margin(components.matchWrap(), 0, 16, 0, 0));
+        } else {
+            LinearLayout pairPanel = components.panel(18);
+            pairPanel.addView(components.code("PAIR / CONNECTED"), components.matchWrap());
+            LinearLayout people = components.row();
+            people.addView(components.avatar(initial(nickname), false), new LinearLayout.LayoutParams(components.dp(48), components.dp(48)));
+            TextView link = components.title("＋", 20);
+            link.setGravity(Gravity.CENTER);
+            people.addView(link, new LinearLayout.LayoutParams(components.dp(42), components.dp(48)));
+            people.addView(components.avatar(initial(pair.partner.nickname), true), new LinearLayout.LayoutParams(components.dp(48), components.dp(48)));
+            pairPanel.addView(people, components.margin(components.matchWrap(), 0, 17, 0, 0));
+            pairPanel.addView(components.title(nickname + " × " + pair.partner.nickname, 22), components.margin(components.matchWrap(), 0, 14, 0, 0));
+            pairPanel.addView(components.body(pair.partner.email), components.margin(components.matchWrap(), 0, 5, 0, 0));
+            Button start = components.button("邀请一起看", true);
+            start.setEnabled(!loading);
+            start.setOnClickListener(view -> actions.onInviteWatch());
+            pairPanel.addView(start, components.margin(components.matchHeight(50), 0, 18, 0, 0));
+            content.addView(pairPanel, components.margin(components.matchWrap(), 0, 16, 0, 0));
+        }
+
+        if (message != null && !message.isEmpty()) {
+            content.addView(components.body(message), components.margin(components.matchWrap(), 0, 8, 0, 0));
+        }
+        Button refresh = components.button(loading ? "正在刷新…" : "刷新绑定状态", false);
+        refresh.setEnabled(!loading);
+        refresh.setOnClickListener(view -> actions.onRefresh());
+        content.addView(refresh, components.margin(components.matchHeight(50), 0, 18, 0, 0));
+        Button logout = components.button("退出账号", false);
+        logout.setEnabled(!loading);
+        logout.setOnClickListener(view -> actions.onLogout());
+        content.addView(logout, components.margin(components.matchHeight(50), 0, 10, 0, 0));
+        components.applyTheme(scroll);
+        return scroll;
+    }
+
+    private static String initial(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.isEmpty() ? "同" : trimmed.substring(0, 1).toUpperCase();
     }
 
     public View placeholder(String code, String title, String description) {

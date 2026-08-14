@@ -18,6 +18,7 @@ public final class AuthScreen {
     public interface Listener {
         void onToggleTheme();
         void onRequestCode(String email);
+        void onVerifyCode(String email, String code);
         void onUseAnonymousRoom();
     }
 
@@ -26,6 +27,9 @@ public final class AuthScreen {
     private final ScrollView root;
     private final EditText emailInput;
     private final Button requestCodeButton;
+    private final EditText codeInput;
+    private final Button verifyCodeButton;
+    private final Button changeEmailButton;
     private final ImageButton themeButton;
     private final TextView statusText;
     private final Listener listener;
@@ -71,7 +75,25 @@ public final class AuthScreen {
 
         requestCodeButton = components.button("获取验证码", true);
         requestCodeButton.setOnClickListener(view -> requestCode());
-        content.addView(requestCodeButton, components.margin(components.matchHeight(52), 0, 16, 0, 0));
+        content.addView(requestCodeButton, components.margin(components.matchHeight(52), 0, 12, 0, 0));
+
+        codeInput = components.textInput("6 位验证码");
+        codeInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        codeInput.setFilters(new android.text.InputFilter[] {new android.text.InputFilter.LengthFilter(6)});
+        codeInput.setVisibility(View.GONE);
+        content.addView(codeInput, components.matchHeight(52));
+        verifyCodeButton = components.button("登录同看", true);
+        verifyCodeButton.setVisibility(View.GONE);
+        verifyCodeButton.setOnClickListener(view -> verifyCode());
+        content.addView(verifyCodeButton, components.margin(components.matchHeight(52), 0, 8, 0, 0));
+        changeEmailButton = components.button("更换邮箱", false);
+        changeEmailButton.setVisibility(View.GONE);
+        changeEmailButton.setOnClickListener(view -> {
+            resetCodeStep();
+            showMessage("请输入新的邮箱地址");
+            emailInput.requestFocus();
+        });
+        content.addView(changeEmailButton, components.margin(components.matchHeight(48), 0, 8, 0, 0));
 
         Button anonymousButton = components.button("暂时使用匿名房间", false);
         anonymousButton.setOnClickListener(view -> listener.onUseAnonymousRoom());
@@ -106,8 +128,42 @@ public final class AuthScreen {
         return root;
     }
 
-    public void setLoading(boolean loading) {
-        components.setButtonLoading(requestCodeButton, loading, "获取验证码", "正在连接账号服务…");
+    private void verifyCode() {
+        String code = codeInput.getText().toString().trim();
+        if (!code.matches("\\d{6}")) {
+            showMessage("请输入 6 位验证码");
+            codeInput.requestFocus();
+            return;
+        }
+        listener.onVerifyCode(emailInput.getText().toString().trim(), code);
+    }
+
+    public void showCodeStep(String message) {
+        emailInput.setEnabled(false);
+        requestCodeButton.setText("重新获取验证码");
+        codeInput.setVisibility(View.VISIBLE);
+        verifyCodeButton.setVisibility(View.VISIBLE);
+        changeEmailButton.setVisibility(View.VISIBLE);
+        showMessage(message);
+        codeInput.requestFocus();
+    }
+
+    public void resetCodeStep() {
+        emailInput.setEnabled(true);
+        codeInput.setText("");
+        codeInput.setVisibility(View.GONE);
+        verifyCodeButton.setVisibility(View.GONE);
+        changeEmailButton.setVisibility(View.GONE);
+        requestCodeButton.setText("获取验证码");
+    }
+
+    public void setRequestLoading(boolean loading) {
+        String idleLabel = codeInput.getVisibility() == View.VISIBLE ? "重新获取验证码" : "获取验证码";
+        components.setButtonLoading(requestCodeButton, loading, idleLabel, "正在发送验证码…");
+    }
+
+    public void setVerifyLoading(boolean loading) {
+        components.setButtonLoading(verifyCodeButton, loading, "登录同看", "正在验证…");
     }
 
     public void showMessage(String message) {
@@ -119,5 +175,6 @@ public final class AuthScreen {
         themeButton.setImageResource(theme.isDark() ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
         themeButton.setContentDescription(theme.isDark() ? "切换浅色主题" : "切换深色主题");
         emailInput.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(theme.muted()));
+        components.applyTheme(codeInput);
     }
 }
