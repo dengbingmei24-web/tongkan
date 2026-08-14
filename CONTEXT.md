@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-14T14:31:03+08:00
+last_updated: 2026-08-14T14:41:11+08:00
 current_version: 1.0.0-alpha10.1-p0.6-fcm (versionCode 27) production-configured APK built; real two-device notification delivery pending
 target_version: Reviewer/worker workflow setup and TK-001 unilateral-unbind pilot
-status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. The independently approved Spec Kit reviewer/worker workflow and complete TK-001 unilateral-unbind specification package are committed as 3bd9ed3. The user completed GitHub's browser device-authorization page, but the Codex sandbox process cannot safely persist or consume the resulting CLI credential in the user's protected AppData directory. Storing a repository-scoped credential in broadly readable `C:\tmp` was rejected and will not be used. The safe fallback is regular authenticated Git for push plus the user's existing logged-in GitHub browser session for Worker Issue creation, followed by local reviewer-owned branches/worktrees. No Worker Issue, branch, worktree, Draft PR, migration or implementation has started. FCM physical delivery remains postponed and SMTP authorization-code rotation remains required.
+status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. The approved Spec Kit workflow and TK-001 specification are on GitHub master; the clean Worker baseline is `3f76c5b8a1f684a49209d0945230b049cb78d409`. GitHub Worker Issues #9, #10 and #11 were created with full contracts, the `worker-task` label and `WORKTREE_READY` comments. Three isolated branches/worktrees were created from the exact baseline and verified clean: W1 Account Worker, W2 Android and W3 QA. Three independent execution tasks are now implementing T003-T020 in parallel under non-overlapping write scopes; no worker may push, merge, migrate, deploy or modify global context. No Draft PR, integration merge, remote migration or deployment has started. FCM physical delivery remains postponed and SMTP authorization-code rotation remains required.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -195,7 +195,7 @@ status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. The indep
 - [x] Added `scripts/configure-fcm.ps1` plus `scripts/run-fcm-configure.mjs`: Firebase files must stay outside Git; `-ValidateOnly` checks package/project matching without build or network changes; full mode tests/builds Android, configures three Worker Secrets without printing values, deploys, checks health, hashes the APK and opens Explorer. Added ignore rules and setup documentation. A fake external configuration passed validation without leaking dummy API key, service email or private-key text.
 ## In Progress
 
-- [ ] Complete GitHub CLI browser authentication, then create W1-W3 remote Issues and isolated local worktrees from the clean reviewer baseline before any implementation starts.
+- [ ] Review the three parallel TK-001 worker results from Issues #9-#11, verify contract-only changes and test evidence, then issue `APPROVED` or `CHANGES_REQUESTED` before integration.
 
 - [ ] Install `1.0.0-alpha10.1-p0.6-fcm` on two supported Android devices and complete notification delivery, background receipt and click-to-room verification.
 
@@ -380,9 +380,9 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Finish the visible GitHub CLI browser authorization and verify `gh auth status`.
-2. Create W1-W3 Worker Issues and Draft-PR-ready worktrees from the clean reviewer baseline.
-3. Run the pilot implementation and review loop for unilateral unbind and independent archive-retention choices.
+1. Wait for W1-W3 commits and handoff evidence; post results to Issues #9-#11.
+2. Review each branch against its contract and return `APPROVED` or `CHANGES_REQUESTED`.
+3. Integrate W1, apply only the preview migration, then integrate W2/W3 and run the full TK-001 acceptance matrix.
 4. Keep the FCM two-device test paused until the user resumes it, then run the existing notification QA matrix.
 5. Rotate the exposed QQ SMTP authorization code and verify the replacement secret remains private.
 
@@ -699,3 +699,5 @@ Maintenance rules:
 - 2026-08-14 (169): User reached the official GitHub CLI authorization confirmation page for account `dengbingmei24-web`. The page shows the expected GitHub CLI application and requested repository/workflow scopes. Instructed the user to click the green `授权 github` button only because they initiated this device flow, then return to PowerShell and confirm `Logged in to github.com`. No repository or remote project state changed yet.
 
 - 2026-08-14 (170): User completed the GitHub browser device-authorization page and received the success screen. Reviewer verification still found no CLI auth file because the visible `gh` process runs under the Codex sandbox identity, which can read but not write the user's protected AppData GitHub CLI directory. Attempting to move a repository-scoped credential into broadly accessible `C:\tmp` was rejected as unsafe and was not performed. The orchestration plan now uses normal Git authentication for the baseline push and the user's already logged-in GitHub browser session for creating the three Worker Issues; local branches/worktrees remain reviewer-owned. No credential was copied, printed or stored in the repository.
+
+- 2026-08-14 (171): Completed TK-001 reviewer setup. Committed the latest handoff as `3f76c5b`, pushed master successfully, and used the already verified Git credential only in process memory to create GitHub Issues #9 W1 Account Worker, #10 W2 Android and #11 W3 QA without printing or storing the token. Added the `worker-task` label and a `WORKTREE_READY` comment to each Issue. Created branches `codex/TK-001-W1-account`, `codex/TK-001-W2-android` and `codex/TK-001-W3-qa` in three physical worktrees under `C:\Users\dengbingmei\Documents\tongkan-worktrees`; all point to full baseline `3f76c5b8a1f684a49209d0945230b049cb78d409` and were clean. Marked T001-T002 complete and started three independent execution tasks for T003-T020 with strict non-overlapping write scopes, no global context changes, no push/merge/migration/deployment authority and required branch commits/test evidence.

@@ -2,8 +2,8 @@
 
 ## Phase 1: Reviewer Setup
 
-- [ ] T001 [REVIEW] 提交全部 Spec Kit、workflow 和 TK-001 工件，确认工作区干净并记录该提交为唯一 Worker 基线。
-- [ ] T002 [REVIEW] 用精确基线创建 W1-W3 Worker Issues、三个分支和 worktree，确认写入范围无重叠。
+- [x] T001 [REVIEW] 提交全部 Spec Kit、workflow 和 TK-001 工件，确认工作区干净并记录该提交为唯一 Worker 基线。
+- [x] T002 [REVIEW] 用精确基线创建 W1-W3 Worker Issues、三个分支和 worktree，确认写入范围无重叠。
 
 ## Phase 2: W1 Account Worker
 
