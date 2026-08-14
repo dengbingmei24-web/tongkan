@@ -79,9 +79,28 @@ export default {
         const code = decodeURIComponent(acceptMatch[1] ?? "");
         return json({ pair: await pairService.acceptInvite(authenticated.user, code) }, 200, origin);
       }
+      if (url.pathname === '/api/pair/unbind' && request.method === 'POST') {
+        const authenticated = await service.authenticate(bearerToken(request));
+        const body = await readObject(request);
+        return json(await pairService.unbind(
+          authenticated.user,
+          stringField(body, 'pairId') ?? '',
+          stringField(body, 'retention') ?? '',
+        ), 200, origin);
+      }
       if (url.pathname === "/api/pair" && request.method === "GET") {
         const authenticated = await service.authenticate(bearerToken(request));
-        return json({ pair: await pairService.getPair(authenticated.user) }, 200, origin);
+        return json(await pairService.getPairState(authenticated.user), 200, origin);
+      }
+      const retentionMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/retention$/);
+      if (retentionMatch && request.method === 'POST') {
+        const authenticated = await service.authenticate(bearerToken(request));
+        const body = await readObject(request);
+        return json(await pairService.decideArchiveRetention(
+          authenticated.user,
+          decodeURIComponent(retentionMatch[1] ?? ''),
+          stringField(body, 'retention') ?? '',
+        ), 200, origin);
       }
       if (url.pathname === "/api/devices/register" && request.method === "POST") {
         const authenticated = await service.authenticate(bearerToken(request));

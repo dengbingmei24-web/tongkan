@@ -3,12 +3,23 @@ import type { Env } from "./env";
 import { AuthError } from "./errors";
 import type { ActivePairRecord, PairInviteRecord, PublicUser, UserRecord } from "./models";
 
+import type { PairArchiveRecord, PairArchiveState, PairMutationResult, PairRetentionDecision } from './models';
+
 export interface PairRepository {
   insertPairInvite(invite: PairInviteRecord): Promise<void>;
   invalidatePairInvites(inviterUserId: string, invalidatedAt: number): Promise<void>;
   pairInviteByCodeHash(codeHash: string): Promise<PairInviteRecord | null>;
   activePairByUser(userId: string): Promise<ActivePairRecord | null>;
   acceptPairInvite(invite: PairInviteRecord, accepterUserId: string, pairId: string, now: number): Promise<boolean>;
+  pairArchiveByUser(pairId: string, userId: string): Promise<PairArchiveRecord | null>;
+  pairArchivesByUser(userId: string): Promise<PairArchiveRecord[]>;
+  unbindPair(pairId: string, userId: string, retention: PairRetentionDecision, now: number): Promise<boolean>;
+  setPairArchiveRetention(
+    pairId: string,
+    userId: string,
+    retention: PairRetentionDecision,
+    now: number,
+  ): Promise<{ updated: boolean; pairDeleted: boolean }>;
 }
 
 export interface PairInviteResult {
@@ -20,6 +31,12 @@ export interface PairResult {
   pairId: string;
   boundAt: number;
   partner: PublicUser;
+}
+
+export interface PairStateResult {
+  pair: PairResult | null;
+  pendingArchives: PairArchiveState[];
+  archives: PairArchiveState[];
 }
 
 const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -76,6 +93,113 @@ export class PairService {
   async getPair(user: UserRecord): Promise<PairResult | null> {
     const pair = await this.repository.activePairByUser(user.id);
     return pair ? this.publicPair(pair) : null;
+  }
+
+  async getPairState(user: UserRecord): Promise<PairStateResult> {
+    const [pair, archiveRecords] = await Promise.all([
+      this.getPair(user),
+      this.repository.pairArchivesByUser(user.id),
+    ]);
+    return {
+      pair,
+      pendingArchives: archiveRecords
+        .filter((archive) => archive.retentionStatus === 'pending')
+        .map((archive) => this.publicArchive(archive)),
+      archives: archiveRecords
+        .filter((archive) => archive.retentionStatus === 'keep')
+        .map((archive) => this.publicArchive(archive)),
+    };
+  }
+
+  async unbind(
+    user: UserRecord,
+    pairId: string,
+    retentionValue: string,
+  ): Promise<PairMutationResult> {
+    const targetPairId = this.validPairId(pairId);
+    const retention = this.validRetention(retentionValue);
+    const activePair = await this.repository.activePairByUser(user.id);
+    if (activePair?.pairId === targetPairId) {
+      const applied = await this.repository.unbindPair(targetPairId, user.id, retention, this.now());
+      if (applied) {
+        const archive = await this.repository.pairArchiveByUser(targetPairId, user.id);
+        return archive ? this.mutationResult(archive, false) : { archive: null, pairDeleted: true };
+      }
+    }
+    return this.finalizeArchiveDecision(user.id, targetPairId, retention);
+  }
+
+  async decideArchiveRetention(
+    user: UserRecord,
+    pairId: string,
+    retentionValue: string,
+  ): Promise<PairMutationResult> {
+    return this.finalizeArchiveDecision(
+      user.id,
+      this.validPairId(pairId),
+      this.validRetention(retentionValue),
+    );
+  }
+
+  private async finalizeArchiveDecision(
+    userId: string,
+    pairId: string,
+    retention: PairRetentionDecision,
+  ): Promise<PairMutationResult> {
+    const existing = await this.repository.pairArchiveByUser(pairId, userId);
+    if (!existing) throw new AuthError('PAIR_ARCHIVE_NOT_FOUND', '旧空间不存在或已删除。', 404);
+    if (existing.retentionStatus === retention) return this.mutationResult(existing, false);
+    if (existing.retentionStatus !== 'pending') {
+      throw new AuthError('PAIR_RETENTION_FINAL', '数据保留选择已经确认，不能修改。', 409);
+    }
+
+    const result = await this.repository.setPairArchiveRetention(pairId, userId, retention, this.now());
+    if (result.pairDeleted) return { archive: null, pairDeleted: true };
+    const updated = await this.repository.pairArchiveByUser(pairId, userId);
+    if (!updated) return { archive: null, pairDeleted: true };
+    if (!result.updated && updated.retentionStatus !== retention) {
+      throw new AuthError('PAIR_RETENTION_FINAL', '数据保留选择已经确认，不能修改。', 409);
+    }
+    return this.mutationResult(updated, false);
+  }
+
+  private validPairId(pairId: string): string {
+    if (!/^[a-f0-9]{32}$/.test(pairId)) {
+      throw new AuthError('INVALID_REQUEST', '好友关系标识无效。', 400);
+    }
+    return pairId;
+  }
+
+  private validRetention(retention: string): PairRetentionDecision {
+    if (retention !== 'keep' && retention !== 'delete') {
+      throw new AuthError('PAIR_RETENTION_INVALID', '请选择保留或删除旧空间。', 400);
+    }
+    return retention;
+  }
+
+  private mutationResult(archive: PairArchiveRecord, pairDeleted: boolean): PairMutationResult {
+    return {
+      archive: archive.retentionStatus === 'delete' ? null : this.publicArchive(archive),
+      pairDeleted,
+    };
+  }
+
+  private publicArchive(archive: PairArchiveRecord): PairArchiveState {
+    if (archive.retentionStatus === 'delete') {
+      throw new Error('Deleted pair archives are not public.');
+    }
+    return {
+      pairId: archive.pairId,
+      boundAt: archive.boundAt,
+      unboundAt: archive.unboundAt,
+      retention: archive.retentionStatus,
+      partner: {
+        id: archive.partnerUserId,
+        email: archive.partnerEmailSnapshot,
+        nickname: archive.partnerNicknameSnapshot,
+        avatarId: archive.partnerAvatarSnapshot,
+      },
+    };
   }
 
   private async codeHash(code: string): Promise<string> {

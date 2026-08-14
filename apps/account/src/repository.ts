@@ -1,5 +1,7 @@
 import type { ActivePairRecord, ChallengeRecord, DeviceTokenRecord, PairInviteRecord, SessionRecord, UserRecord } from "./models";
 
+import type { PairArchiveRecord, PairRetentionDecision } from './models';
+
 function userFromRow(row: Record<string, unknown>): UserRecord {
   return {
     id: String(row.id),
@@ -65,6 +67,23 @@ function deviceTokenFromRow(row: Record<string, unknown>): DeviceTokenRecord {
     revokedAt: row.revoked_at === null ? null : Number(row.revoked_at),
   };
 }
+
+function pairArchiveFromRow(row: Record<string, unknown>): PairArchiveRecord {
+  return {
+    pairId: String(row.pair_id),
+    userId: String(row.user_id),
+    partnerUserId: String(row.partner_user_id),
+    boundAt: Number(row.bound_at),
+    unboundAt: Number(row.unbound_at),
+    retentionStatus: String(row.retention_status) as PairArchiveRecord['retentionStatus'],
+    decidedAt: row.decided_at === null ? null : Number(row.decided_at),
+    createdAt: Number(row.created_at),
+    partnerEmailSnapshot: String(row.partner_email_snapshot),
+    partnerNicknameSnapshot: String(row.partner_nickname_snapshot),
+    partnerAvatarSnapshot: String(row.partner_avatar_snapshot),
+  };
+}
+
 export class AccountRepository {
   constructor(private readonly db: D1Database) {}
 
@@ -226,6 +245,131 @@ export class AccountRepository {
         createdAt: Number(row.partner_created_at),
         updatedAt: Number(row.partner_updated_at),
       },
+    };
+  }
+
+  async pairArchiveByUser(pairId: string, userId: string): Promise<PairArchiveRecord | null> {
+    const row = await this.db.prepare(
+      `SELECT pam.*, p.bound_at, p.unbound_at
+       FROM pair_archive_members pam
+       JOIN pairs p ON p.id = pam.pair_id AND p.status = 'unbound'
+       WHERE pam.pair_id = ? AND pam.user_id = ?
+       LIMIT 1`,
+    ).bind(pairId, userId).first<Record<string, unknown>>();
+    return row ? pairArchiveFromRow(row) : null;
+  }
+
+  async pairArchivesByUser(userId: string): Promise<PairArchiveRecord[]> {
+    const result = await this.db.prepare(
+      `SELECT pam.*, p.bound_at, p.unbound_at
+       FROM pair_archive_members pam
+       JOIN pairs p ON p.id = pam.pair_id AND p.status = 'unbound'
+       WHERE pam.user_id = ? AND pam.retention_status <> 'delete'
+       ORDER BY p.unbound_at DESC, pam.pair_id ASC`,
+    ).bind(userId).all<Record<string, unknown>>();
+    return result.results.map(pairArchiveFromRow);
+  }
+
+  async unbindPair(pairId: string, userId: string, retention: PairRetentionDecision, now: number): Promise<boolean> {
+    const results = await this.db.batch([
+      this.db.prepare(
+        `UPDATE pairs
+         SET status = 'unbound', unbound_at = ?, unbound_by_user_id = ?
+         WHERE id = ? AND status = 'active' AND (user_a_id = ? OR user_b_id = ?)
+           AND (SELECT COUNT(*) FROM active_pair_members ap WHERE ap.pair_id = pairs.id) = 2
+           AND EXISTS (
+             SELECT 1 FROM active_pair_members ap
+             WHERE ap.pair_id = pairs.id AND ap.user_id = pairs.user_a_id AND ap.partner_user_id = pairs.user_b_id
+           )
+           AND EXISTS (
+             SELECT 1 FROM active_pair_members ap
+             WHERE ap.pair_id = pairs.id AND ap.user_id = pairs.user_b_id AND ap.partner_user_id = pairs.user_a_id
+           )`,
+      ).bind(now, userId, pairId, userId, userId),
+      this.db.prepare(
+        `INSERT INTO pair_archive_members (
+           pair_id, user_id, partner_user_id,
+           partner_email_snapshot, partner_nickname_snapshot, partner_avatar_snapshot,
+           retention_status, decided_at, created_at
+         )
+         SELECT p.id, p.user_a_id, p.user_b_id,
+           partner.email_masked, partner.nickname, partner.avatar_id,
+           CASE WHEN p.user_a_id = ? THEN ? ELSE 'pending' END,
+           CASE WHEN p.user_a_id = ? THEN ? ELSE NULL END,
+           ?
+         FROM pairs p
+         JOIN users partner ON partner.id = p.user_b_id
+         WHERE p.id = ? AND p.status = 'unbound'
+           AND p.unbound_by_user_id = ? AND p.unbound_at = ?
+           AND EXISTS (SELECT 1 FROM active_pair_members ap WHERE ap.pair_id = p.id)`,
+      ).bind(userId, retention, userId, now, now, pairId, userId, now),
+      this.db.prepare(
+        `INSERT INTO pair_archive_members (
+           pair_id, user_id, partner_user_id,
+           partner_email_snapshot, partner_nickname_snapshot, partner_avatar_snapshot,
+           retention_status, decided_at, created_at
+         )
+         SELECT p.id, p.user_b_id, p.user_a_id,
+           partner.email_masked, partner.nickname, partner.avatar_id,
+           CASE WHEN p.user_b_id = ? THEN ? ELSE 'pending' END,
+           CASE WHEN p.user_b_id = ? THEN ? ELSE NULL END,
+           ?
+         FROM pairs p
+         JOIN users partner ON partner.id = p.user_a_id
+         WHERE p.id = ? AND p.status = 'unbound'
+           AND p.unbound_by_user_id = ? AND p.unbound_at = ?
+           AND EXISTS (SELECT 1 FROM active_pair_members ap WHERE ap.pair_id = p.id)`,
+      ).bind(userId, retention, userId, now, now, pairId, userId, now),
+      this.db.prepare(
+        `UPDATE pair_invites
+         SET used_at = ?
+         WHERE used_at IS NULL AND inviter_user_id IN (
+           SELECT user_a_id FROM pairs
+           WHERE id = ? AND status = 'unbound' AND unbound_by_user_id = ? AND unbound_at = ?
+           UNION
+           SELECT user_b_id FROM pairs
+           WHERE id = ? AND status = 'unbound' AND unbound_by_user_id = ? AND unbound_at = ?
+         ) AND EXISTS (SELECT 1 FROM active_pair_members ap WHERE ap.pair_id = ?)`,
+      ).bind(now, pairId, userId, now, pairId, userId, now, pairId),
+      this.db.prepare(
+        `DELETE FROM active_pair_members
+         WHERE pair_id = ? AND EXISTS (
+           SELECT 1 FROM pairs p
+           WHERE p.id = ? AND p.status = 'unbound'
+             AND p.unbound_by_user_id = ? AND p.unbound_at = ?
+         )`,
+      ).bind(pairId, pairId, userId, now),
+    ]);
+    return results[0]?.meta.changes === 1
+      && results[1]?.meta.changes === 1
+      && results[2]?.meta.changes === 1;
+  }
+
+  async setPairArchiveRetention(
+    pairId: string,
+    userId: string,
+    retention: PairRetentionDecision,
+    now: number,
+  ): Promise<{ updated: boolean; pairDeleted: boolean }> {
+    const results = await this.db.batch([
+      this.db.prepare(
+        `UPDATE pair_archive_members
+         SET retention_status = ?, decided_at = ?
+         WHERE pair_id = ? AND user_id = ? AND retention_status = 'pending'`,
+      ).bind(retention, now, pairId, userId),
+      this.db.prepare(
+        `DELETE FROM pairs
+         WHERE id = ? AND status = 'unbound'
+           AND (SELECT COUNT(*) FROM pair_archive_members pam WHERE pam.pair_id = pairs.id) = 2
+           AND NOT EXISTS (
+             SELECT 1 FROM pair_archive_members pam
+             WHERE pam.pair_id = pairs.id AND pam.retention_status <> 'delete'
+           )`,
+      ).bind(pairId),
+    ]);
+    return {
+      updated: results[0]?.meta.changes === 1,
+      pairDeleted: results[1]?.meta.changes === 1,
     };
   }
 
