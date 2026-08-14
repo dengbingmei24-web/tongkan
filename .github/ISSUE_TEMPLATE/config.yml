@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: 同看开发流程
+    url: https://github.com/dengbingmei24-web/tongkan/blob/master/docs/development/MULTI_SESSION_WORKFLOW.md
+    about: 创建复杂任务前先阅读审查窗口、执行窗口和交接规则。

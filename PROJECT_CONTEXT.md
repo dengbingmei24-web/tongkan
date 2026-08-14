@@ -34,6 +34,9 @@
 | `design/alpha10-ui/ANDROID_IMPLEMENTATION_PLAN.md` | Breath Tech 原生 Java View 分层、开发顺序与首批验收 | 开始或调整 Alpha 10 Android UI 实现时 |
 | `design.md` | Web 跨页面统一设计系统 | Web 视觉、结构、主题或组件规则改变时 |
 | `apps/account/README.md` | Alpha 10 Account Worker、D1、SMTP 与本地开发入口 | 账号服务配置、Secret、迁移或开发命令变化时 |
+| `.specify/memory/constitution.md` | Spec Kit 项目原则与复杂任务质量门槛 | 开发治理原则或审查边界变化时 |
+| `docs/development/MULTI_SESSION_WORKFLOW.md` | 审查任务、执行任务、worktree、Issue/PR 和交接流程 | 多任务协作方式变化时 |
+| `specs/TK-xxx-name/` | 单个复杂功能的 spec、plan、contracts、tasks、checklists 和任务合同 | 对应功能范围、合同或验收变化时 |
 | `QA_CHECKLIST.md` | 发布验收清单 | 新增需回归的能力时 |
 | `DEPLOYMENT.md` | 公网部署和移动端路线 | 部署方式、域名或环境变量改变时 |
 
@@ -56,6 +59,8 @@
 - 最多三个执行任务在独立 `codex/TK-xxx-*` 分支与 Git worktree 中完成互不重叠的写入范围。
 - Spec Kit 管理 specification、plan、tasks 和 checklist；GitHub Issue、Draft PR 与标准交接报告承担跨任务的持久通信。
 - 未提交基线、写入范围重叠、测试失败或交接不完整时，不创建并行 worktree，也不进入合并。
+- Spec Kit v0.8.15 已安装并初始化；自动 Git hooks 已禁用。执行任务可以提交自己的合同分支，但不能 push、merge、rebase、force push、迁移或部署。
+- 审查任务独占全局上下文、长期决策、全局 PRD、生产配置与部署状态；该权限不能通过 Worker 合同下放。
 
 ## 3. 产品定义
 

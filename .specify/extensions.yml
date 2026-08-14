@@ -1,0 +1,29 @@
+installed:
+  - git
+
+settings:
+  auto_execute_hooks: false
+
+# D-079 requires the reviewer to own branch/worktree creation, integration,
+# merges and deployment. Workers commit only to their assigned task branches.
+# The Git extension remains installed for optional manual use,
+# but all automatic hooks are disabled.
+hooks:
+  before_constitution: []
+  before_specify: []
+  before_clarify: []
+  before_plan: []
+  before_tasks: []
+  before_implement: []
+  before_checklist: []
+  before_analyze: []
+  before_taskstoissues: []
+  after_constitution: []
+  after_specify: []
+  after_clarify: []
+  after_plan: []
+  after_tasks: []
+  after_implement: []
+  after_checklist: []
+  after_analyze: []
+  after_taskstoissues: []

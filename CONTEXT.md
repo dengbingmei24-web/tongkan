@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-14T11:28:40+08:00
+last_updated: 2026-08-14T11:59:52+08:00
 current_version: 1.0.0-alpha10.1-p0.6-fcm (versionCode 27) production-configured APK built; real two-device notification delivery pending
-target_version: Alpha 10.1 baseline repair and commit, then reviewer/worker workflow pilot
-status: The user accepted the reviewer-owned multi-session workflow in D-079. All independent-review changes for the Alpha 10.1 account/pair/push baseline are repaired: UTF-8 documents and security findings are fixed, typecheck/tests/build/Android checks pass, credential scanning is clean, and production plus preview D1 migrations are current. The reviewed baseline is committed in this turn before Spec Kit/worktree initialization. FCM two-device physical delivery remains explicitly postponed, and SMTP authorization-code rotation remains required.
+target_version: Reviewer/worker workflow setup and TK-001 unilateral-unbind pilot
+status: Alpha 10.1 account/pair/push baseline is committed as 42248e1. uv 0.12.4 and official Spec Kit 0.8.15 are installed; Spec Kit is initialized with Codex skills, automatic Git hooks disabled, and the existing context system preserved. The governance layer and complete TK-001 unilateral-unbind spec/plan/data/OpenAPI/tasks/checklist/three worker contracts passed independent governance and technical review after all requested changes. The workflow setup is committed in this turn as the next clean baseline. No worker branch, worktree, Issue, PR, migration or implementation has started. GitHub CLI 2.97.0 installer reported success, but the executable is not visible in the current shell yet; open a fresh terminal and authenticate before creating remote Issues. FCM physical delivery remains postponed and SMTP authorization-code rotation remains required.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -26,6 +26,12 @@ status: The user accepted the reviewer-owned multi-session workflow in D-079. Al
 - [x] Reconstructed the corrupted `DECISIONS.md`, `ACCOUNT_PAIR_SPACE_PRD.md` and `apps/account/README.md` from clean UTF-8 sources; added Firebase/service-account ignore patterns, explicit Android test-token opt-in and redacted FCM failure logging.
 
 - [x] Passed `pnpm typecheck`, 97 workspace tests, `pnpm build`, Android `testDebugUnitTest lintDebug assembleDebug`, `git diff --check` and a tracked/unignored credential scan after review repairs. Production D1 had no pending migration; applied `0003_device_tokens.sql` to preview D1 and verified schema parity.
+
+- [x] Committed the reviewed Alpha 10.1 account, unique-friend and FCM baseline as `42248e1 feat(account): establish alpha 10.1 account and push baseline`.
+
+- [x] Installed uv 0.12.4, Spec Kit 0.8.15 and GitHub CLI 2.97.0; initialized `.specify/` and Codex Spec Kit skills, disabled automatic Git hooks, added the multi-session constitution/workflow/Issue/PR/contract templates, and created the complete `TK-001-unilateral-unbind` pilot artifacts.
+
+- [x] Independent governance review approved the reviewer/worker authority, worktree isolation, commit/merge/deploy boundaries and Issue/PR templates. Independent technical review approved TK-001 after adding retention retry semantics, snapshot/sorting rules, stable errors, D1 CAS/rollback, real local D1 concurrency tests, old-invite invalidation and pairId-targeted unbind protection.
 
 - [x] User physically verified `1.0.0-alpha10.0-p0.3`: preview email-code login, in-App test code, secure session restore, logout, anonymous room fallback, theme and player regression passed on a real device.
 
@@ -187,7 +193,7 @@ status: The user accepted the reviewer-owned multi-session workflow in D-079. Al
 - [x] Added `scripts/configure-fcm.ps1` plus `scripts/run-fcm-configure.mjs`: Firebase files must stay outside Git; `-ValidateOnly` checks package/project matching without build or network changes; full mode tests/builds Android, configures three Worker Secrets without printing values, deploys, checks health, hashes the APK and opens Explorer. Added ignore rules and setup documentation. A fake external configuration passed validation without leaking dummy API key, service email or private-key text.
 ## In Progress
 
-- [ ] Commit the reviewed Alpha 10.1 baseline, then install Spec Kit and create reviewer/worker templates without replacing the existing context system.
+- [ ] Commit the approved workflow/TK-001 setup, then create W1-W3 remote Issues and local worktrees from that exact clean baseline when GitHub CLI is available and authenticated.
 
 - [ ] Install `1.0.0-alpha10.1-p0.6-fcm` on two supported Android devices and complete notification delivery, background receipt and click-to-room verification.
 
@@ -266,10 +272,10 @@ status: The user accepted the reviewer-owned multi-session workflow in D-079. Al
 
 ## Active Tasks
 
-1. Compile and validate the repaired Alpha 10.1 account, pair and FCM baseline.
-2. Confirm production and preview D1 migrations have no pending changes.
-3. Stage and commit only the reviewed baseline, excluding `videos/`, Firebase JSON, service-account files, Secrets, APKs and build artifacts.
-4. Install Spec Kit and create the reviewer/worker coordination templates plus the unilateral-unbind pilot specification.
+1. Commit the independently approved Spec Kit/workflow/TK-001 setup.
+2. Open a fresh terminal, verify `gh --version`, authenticate GitHub CLI and create W1-W3 Worker Issues.
+3. Create the three branches/worktrees from the exact setup commit and hand each task only its contract.
+4. Start the TK-001 implementation/review loop without remote migration or deployment.
 
 ## Known Issues
 
@@ -371,10 +377,9 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Complete review repairs and commit the accepted Alpha 10.1 account/pair/push baseline.
-2. Install `uv` and Spec Kit only after the clean baseline commit, then initialize the existing repository without replacing `CONTEXT.md` or `DECISIONS.md`.
-3. Add reviewer/worker task contracts, Issue/PR templates, write-scope rules and acceptance checklists.
-4. Pilot the workflow with unilateral unbind and independent archive-retention choices.
+1. Verify GitHub CLI from a fresh terminal and authenticate it.
+2. Create W1-W3 Worker Issues and Draft-PR-ready worktrees from the exact workflow setup commit.
+3. Run the pilot implementation and review loop for unilateral unbind and independent archive-retention choices.
 5. Keep the FCM two-device test paused until the user resumes it, then run the existing notification QA matrix.
 6. Rotate the exposed QQ SMTP authorization code and verify the replacement secret remains private.
 
@@ -675,3 +680,7 @@ Maintenance rules:
 - 2026-08-13 (154): Selected FCM as the first real push provider. Added configurable Firebase Messaging client integration to Android, Android 13 notification permission/channel handling, token refresh/register/unregister lifecycle, and notification click validation into the existing room deep-link flow. Added Account Worker FCM HTTP v1 JWT/OAuth provider and deployed Worker version 338bbe45-a3f5-4c2a-965a-8f1f3487ad3e; production health returned HTTP 200 and D1 has no pending migrations. Built and opened `release/tongkan-android-1.0.0-alpha10.1-p0.5.apk` (versionCode 26, SHA-256 AED925A5B5AEFAAF4BBBD925C6419BE4E4ACF81FB4C406028888CCA3689D4C6C). Android tests, Lint and assemble passed. Firebase project values and service-account Secrets were intentionally not configured, so real notification delivery remains pending and system sharing remains the fallback. No commit or push was created.
 
 - 2026-08-14 (162): User accepted the proposed multi-session development model: one reviewer/controller task, up to three isolated worker tasks, Spec Kit for specification/plan/tasks/checklists, GitHub Issues and Draft PRs for durable communication, and one `codex/TK-xxx-*` branch/worktree per worker. Recorded D-079. Independent reviewers requested changes to the dirty Alpha 10.1 baseline; repaired the disconnected pair-page/invite wiring and cached-login rendering, added security hardening for ignored credentials, explicit test-token opt-in and FCM log redaction, and reconstructed corrupted account/decision/PRD documentation. `pnpm typecheck`, 97 tests, production builds and Android checks passed; credential scanning was clean. Production D1 was current and preview D1 received `0003_device_tokens.sql`. The reviewed baseline is committed before any Spec Kit installation or worker worktree creation.
+
+- 2026-08-14 (163): Committed the reviewed Alpha 10.1 baseline as `42248e1`. Installed uv 0.12.4, official Spec Kit 0.8.15 and GitHub CLI 2.97.0, initialized Codex skills and `.specify/`, disabled all automatic Git hooks, and preserved the existing context system. Added a Tongkan constitution, reviewer/worker workflow, Worker/Review Issue templates, Draft PR gates, handoff/review/task-contract templates, and full `TK-001-unilateral-unbind` spec, research, data model, OpenAPI contract, plan, tasks, requirements checklist and three non-overlapping worker contracts. YAML/JSON parsing, Spec Kit tool checks, placeholder checks, diff checks and credential scanning passed. The first governance review returned `CHANGES_REQUESTED` because worker authority over global docs and commit ownership was ambiguous; repaired AGENTS, constitution, contract, PR and Issue templates so workers may only commit assigned branches and can never modify global context or production state. Re-review and the independent TK-001 technical verdict remain pending; no implementation worktree or remote Issue/PR was created.
+
+- 2026-08-14 (164): Completed the two-review acceptance loop for the multi-task development system. Governance re-review returned `APPROVED` after making reviewer ownership and worker prohibitions absolute. TK-001 technical review required and received: exact `pairId` targeting to prevent delayed old requests from unbinding a new friend, explicit same/different retry behavior and non-disclosing 404 after physical deletion, both-user invite invalidation, stable archive ordering and profile snapshots, complete mutation/error OpenAPI responses, D1 CAS/rollback design, local real-D1 20-round concurrency and cascade tests, preview checks limited to real tables, and environment/stdin-only test tokens. Final technical verdict is `APPROVED`. Spec Kit checks, YAML/JSON parsing, task numbering, placeholder checks, `git diff --check` and credential scanning pass. The approved setup is committed before any worker worktree is created. GitHub CLI installation reported success but the executable requires a fresh shell before authentication and Issue creation.

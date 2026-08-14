@@ -39,13 +39,15 @@ release/        构建产物目录
 4. 根据 `PROJECT_CONTEXT.md` 的“任务到目录和文档映射”读取对应 PRD、设计、部署或 QA 文档。
 5. 修改前检查 `git status --short`，不要覆盖已有未提交改动。
 
-**每次对话结束前必须执行**：
+**每次对话结束前必须执行（审查/控制任务）**：
 
 - 无论是否修改代码，都更新 `CONTEXT.md` 的 `last_updated` 和本轮状态。
 - 至少检查并按需更新：`current_version`、`status`、Completed、In Progress、Known Issues、Next Steps、Conversation Log。
 - 如果用户确认了跨对话仍然有效的产品、设计、协议或架构选择，追加到 `DECISIONS.md`。
 - 如果仓库结构、核心产品边界或文档真源发生长期变化，更新 `PROJECT_CONTEXT.md`。
 - 产品范围变化同步对应 PRD；设计变化同步 `design/alpha9-ui/SELECTED_DESIGN.md`。
+
+**隔离执行任务例外**：执行任务不得修改 `CONTEXT.md`、`DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态。执行任务结束时只填写任务合同要求的 Draft PR / `handoff.md`；由审查任务统一更新全局上下文。
 
 **对话过长或即将压缩上下文时**：优先更新 `CONTEXT.md`，确保目标、已完成工作、阻塞和下一步完整可恢复。
 
@@ -220,3 +222,14 @@ Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
 
 每个对话保持聚焦。如果一个对话同时涉及多个不相关的领域（如既改 Android 又做视频），
 建议用户分两个对话处理。
+
+审查任务签发的 Worker Task Contract 视为用户已授权执行任务在指定分支提交合同范围内的改动；该授权不包含 push、merge、rebase、force push、生产迁移或部署。
+
+<!-- SPECKIT START -->
+复杂任务必须先确认自己是审查任务还是隔离执行任务，并读取
+`.specify/memory/constitution.md`、D-079、`docs/development/MULTI_SESSION_WORKFLOW.md`
+以及当前 `specs/TK-xxx-name/` 下的 spec、plan、tasks、合同和 checklist。
+最多三个执行任务，每个任务使用审查任务创建的独立 worktree；执行任务永远不得
+修改全局上下文/PRD/生产配置或部署，且不得自行 push、merge、rebase、force push。
+Spec Kit 只补充规格与验收，不替代现有上下文体系。
+<!-- SPECKIT END -->
