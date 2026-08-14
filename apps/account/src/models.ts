@@ -59,6 +59,37 @@ export interface ActivePairRecord {
   partner: UserRecord;
 }
 
+export type PairRetentionDecision = 'keep' | 'delete';
+
+export type PairRetentionStatus = 'pending' | PairRetentionDecision;
+
+export interface PairArchiveRecord {
+  pairId: string;
+  userId: string;
+  partnerUserId: string;
+  boundAt: number;
+  unboundAt: number;
+  retentionStatus: PairRetentionStatus;
+  decidedAt: number | null;
+  createdAt: number;
+  partnerEmailSnapshot: string;
+  partnerNicknameSnapshot: string;
+  partnerAvatarSnapshot: string;
+}
+
+export interface PairArchiveState {
+  pairId: string;
+  boundAt: number;
+  unboundAt: number;
+  retention: 'pending' | 'keep';
+  partner: PublicUser;
+}
+
+export interface PairMutationResult {
+  archive: PairArchiveState | null;
+  pairDeleted: boolean;
+}
+
 export interface DeviceTokenRecord {
   id: string;
   userId: string;
