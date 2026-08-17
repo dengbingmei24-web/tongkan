@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-17T11:27:34+08:00
+last_updated: 2026-08-17T11:28:47+08:00
 current_version: 1.0.0-alpha10.1-p0.13 (versionCode 34) independent top-level portrait composer and unified send path; pair-ready Account Worker build
 target_version: Resume TK-001 unilateral-unbind reviewer cleanup and integration from the pushed TK-002 P0.13 baseline
-status: TK-002 P0.13 is physically accepted, committed as `ce442c9 feat(android): complete alpha 10.1 room interaction baseline`, and pushed to `origin/codex/TK-002-player-chat`. Portrait typing/deletion, keyboard/App send, single-bubble behavior, successful clearing and composer cleanup across transitions all passed. The exposed QQ SMTP authorization code was rotated through an interactive local Wrangler prompt; production secret listing confirms the key exists and a live send-code request returned HTTP 202. Account typecheck, 17/17 tests and Worker dry-run passed; Android passed 32/32 tests, Lint and account-configured assembleDebug. The worktree is clean except for this final context handoff, and TK-001 reviewer integration is next.
+status: TK-002 P0.13 is physically accepted, committed as `ce442c9 feat(android): complete alpha 10.1 room interaction baseline`, and pushed to `origin/codex/TK-002-player-chat`. Portrait typing/deletion, keyboard/App send, single-bubble behavior, successful clearing and composer cleanup across transitions all passed. The exposed QQ SMTP authorization code was rotated through an interactive local Wrangler prompt; production secret listing confirms the key exists and a live send-code request returned HTTP 202. Account typecheck, 17/17 tests and Worker dry-run passed; Android passed 32/32 tests, Lint and account-configured assembleDebug. The worktree and remote branch are synchronized and clean; TK-001 reviewer integration is next.
 ---
 
 ## Mandatory Conversation Lifecycle
