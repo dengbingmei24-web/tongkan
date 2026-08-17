@@ -60,6 +60,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.lang.Thread;
 import java.util.concurrent.ExecutorService;
@@ -219,7 +221,15 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     @Override
     protected void onResume() {
         super.onResume();
-        if (accountSession != null) registerDeviceTokenIfAvailable();
+        if (accountSession == null) return;
+        registerDeviceTokenIfAvailable();
+        if (mainNavigationView != null
+            && entryHost != null
+            && entryHost.getVisibility() == View.VISIBLE
+            && "pair".equals(mainNavigationView.getCurrentPage())
+            && !pairLoading) {
+            mainHandler.post(() -> refreshPairState(false));
+        }
     }
 
     private void requestNotificationPermissionIfNeeded() {
@@ -334,7 +344,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 restoreLastRoom();
             }
         });
-        mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTab);
+        mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTabFromNavigation);
         nicknameInput = homeScreen.getNicknameInput();
         inviteInput = homeScreen.getInviteInput();
         createButton = homeScreen.getCreateButton();
@@ -1565,8 +1575,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         AccountClient.ResultCallback<AccountModels.PairMutationResult> callback = new AccountClient.ResultCallback<AccountModels.PairMutationResult>() {
             @Override public void onSuccess(AccountModels.PairMutationResult result) {
                 runOnUiThread(() -> {
+                    applyConfirmedPairMutation(pairId, unbind, result);
                     pairLoading = false;
-                    pairLoaded = false;
+                    pairLoaded = true;
                     String message;
                     if (result.pairDeleted) {
                         message = "双方都已选择删除，旧空间已经清理。";
@@ -1588,6 +1599,35 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         } else {
             accountClient.decidePairArchive(session.token, pairId, retention, callback);
         }
+    }
+
+    private void applyConfirmedPairMutation(
+        String pairId,
+        boolean unbind,
+        AccountModels.PairMutationResult result
+    ) {
+        AccountModels.PairState state = currentPairState == null
+            ? AccountModels.PairState.empty()
+            : currentPairState;
+        List<AccountModels.PairArchive> pendingArchives = archivesWithoutPair(state.pendingArchives, pairId);
+        List<AccountModels.PairArchive> archives = archivesWithoutPair(state.archives, pairId);
+        if (result.archive != null) archives.add(result.archive);
+
+        AccountModels.Pair activePair = unbind ? null : currentPair;
+        currentPair = activePair;
+        currentPairState = new AccountModels.PairState(activePair, pendingArchives, archives);
+        if (unbind) currentPairInvite = null;
+    }
+
+    private static List<AccountModels.PairArchive> archivesWithoutPair(
+        List<AccountModels.PairArchive> source,
+        String pairId
+    ) {
+        List<AccountModels.PairArchive> result = new ArrayList<>();
+        for (AccountModels.PairArchive archive : source) {
+            if (!archive.pairId.equals(pairId)) result.add(archive);
+        }
+        return result;
     }
 
     private void handlePairMutationFailure(AccountClient.Failure failure) {
@@ -1737,6 +1777,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void showMainTab(String page) {
+        showMainTab(page, false);
+    }
+
+    private void showMainTabFromNavigation(String page) {
+        showMainTab(page, true);
+    }
+
+    private void showMainTab(String page, boolean refreshPairOnEntry) {
         String target = page;
         View content;
         switch (page) {
@@ -1766,7 +1814,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         mainNavigationView.select(target);
         mainNavigationView.showContent(content);
         mainNavigationView.applyTheme();
-        if ("pair".equals(target) && accountSession != null && !pairLoaded && !pairLoading) {
+        if (refreshPairOnEntry && "pair".equals(target) && accountSession != null && !pairLoading) {
             mainHandler.post(() -> refreshPairState(false));
         }
     }
