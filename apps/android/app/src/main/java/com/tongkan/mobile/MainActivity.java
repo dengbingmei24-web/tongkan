@@ -83,6 +83,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private SessionStore sessionStore;
     private AccountModels.Session accountSession;
     private AccountModels.Pair currentPair;
+    private AccountModels.PairState currentPairState = AccountModels.PairState.empty();
     private AccountModels.PairInvite currentPairInvite;
     private String pairMessage = "";
     private boolean pairLoading;
@@ -1686,6 +1687,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void resetPairState() {
         currentPair = null;
+        currentPairState = AccountModels.PairState.empty();
         currentPairInvite = null;
         pairMessage = "";
         pairLoading = false;
@@ -1697,7 +1699,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             accountSession.user.nickname,
             accountSession.user.email,
             accountSession.user.id,
-            currentPair,
+            currentPairState,
             currentPairInvite,
             pairMessage,
             pairLoading,
@@ -1708,6 +1710,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 @Override public void onRefresh() { refreshPairState(true); }
                 @Override public void onInviteWatch() { inviteBoundFriendToWatch(); }
                 @Override public void onEditProfile() { showEditProfileDialog(); }
+                @Override public void onRequestUnbind() { showUnbindRetentionChoice(); }
+                @Override public void onChooseArchiveRetention(AccountModels.PairArchive archive) { showArchiveRetentionChoice(archive); }
                 @Override public void onLogout() { confirmAccountLogout(); }
             }
         );
@@ -1819,6 +1823,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             @Override public void onSuccess(AccountModels.Pair pair) {
                 runOnUiThread(() -> {
                     currentPair = pair;
+                    currentPairState = new AccountModels.PairState(pair, currentPairState.pendingArchives, currentPairState.archives);
                     currentPairInvite = null;
                     pairLoading = false;
                     pairLoaded = true;
@@ -1834,18 +1839,29 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void refreshPairState(boolean userInitiated) {
+        refreshPairState(userInitiated, null);
+    }
+
+    private void refreshPairState(boolean userInitiated, String successMessage) {
         if (accountSession == null || pairLoading) return;
         pairLoading = true;
-        if (userInitiated) pairMessage = "正在刷新绑定状态…";
+        if (successMessage != null) {
+            pairMessage = "正在同步好友和旧空间状态…";
+        } else if (userInitiated) {
+            pairMessage = "正在刷新绑定状态…";
+        }
         showMainTab("pair");
-        accountClient.getPair(accountSession.token, new AccountClient.ResultCallback<AccountModels.Pair>() {
-            @Override public void onSuccess(AccountModels.Pair pair) {
+        accountClient.getPair(accountSession.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
+            @Override public void onSuccess(AccountModels.PairState pairState) {
                 runOnUiThread(() -> {
-                    currentPair = pair;
-                    if (pair != null) currentPairInvite = null;
+                    currentPairState = pairState;
+                    currentPair = pairState.pair;
+                    if (currentPair != null) currentPairInvite = null;
                     pairLoading = false;
                     pairLoaded = true;
-                    pairMessage = userInitiated ? (pair == null ? "当前还没有绑定好友。" : "绑定状态已更新。") : "";
+                    pairMessage = successMessage != null
+                        ? successMessage
+                        : (userInitiated ? (currentPair == null ? "好友和旧空间状态已更新。" : "绑定状态已更新。") : "");
                     showMainTab("pair");
                 });
             }
@@ -1854,6 +1870,100 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 runOnUiThread(() -> handlePairFailure(failure));
             }
         });
+    }
+
+    private void showUnbindRetentionChoice() {
+        AccountModels.Pair pair = currentPair;
+        if (accountSession == null || pair == null || pairLoading) return;
+        new AlertDialog.Builder(this)
+            .setTitle("解除好友绑定？")
+            .setMessage("解除后会立即释放唯一好友名额，也不会退出账号或影响匿名房间。下一步需要选择是否保留与 " + pair.partner.nickname + " 的旧空间。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("继续选择", (dialog, which) -> showRetentionChoice(pair.pairId, pair.partner.nickname, true))
+            .show();
+    }
+
+    private void showArchiveRetentionChoice(AccountModels.PairArchive archive) {
+        if (accountSession == null || archive == null || pairLoading) return;
+        showRetentionChoice(archive.pairId, archive.partner.nickname, false);
+    }
+
+    private void showRetentionChoice(String pairId, String partnerNickname, boolean unbind) {
+        String[] labels = {"保留只读旧空间", "删除我的旧空间访问权"};
+        String message = unbind
+            ? "请选择解除绑定后如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。"
+            : "请选择如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。";
+        new AlertDialog.Builder(this)
+            .setTitle("选择旧空间处理方式")
+            .setMessage(message)
+            .setItems(labels, (dialog, index) -> confirmRetentionChoice(pairId, partnerNickname, unbind, index == 0 ? "keep" : "delete"))
+            .setNegativeButton("取消", null)
+            .show();
+    }
+
+    private void confirmRetentionChoice(String pairId, String partnerNickname, boolean unbind, String retention) {
+        boolean keep = "keep".equals(retention);
+        String title = keep ? "确认保留旧空间？" : "确认删除访问权？";
+        String effect = keep
+            ? "你之后仍可查看与 " + partnerNickname + " 的只读旧空间。"
+            : "你将无法再查看与 " + partnerNickname + " 的旧空间；只有双方都选择删除时，底层数据才会物理清理。";
+        String prefix = unbind ? "好友绑定会立即解除。" : "这个选择确认后不能修改。";
+        new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(prefix + effect)
+            .setNegativeButton("返回", null)
+            .setPositiveButton(keep ? "确认保留" : "确认删除", (dialog, which) -> submitPairRetention(pairId, retention, unbind))
+            .show();
+    }
+
+    private void submitPairRetention(String pairId, String retention, boolean unbind) {
+        AccountModels.Session session = accountSession;
+        if (session == null || pairLoading) return;
+        pairLoading = true;
+        pairMessage = unbind ? "正在解除好友绑定…" : "正在保存旧空间选择…";
+        showMainTab("pair");
+        AccountClient.ResultCallback<AccountModels.PairMutationResult> callback = new AccountClient.ResultCallback<AccountModels.PairMutationResult>() {
+            @Override public void onSuccess(AccountModels.PairMutationResult result) {
+                runOnUiThread(() -> {
+                    pairLoading = false;
+                    pairLoaded = false;
+                    String message;
+                    if (result.pairDeleted) {
+                        message = "双方都已选择删除，旧空间已经清理。";
+                    } else if ("keep".equals(retention)) {
+                        message = unbind ? "好友绑定已解除，旧空间已保留为只读。" : "旧空间已保留为只读。";
+                    } else {
+                        message = unbind ? "好友绑定已解除，你的旧空间访问权已删除。" : "你的旧空间访问权已删除。";
+                    }
+                    refreshPairState(false, message);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handlePairMutationFailure(failure));
+            }
+        };
+        if (unbind) {
+            accountClient.unbindPair(session.token, pairId, retention, callback);
+        } else {
+            accountClient.decidePairArchive(session.token, pairId, retention, callback);
+        }
+    }
+
+    private void handlePairMutationFailure(AccountClient.Failure failure) {
+        pairLoading = false;
+        if (failure.isAuthenticationFailure()) {
+            handleAccountRestoreFailure(failure);
+            return;
+        }
+        if (failure.networkFailure || failure.status == 404 || failure.status == 409) {
+            pairLoaded = false;
+            pairMessage = "操作结果可能已经变化，正在重新读取服务器状态…";
+            showMainTab("pair");
+            refreshPairState(false, "已刷新服务器状态，请确认当前好友和旧空间结果。");
+            return;
+        }
+        handlePairFailure(failure);
     }
 
     private void handlePairFailure(AccountClient.Failure failure) {

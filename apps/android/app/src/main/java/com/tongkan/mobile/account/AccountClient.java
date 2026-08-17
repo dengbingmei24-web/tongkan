@@ -138,13 +138,58 @@ public final class AccountClient {
         );
     }
 
-    public void getPair(String token, ResultCallback<AccountModels.Pair> callback) {
+    public void getPair(String token, ResultCallback<AccountModels.PairState> callback) {
         if (!requireConfigured(callback)) return;
         Request request = requestBuilder("/api/pair", token).get().build();
-        execute(request, value -> {
-            JSONObject pair = new JSONObject(value).optJSONObject("pair");
-            return pair == null ? null : AccountModels.Pair.fromJson(pair);
-        }, callback);
+        execute(request, value -> AccountModels.PairState.fromJson(new JSONObject(value)), callback);
+    }
+
+    public void unbindPair(String token, String pairId, String retention, ResultCallback<AccountModels.PairMutationResult> callback) {
+        if (!requireConfigured(callback)) return;
+        JSONObject body = retentionBody(pairId, retention, true, callback);
+        if (body == null) return;
+        execute(
+            post("/api/pair/unbind", body, token),
+            value -> AccountModels.PairMutationResult.fromJson(new JSONObject(value)),
+            callback
+        );
+    }
+
+    public void decidePairArchive(String token, String pairId, String retention, ResultCallback<AccountModels.PairMutationResult> callback) {
+        if (!requireConfigured(callback)) return;
+        JSONObject body = retentionBody(pairId, retention, false, callback);
+        if (body == null) return;
+        execute(
+            post("/api/pair/archives/" + pairId + "/retention", body, token),
+            value -> AccountModels.PairMutationResult.fromJson(new JSONObject(value)),
+            callback
+        );
+    }
+
+    private JSONObject retentionBody(
+        String pairId,
+        String retention,
+        boolean includePairId,
+        ResultCallback<AccountModels.PairMutationResult> callback
+    ) {
+        String normalizedPairId = pairId == null ? "" : pairId.trim();
+        if (!normalizedPairId.matches("[a-f0-9]{32}")) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "当前好友关系无效，请刷新后重试。", 0, false));
+            return null;
+        }
+        if (!"keep".equals(retention) && !"delete".equals(retention)) {
+            callback.onFailure(new Failure("PAIR_RETENTION_INVALID", "请选择保留或删除旧空间。", 0, false));
+            return null;
+        }
+        JSONObject body = new JSONObject();
+        try {
+            if (includePairId) body.put("pairId", normalizedPairId);
+            body.put("retention", retention);
+            return body;
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成旧空间处理请求。", 0, false));
+            return null;
+        }
     }
 
     public void registerDevice(String sessionToken, String pushToken, String provider, String deviceName, String appVersion, ResultCallback<AccountModels.DeviceRegistration> callback) {
