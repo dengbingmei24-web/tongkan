@@ -5,7 +5,7 @@
 - [x] T001 [REVIEW] 确认用户接受 Alpha 10.2 首版范围和三智能体分工，记录到 `CONTEXT.md`。
 - [x] T002 [REVIEW] 创建 `spec.md`、`plan.md`、`research.md`、`data-model.md`、OpenAPI 和 requirements checklist。
 - [x] T003 [REVIEW] 提交全部 TK-003 规格并记录唯一 Worker baseline commit。
-- [ ] T004 [REVIEW] 清理旧 worktree，创建 W1-W3 分支/worktree，确认工作区干净且写入范围无重叠。
+- [x] T004 [REVIEW] 清理旧 worktree，创建 W1-W3 分支/worktree，确认工作区干净且写入范围无重叠。
 
 ## Phase 2: Foundational Backend and Client Contracts
 
