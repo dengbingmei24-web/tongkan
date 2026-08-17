@@ -11,6 +11,7 @@
   "environmentVariables": [
     { "name": "TONGKAN_QA_TOKEN_A", "secret": true },
     { "name": "TONGKAN_QA_TOKEN_B", "secret": true },
+    { "name": "TONGKAN_QA_TOKEN_C", "secret": true },
     { "name": "TONGKAN_QA_TEST_KEY", "secret": true, "optional": true },
     { "name": "TONGKAN_QA_PAIR_SUCCESS", "secret": false },
     { "name": "TONGKAN_QA_PAIR_DELETE", "secret": false },
@@ -18,6 +19,7 @@
     { "name": "TONGKAN_QA_PAIR_BOTH_DELETE", "secret": false },
     { "name": "TONGKAN_QA_PAIR_REPEAT", "secret": false },
     { "name": "TONGKAN_QA_PAIR_CONCURRENT", "secret": false },
+    { "name": "TONGKAN_QA_PAIR_FOREIGN", "secret": false },
     { "name": "TONGKAN_QA_OLD_PAIR_ID", "secret": false },
     { "name": "TONGKAN_QA_NEW_PAIR_ID", "secret": false },
     { "name": "TONGKAN_QA_DELETED_PAIR_ID", "secret": false },
@@ -109,6 +111,16 @@
       "mode": "sequential",
       "requests": [
         { "name": "anonymous-unbind", "actor": "none", "method": "POST", "path": "/api/pair/unbind", "body": { "pairId": "{{TONGKAN_QA_PAIR_SUCCESS}}", "retention": "keep" }, "expect": { "statuses": [401], "error": "AUTH_REQUIRED" } }
+      ]
+    },
+    {
+      "id": "foreign-pair-hidden",
+      "title": "有效第三方账号无法探测或解绑 A-B pair",
+      "category": "authorization",
+      "requiredEnvironment": ["TONGKAN_QA_PAIR_FOREIGN"],
+      "mode": "sequential",
+      "requests": [
+        { "name": "c-unbind-foreign-pair", "actor": "C", "method": "POST", "path": "/api/pair/unbind", "body": { "pairId": "{{TONGKAN_QA_PAIR_FOREIGN}}", "retention": "keep" }, "expect": { "statuses": [404], "error": "PAIR_ARCHIVE_NOT_FOUND" } }
       ]
     },
     {

@@ -14,8 +14,19 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Net.Http
 
+$AllowedRemotePreviewHosts = @(
+  "account-preview.tongkan-personal.pages.dev"
+)
+
 if ([string]::IsNullOrWhiteSpace($CasesPath)) {
   $CasesPath = Join-Path $PSScriptRoot "contract-cases.json"
+}
+
+function Test-IsLocalOrigin {
+  param([Uri]$Origin)
+
+  $hostName = $Origin.DnsSafeHost.ToLowerInvariant()
+  return $hostName -eq "localhost" -or $hostName -eq "127.0.0.1"
 }
 
 function Assert-PreviewOrigin {
@@ -26,14 +37,19 @@ function Assert-PreviewOrigin {
   }
 
   $hostName = $Origin.DnsSafeHost.ToLowerInvariant()
-  $isLocal = $hostName -eq "localhost" -or $hostName -eq "127.0.0.1" -or $hostName -eq "::1"
-  $isPreview = $hostName.Contains("preview")
-  if (-not $isLocal -and -not $isPreview) {
-    throw "Non-preview API origin refused; this W3 script has no production override."
+  $isLocal = Test-IsLocalOrigin -Origin $Origin
+  if ($isLocal) {
+    if (@("http", "https") -notcontains $Origin.Scheme) {
+      throw "Local preview API must use HTTP or HTTPS."
+    }
+    return
   }
 
-  if (-not $isLocal -and $Origin.Scheme -ne "https") {
+  if ($Origin.Scheme -ne "https") {
     throw "Remote preview API must use HTTPS."
+  }
+  if ($AllowedRemotePreviewHosts -notcontains $hostName) {
+    throw "Remote API origin is not in the exact preview allowlist."
   }
 }
 
@@ -57,7 +73,7 @@ function Get-SecretValue {
   )
 
   $value = [Environment]::GetEnvironmentVariable($Name, "Process")
-  if ([string]::IsNullOrWhiteSpace($value) -and $SecureStdin) {
+  if ($Required -and [string]::IsNullOrWhiteSpace($value) -and $SecureStdin) {
     $value = Read-SecureText -Prompt $Prompt
   }
   if ($Required -and [string]::IsNullOrWhiteSpace($value)) {
@@ -135,6 +151,7 @@ function New-CaseRequest {
     [pscustomobject]$Definition,
     [string]$TokenA,
     [string]$TokenB,
+    [string]$TokenC,
     [string]$TestKey
   )
 
@@ -144,7 +161,7 @@ function New-CaseRequest {
   $message = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::new(([string]$Definition.method).ToUpperInvariant()), $target)
 
   $actor = ([string]$Definition.actor).ToUpperInvariant()
-  $token = if ($actor -eq "A") { $TokenA } elseif ($actor -eq "B") { $TokenB } else { $null }
+  $token = if ($actor -eq "A") { $TokenA } elseif ($actor -eq "B") { $TokenB } elseif ($actor -eq "C") { $TokenC } else { $null }
   if (-not [string]::IsNullOrWhiteSpace($token)) {
     $message.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new("Bearer", $token)
   }
@@ -221,6 +238,57 @@ function Assert-AggregateResult {
   }
 }
 
+function Get-CaseDependencies {
+  param([pscustomobject]$Case)
+
+  if ($Case.PSObject.Properties.Name -notcontains "dependsOn") { return @() }
+  return @($Case.dependsOn | ForEach-Object { [string]$_ })
+}
+
+function Add-CaseWithDependencies {
+  param(
+    [string]$CaseId,
+    [hashtable]$CaseById,
+    [hashtable]$Visiting,
+    [hashtable]$Selected,
+    [System.Collections.ArrayList]$Ordered
+  )
+
+  if ($Selected.ContainsKey($CaseId)) { return }
+  if ($Visiting.ContainsKey($CaseId)) { throw "Dependency cycle detected at case $CaseId." }
+  if (-not $CaseById.ContainsKey($CaseId)) { throw "Unknown dependency case id $CaseId." }
+
+  $Visiting[$CaseId] = $true
+  $case = $CaseById[$CaseId]
+  foreach ($dependencyId in @(Get-CaseDependencies -Case $case)) {
+    Add-CaseWithDependencies -CaseId $dependencyId -CaseById $CaseById -Visiting $Visiting -Selected $Selected -Ordered $Ordered
+  }
+  [void]$Visiting.Remove($CaseId)
+  $Selected[$CaseId] = $true
+  [void]$Ordered.Add($case)
+}
+
+function Resolve-SelectedCases {
+  param([pscustomobject]$Contract, [string[]]$RequestedIds)
+
+  $caseById = @{}
+  foreach ($case in @($Contract.cases)) {
+    $caseById[[string]$case.id] = $case
+  }
+
+  $targetIds = if ($RequestedIds.Count -gt 0) { @($RequestedIds) } else { @($Contract.cases | ForEach-Object { [string]$_.id }) }
+  foreach ($caseId in $targetIds) {
+    if (-not $caseById.ContainsKey([string]$caseId)) { throw "Unknown case id." }
+  }
+
+  $ordered = [System.Collections.ArrayList]::new()
+  $selected = @{}
+  foreach ($caseId in $targetIds) {
+    Add-CaseWithDependencies -CaseId ([string]$caseId) -CaseById $caseById -Visiting @{} -Selected $selected -Ordered $ordered
+  }
+  return @($ordered)
+}
+
 function Assert-ContractShape {
   param([pscustomobject]$Contract)
 
@@ -232,12 +300,13 @@ function Assert-ContractShape {
     $ids[[string]$case.id] = $true
     if (@("sequential", "parallel") -notcontains [string]$case.mode) { throw "$($case.id): invalid mode." }
     foreach ($request in @($case.requests)) {
-      if (@("A", "B", "none") -notcontains [string]$request.actor) { throw "$($case.id): invalid actor." }
+      if (@("A", "B", "C", "none") -notcontains [string]$request.actor) { throw "$($case.id): invalid actor." }
       if (@("GET", "POST") -notcontains ([string]$request.method).ToUpperInvariant()) { throw "$($case.id): invalid method." }
       $serialized = ConvertTo-Json $request -Compress -Depth 20
       if ($serialized -match "\{\{[^}]*(TOKEN|TEST_KEY)[^}]*\}\}") { throw "$($case.id): secret placeholders are forbidden." }
     }
   }
+  [void](Resolve-SelectedCases -Contract $Contract -RequestedIds @($Contract.cases | ForEach-Object { [string]$_.id }))
 }
 
 Assert-PreviewOrigin -Origin $ApiOrigin
@@ -245,12 +314,7 @@ if (-not (Test-Path -LiteralPath $CasesPath -PathType Leaf)) { throw "Contract f
 $contract = Get-Content -LiteralPath $CasesPath -Raw -Encoding UTF8 | ConvertFrom-Json
 Assert-ContractShape -Contract $contract
 
-$selectedCases = @($contract.cases)
-if ($CaseId.Count -gt 0) {
-  $selectedCases = @($selectedCases | Where-Object { $CaseId -contains [string]$_.id })
-  $unknown = @($CaseId | Where-Object { $_ -notin @($selectedCases | ForEach-Object { [string]$_.id }) })
-  if ($unknown.Count -gt 0) { throw "Unknown case id." }
-}
+$selectedCases = @(Resolve-SelectedCases -Contract $contract -RequestedIds $CaseId)
 
 if ($Mode -eq "ValidateOnly") {
   Write-Host "Contract validation passed: $($selectedCases.Count) cases; no network request sent."
@@ -258,9 +322,10 @@ if ($Mode -eq "ValidateOnly") {
 }
 
 $actors = @($selectedCases.requests.actor | ForEach-Object { [string]$_ } | Select-Object -Unique)
-$tokenA = Get-SecretValue -Name "TONGKAN_QA_TOKEN_A" -Prompt "Token A" -Required ($actors -contains "A")
-$tokenB = Get-SecretValue -Name "TONGKAN_QA_TOKEN_B" -Prompt "Token B" -Required ($actors -contains "B")
-$testKey = Get-SecretValue -Name "TONGKAN_QA_TEST_KEY" -Prompt "Preview test key (optional)" -Required $false
+$tokenA = if ($actors -contains "A") { Get-SecretValue -Name "TONGKAN_QA_TOKEN_A" -Prompt "Token A" -Required $true } else { $null }
+$tokenB = if ($actors -contains "B") { Get-SecretValue -Name "TONGKAN_QA_TOKEN_B" -Prompt "Token B" -Required $true } else { $null }
+$tokenC = if ($actors -contains "C") { Get-SecretValue -Name "TONGKAN_QA_TOKEN_C" -Prompt "Token C" -Required $true } else { $null }
+$testKey = if (-not (Test-IsLocalOrigin -Origin $ApiOrigin)) { Get-SecretValue -Name "TONGKAN_QA_TEST_KEY" -Prompt "Preview test key" -Required $true } else { $null }
 
 $handler = [System.Net.Http.HttpClientHandler]::new()
 $client = [System.Net.Http.HttpClient]::new($handler)
@@ -280,7 +345,7 @@ try {
     if ([string]$case.mode -eq "parallel") {
       $pending = @()
       foreach ($definition in @($case.requests)) {
-        $message = New-CaseRequest -Client $client -Definition $definition -TokenA $tokenA -TokenB $tokenB -TestKey $testKey
+        $message = New-CaseRequest -Client $client -Definition $definition -TokenA $tokenA -TokenB $tokenB -TokenC $tokenC -TestKey $testKey
         $pending += [pscustomobject]@{ Definition = $definition; Message = $message; Task = $client.SendAsync($message) }
       }
       foreach ($item in $pending) {
@@ -289,7 +354,7 @@ try {
       }
     } else {
       foreach ($definition in @($case.requests)) {
-        $message = New-CaseRequest -Client $client -Definition $definition -TokenA $tokenA -TokenB $tokenB -TestKey $testKey
+        $message = New-CaseRequest -Client $client -Definition $definition -TokenA $tokenA -TokenB $tokenB -TokenC $tokenC -TestKey $testKey
         try {
           $response = $client.SendAsync($message).GetAwaiter().GetResult()
           try { $results += Complete-CaseResponse -Definition $definition -Response $response } finally { $response.Dispose() }
@@ -313,6 +378,7 @@ try {
   $handler.Dispose()
   $tokenA = $null
   $tokenB = $null
+  $tokenC = $null
   $testKey = $null
 }
 
