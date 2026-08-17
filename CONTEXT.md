@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-08-17T11:28:47+08:00
-current_version: 1.0.0-alpha10.1-p0.13 (versionCode 34) independent top-level portrait composer and unified send path; pair-ready Account Worker build
-target_version: Resume TK-001 unilateral-unbind reviewer cleanup and integration from the pushed TK-002 P0.13 baseline
-status: TK-002 P0.13 is physically accepted, committed as `ce442c9 feat(android): complete alpha 10.1 room interaction baseline`, and pushed to `origin/codex/TK-002-player-chat`. Portrait typing/deletion, keyboard/App send, single-bubble behavior, successful clearing and composer cleanup across transitions all passed. The exposed QQ SMTP authorization code was rotated through an interactive local Wrangler prompt; production secret listing confirms the key exists and a live send-code request returned HTTP 202. Account typecheck, 17/17 tests and Worker dry-run passed; Android passed 32/32 tests, Lint and account-configured assembleDebug. The worktree and remote branch are synchronized and clean; TK-001 reviewer integration is next.
+last_updated: 2026-08-17T12:30:48+08:00
+current_version: 1.0.0-alpha10.1-p1.0 (versionCode 35) TK-001 integrated dual-device validation build; production Account migration/deployment pending
+target_version: Complete TK-001 online API acceptance and real two-device FCM + Beta regression
+status: The reviewer/controller completed the three-agent TK-001 review/revision loop and integrated Account → Android → QA on `codex/TK-002-player-chat`. Initial W1/W2/W3 verdicts were CHANGES_REQUESTED; fixes `ef92e01`, `641f3ed`, and `8776c33` were independently revalidated before integration. Account 41/41 tests, real local D1 concurrency tests, Android test/Lint/assemble, QA 13-case ValidateOnly, full typecheck/test/integration/build and diff checks passed. Preview D1 migration `0004_pair_archives.sql` and preview Worker version `4eaaf9e9-0152-46cc-bd6a-c49d58b22999` are deployed, but the documented public preview Pages route returns 404, so online black-box cases remain blocked. Production Account D1/Worker were not changed. Frozen APK: `release/tongkan-android-1.0.0-alpha10.1-p1.0-dual-device.apk`, SHA-256 `50C2AC0656592E5B402303558DAB19C26AEF55B47FF251EB5B001DD2F6932001`. Real FCM and Beta two-device acceptance remain pending.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -20,6 +20,18 @@ status: TK-002 P0.13 is physically accepted, committed as `ce442c9 feat(android)
 - Never leave a conversation without synchronizing the latest development state into this system.
 
 ## Completed
+
+- [x] Ran the TK-001 reviewer/controller workflow with three parallel agents. W1 Account, W2 Android and W3 QA were initially rejected with actionable findings, corrected in their isolated worktrees, revalidated and integrated in dependency order. Full branch comparison confirmed the execution commits did not modify forbidden global context/PRD/configuration files.
+
+- [x] Integrated TK-001 Account unilateral unbind and per-user archive decisions, including target-pair CAS, old-invite invalidation, same-user concurrent idempotency, independent keep/delete choices, non-disclosing 404 behavior and both-delete physical cleanup. Account typecheck/build and 41/41 tests passed, including nine real local D1 integration tests and twenty concurrent-unbind rounds.
+
+- [x] Integrated TK-001 Android bound/pending/archive states while preserving the accepted TK-002 nickname, room chat, top-level composer, unread red dot, brightness and volume behavior. Android unit tests, Lint and assembleDebug passed after manual conflict resolution; successful unbind immediately clears stale binding UI and entering the “我们” tab refreshes authoritative state.
+
+- [x] Integrated and hardened the TK-001 QA package with 13 contract cases, exact preview-host allowlisting, valid-third-account authorization checks, dependency expansion and least-required secure input. JSON parsing, PowerShell AST and ValidateOnly passed.
+
+- [x] Applied `0004_pair_archives.sql` to the isolated `tongkan-account-preview` D1 and deployed preview Worker version `4eaaf9e9-0152-46cc-bd6a-c49d58b22999`. Read-only D1 inspection confirmed both `pairs` and `pair_archive_members` tables. Production Account D1/Worker remain unchanged.
+
+- [x] Froze Android `1.0.0-alpha10.1-p1.0` / versionCode 35 and built `release/tongkan-android-1.0.0-alpha10.1-p1.0-dual-device.apk` (3,905,324 bytes), SHA-256 `50C2AC0656592E5B402303558DAB19C26AEF55B47FF251EB5B001DD2F6932001`.
 
 - [x] Committed the accepted TK-002 Alpha 10.1 room-interaction baseline as `ce442c9` and pushed the new remote branch `origin/codex/TK-002-player-chat`.
 
@@ -220,7 +232,11 @@ status: TK-002 P0.13 is physically accepted, committed as `ce442c9 feat(android)
 - [x] Added `scripts/configure-fcm.ps1` plus `scripts/run-fcm-configure.mjs`: Firebase files must stay outside Git; `-ValidateOnly` checks package/project matching without build or network changes; full mode tests/builds Android, configures three Worker Secrets without printing values, deploys, checks health, hashes the APK and opens Explorer. Added ignore rules and setup documentation. A fake external configuration passed validation without leaking dummy API key, service email or private-key text.
 ## In Progress
 
-- [ ] Review the three parallel TK-001 worker results from Issues #9-#11, verify contract-only changes and test evidence, then issue `APPROVED` or `CHANGES_REQUESTED` before integration.
+- [ ] Run the frozen P1.0 APK on two physical devices for FCM invite delivery/click/cold-start deep link and the full Beta room/playback/reconnect/landscape-chat matrix.
+
+- [ ] Complete TK-001 online black-box API cases after a stable Account preview Pages Service Binding route exists, or after the user explicitly approves production Account migration and Worker deployment.
+
+- [ ] Production TK-001 rollout remains deliberately paused: do not apply migration 0004 or deploy the Account Worker to production without explicit user approval.
 
 - [x] Completed the P0.13 physical matrix: input/deletion, keyboard and App send, single local bubble, successful clearing and transition cleanup all passed. FCM two-device delivery remains a separate postponed check.
 
@@ -306,29 +322,33 @@ status: TK-002 P0.13 is physically accepted, committed as `ce442c9 feat(android)
 
 ## Known Issues
 
-1. `1.0.0-alpha10.1-p0.13` with the production Account Worker base URL has passed the complete physical portrait chat matrix. P0.12 remains rejected and should not be redistributed.
-4. A repeatable two-device regression matrix for create/join, media switching, speed, seek and reconnect should be completed before Beta.
-4. Alpha 9.3.3 inherits the accepted Alpha 9.3.2 buffering debounce and one-report-per-buffering-episode guard; two-device physical verification is pending.
-5. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
-6. Android Release signing is not configured; Alpha artifacts use Debug signing. Configure a stable Release keystore before publishing the account-enabled Android app.
-7. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
-8. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
-9. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
-10. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
-11. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
-12. Alpha 9.3.1 footer visibility is physically verified. Remaining release-gate feedback covers first-screen spacing, button sizing, theme switching and immersive landscape controls.
-12. The test recording shows roughly 10鈥?1 seconds of black/paused player state after entering the viewing page before the Bilibili video becomes visible; there is no clear app-level loading progress, timeout or retry action. Treat this as a P1 loading-feedback issue unless it reproduces as an actual stuck load.
-13. Alpha 9.3.3 implements native Bilibili control suppression, an App-owned transparent interaction layer and user-gesture main-frame navigation blocking. Static/build validation passed, but physical verification is still required because Bilibili DOM classes and WebView gesture behavior can vary by player version.
-14. The landscape stage is genuinely horizontal in the cropped frames; the large black areas in the portrait recording are caused by recording a landscape screen into a fixed 432x960 portrait canvas. The 16:9 video's left/right pillarboxing is normal. However, after the 51.9鈥?2.3s rotation back to portrait the player is paused at about 05:37鈥?5:38; the recording cannot prove whether this was an intentional tap or an unintended rotation side effect, so add a focused enter/exit-landscape playback-state regression.
-15. This was a single-device visual recording only. It does not verify two-device synchronization, long/short buffering behavior, reconnect, hard-sync notices, peer media switching or completion-state behavior for Alpha 9.3.2.
-16. Bilibili Embed currently exposes only Auto(360P) without a Bilibili login. `high_quality=1`, `quality=64`, `qn=64` and `quality=80&qn=80` all remain at 360P. Real clarity improvement requires an optional official Bilibili login flow and highest-available-quality selection; CSS sharpening cannot restore missing source detail.
-17. Alpha 10 email login uses QQ Mail SMTP through `smtp.qq.com:465` implicit TLS. The previously exposed authorization code was rotated on 2026-08-17 through an interactive local Wrangler prompt, and the live send-code route returned HTTP 202. Never use or store the mailbox password.
-18. Unbind/data ownership is resolved by D-066: either party may unbind immediately after confirmation; each party independently keeps or deletes access to a read-only archive, and underlying pair data is physically deleted only when both choose delete. Account-deletion interaction with retained archives still requires implementation-level validation.
-19. The current Android UI is concentrated in `MainActivity.java`; Alpha 10 should introduce plain-Java account/session clients and separate auth/watch screen responsibilities without Kotlin, Compose or a large framework rewrite.
-20. The HyperFrames promo preview is intentionally silent and local-only for review. TTS/BGM dependencies are unavailable offline, and final MP4 rendering is explicitly deferred until user approval.
-21. Production Account Worker and Pages `/account-api` routing are live, but the current test APK still needs the next provider-enabled build for real push validation. Library and Calendar remain placeholders, while Us contains the account/pair shell and one-tap invite flow.
-22. Production device-token storage is migrated and protected by HMAC lookup plus AES-GCM ciphertext. With no `PUSH_PROVIDER`/FCM secrets configured, the Worker returns `fallbackRequired` rather than claiming delivery; Android continues with system sharing.
-23. Portable GitHub CLI 2.97.0 works from `C:\tmp\gh-cli-2.97.0\bin\gh.exe`, but `gh auth status` reports no authenticated host. A visible `gh auth login --web` terminal is open; Worker Issues and worktrees must wait until authentication succeeds.
+1. `1.0.0-alpha10.1-p1.0` contains the TK-001 Android UI, but production Account D1/Worker have not received migration 0004 or the new endpoints. Unbind/archive actions will not work against the production Account origin until an explicitly approved rollout.
+2. The isolated preview D1 and Worker are updated, but `https://account-preview.tongkan-personal.pages.dev/account-api/health` returns 404 because no stable Pages preview route currently binds `ACCOUNT` to `tongkan-account-preview`. Online QA tokens were not fabricated or printed.
+3. Real two-device FCM delivery, notification click/cold-start recovery and the full Beta regression are still physical-device gates; automated checks cannot replace them.
+4. Integration commits still use the automatic Git identity `unknown <dengbingmei@game.ntes>`; configure a GitHub noreply identity before future public commits if desired.
+5. `1.0.0-alpha10.1-p0.13` with the production Account Worker base URL has passed the complete physical portrait chat matrix. P0.12 remains rejected and should not be redistributed.
+6. A repeatable two-device regression matrix for create/join, media switching, speed, seek and reconnect should be completed before Beta.
+7. Alpha 9.3.3 inherits the accepted Alpha 9.3.2 buffering debounce and one-report-per-buffering-episode guard; two-device physical verification is pending.
+8. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
+9. Android Release signing is not configured; Alpha artifacts use Debug signing. Configure a stable Release keystore before publishing the account-enabled Android app.
+10. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
+11. GitHub Actions reports non-blocking Node.js 20 runtime deprecation warnings for several third-party actions; migrate action majors in a separate maintenance change.
+12. The redesigned README and Web UI are now pushed to GitHub and live on Cloudflare Pages. Future Web changes must continue deploying from `apps/web` so the existing `functions/_middleware.js` service-binding proxy is included.
+13. The GitHub repository is Public. Its history exposes old commit email `dengbingmei@game.ntes` and the tracked local path `C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md`; the pre-public scan found no common token, private-key or credential patterns in Git history. Do not rewrite history unless explicitly requested.
+14. A normal Web page cannot directly read or control the `<video>` element inside the cross-origin `player.bilibili.com` iframe, and the official external-player page documents URL parameters rather than a stable runtime control API. A no-extension Bilibili mode should therefore use screen sharing; reverse-engineering private player messages or proxying Bilibili streams is not recommended as the default route.
+15. Alpha 9.3.1 footer visibility is physically verified. Remaining release-gate feedback covers first-screen spacing, button sizing, theme switching and immersive landscape controls.
+16. The test recording shows roughly 10鈥?1 seconds of black/paused player state after entering the viewing page before the Bilibili video becomes visible; there is no clear app-level loading progress, timeout or retry action. Treat this as a P1 loading-feedback issue unless it reproduces as an actual stuck load.
+17. Alpha 9.3.3 implements native Bilibili control suppression, an App-owned transparent interaction layer and user-gesture main-frame navigation blocking. Static/build validation passed, but physical verification is still required because Bilibili DOM classes and WebView gesture behavior can vary by player version.
+18. The landscape stage is genuinely horizontal in the cropped frames; the large black areas in the portrait recording are caused by recording a landscape screen into a fixed 432x960 portrait canvas. The 16:9 video's left/right pillarboxing is normal. However, after the 51.9鈥?2.3s rotation back to portrait the player is paused at about 05:37鈥?5:38; the recording cannot prove whether this was an intentional tap or an unintended rotation side effect, so add a focused enter/exit-landscape playback-state regression.
+19. This was a single-device visual recording only. It does not verify two-device synchronization, long/short buffering behavior, reconnect, hard-sync notices, peer media switching or completion-state behavior for Alpha 9.3.2.
+20. Bilibili Embed currently exposes only Auto(360P) without a Bilibili login. `high_quality=1`, `quality=64`, `qn=64` and `quality=80&qn=80` all remain at 360P. Real clarity improvement requires an optional official Bilibili login flow and highest-available-quality selection; CSS sharpening cannot restore missing source detail.
+21. Alpha 10 email login uses QQ Mail SMTP through `smtp.qq.com:465` implicit TLS. The previously exposed authorization code was rotated on 2026-08-17 through an interactive local Wrangler prompt, and the live send-code route returned HTTP 202. Never use or store the mailbox password.
+22. Unbind/data ownership is resolved by D-066: either party may unbind immediately after confirmation; each party independently keeps or deletes access to a read-only archive, and underlying pair data is physically deleted only when both choose delete. Account-deletion interaction with retained archives still requires implementation-level validation.
+23. The current Android UI is concentrated in `MainActivity.java`; Alpha 10 should introduce plain-Java account/session clients and separate auth/watch screen responsibilities without Kotlin, Compose or a large framework rewrite.
+24. The HyperFrames promo preview is intentionally silent and local-only for review. TTS/BGM dependencies are unavailable offline, and final MP4 rendering is explicitly deferred until user approval.
+25. Production Account Worker and Pages `/account-api` routing are live, but the current test APK still needs the next provider-enabled build for real push validation. Library and Calendar remain placeholders, while Us contains the account/pair shell and one-tap invite flow.
+26. Production device-token storage is migrated and protected by HMAC lookup plus AES-GCM ciphertext. With no `PUSH_PROVIDER`/FCM secrets configured, the Worker returns `fallbackRequired` rather than claiming delivery; Android continues with system sharing.
+27. Portable GitHub CLI 2.97.0 works from `C:\tmp\gh-cli-2.97.0\bin\gh.exe`, but `gh auth status` reports no authenticated host. A visible `gh auth login --web` terminal is open; Worker Issues and worktrees must wait until authentication succeeds.
 
 ## Architecture Decisions
 
@@ -404,14 +424,12 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Review TK-001 W1-W3 commits (`6024a39`, `1fa8341`, `a6170de`), reject/strip contract-forbidden global context/task edits, then integrate Account Worker, Android and QA in dependency order.
-2. After TK-001, resume the postponed two-device FCM delivery test and the full create/join/playback/reconnect Beta regression.
-3. Execute the accepted documentation-governance migration now that TK-002 has a safe pushed baseline.
-1. Wait for W1-W3 commits and handoff evidence; post results to Issues #9-#11.
-2. Review each branch against its contract and return `APPROVED` or `CHANGES_REQUESTED`.
-3. Integrate W1, apply only the preview migration, then integrate W2/W3 and run the full TK-001 acceptance matrix.
-4. Keep the FCM two-device test paused until the user resumes it, then run the existing notification QA matrix.
-6. At 11:00 Asia/Shanghai on 2026-08-17, resume the accepted documentation-governance work: first create a safe checkpoint for the dirty TK-002 worktree, then migrate root documents in separate path-move and content-cleanup commits.
+1. Install the frozen P1.0 APK on both phones and run FCM notification delivery, tap-to-room and cold-start deep-link checks.
+2. On the same frozen APK/commit, run the Beta two-device room matrix: create/join, play/pause, seek, six speeds, media switch, 15-second disconnect/reconnect, landscape unread red dot/input and at least 30 minutes continuous viewing.
+3. Decide the TK-001 server rollout path: either create a stable preview Pages route and provide three secure QA tokens, or explicitly approve production Account migration 0004 plus Worker deployment.
+4. After online API verification, run unilateral unbind/keep/delete/rebind/restart and both-delete D1 row checks.
+5. Push the current integration branch only when the user requests it; no production deployment or master merge has been performed.
+6. Resume the postponed documentation-governance migration after the P1 dual-device gate is complete.
 
 ## Key Files
 
@@ -439,7 +457,7 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 | Room session logic | apps/signaling/src/room-session.ts |
 | Shared types | packages/protocol/src/types.ts |
 | QA checklist | QA_CHECKLIST.md |
-| Active local test APK | release/tongkan-android-1.0-alpha9.3.6.apk |
+| Active local test APK | release/tongkan-android-1.0.0-alpha10.1-p1.0-dual-device.apk |
 
 ## Follow-up PRD Direction
 
@@ -756,3 +774,5 @@ Maintenance rules:
 - 2026-08-17 (184): User confirmed all remaining P0.13 physical checks pass: keyboard/App send, one local bubble, successful input clearing and no composer residue across keyboard, landscape, fullscreen and room exit. User also generated and entered a replacement QQ SMTP authorization code through the visible local Wrangler prompt without exposing it in chat. Production secret listing confirms `SMTP_AUTHORIZATION_CODE`; a live send-code request returned HTTP 202. Account Worker typecheck, 17/17 tests and Wrangler dry-run passed; Android P0.13 already passed 32/32 tests, Lint and assembleDebug. GitHub remote access and Cloudflare OAuth are valid. User explicitly authorized committing and pushing the accepted TK-002 baseline.
 
 - 2026-08-17 (185): Created commit `ce442c9 feat(android): complete alpha 10.1 room interaction baseline` with 28 files covering account nickname support, Android room chat, brightness/volume gestures, top-level composer, protocol/tests and synchronized product/design/QA documents. Pushed the new branch to `origin/codex/TK-002-player-chat`; GitHub reported the branch is available for a pull request. No merge to master, production code deployment or database migration occurred. This final context handoff is committed separately after the code push.
+
+- 2026-08-17 (186): User approved running TK-001 integration, real FCM preparation and Beta regression in parallel using the reviewer/worker-agent model. The reviewer spawned three agents to audit W1 `6024a39`, W2 `1fa8341` and W3 `a6170de`. All three returned CHANGES_REQUESTED; Account fixed concurrent same-value idempotency and mutation attribution in `ef92e01`, Android fixed immediate authority reconciliation and tab/resume refresh in `641f3ed`, and QA fixed exact preview allowlisting, third-account authorization, dependency expansion and minimal secure input in `8776c33`. Reviewer revalidation passed Account 41/41 with real local D1, QA 13-case ValidateOnly, Android test/Lint/assemble, full workspace typecheck/test/integration/build and diff checks. Integrated Account → Android → QA into `codex/TK-002-player-chat`, manually preserving the accepted P0.13 nickname/chat/composer/red-dot/brightness/volume code. Applied migration 0004 and deployed Worker version `4eaaf9e9-0152-46cc-bd6a-c49d58b22999` only to the isolated preview environment; the expected public preview Pages route returns 404, so live token-based black-box tests remain blocked. Production Account D1/Worker, Pages production, master and remote branch were not changed. Froze versionCode 35 / `1.0.0-alpha10.1-p1.0` and built `release/tongkan-android-1.0.0-alpha10.1-p1.0-dual-device.apk` (3,905,324 bytes), SHA-256 `50C2AC0656592E5B402303558DAB19C26AEF55B47FF251EB5B001DD2F6932001`. Real two-device FCM and Beta acceptance are next.

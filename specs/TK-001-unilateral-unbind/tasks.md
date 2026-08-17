@@ -34,13 +34,13 @@
 
 ## Phase 5: Reviewer Integration
 
-- [ ] T021 [REVIEW] 审查 W1-W3 写入范围、提交和证据，退回所有合同外改动。
-- [ ] T022 [REVIEW] 合并 W1，由审查窗口应用预览 migration 并运行在线双账号 API 用例。
-- [ ] T023 [REVIEW] 合并 W2，运行 `pnpm android:check` 并构建测试 APK。
-- [ ] T024 [REVIEW] 合并 W3，执行预览黑盒矩阵、20 轮并发和真机验收。
+- [x] T021 [REVIEW] 审查 W1-W3 写入范围、提交和证据，退回所有合同外改动。
+- [ ] T022 [REVIEW] 合并 W1，由审查窗口应用预览 migration 并运行在线双账号 API 用例。（已完成合并和 preview migration；稳定 preview Pages 路由与在线双账号用例待完成。）
+- [x] T023 [REVIEW] 合并 W2，运行 `pnpm android:check` 并构建测试 APK。
+- [ ] T024 [REVIEW] 合并 W3，执行预览黑盒矩阵、20 轮并发和真机验收。（已完成合并、20 轮本地 D1 并发与自动校验；在线 preview 与真机待完成。）
 - [ ] T025 [REVIEW] 直接查询预览 D1，验证双方删除后当前真实存在的 `pairs` 与 `pair_archive_members` 行均不存在；未来子表级联只在 T009 的本地临时表验证。
-- [ ] T026 [REVIEW] 运行全仓 typecheck/test/build、diff check 和凭据扫描。
-- [ ] T027 [REVIEW] 更新 PRD、QA、CONTEXT 和长期决策；生产 migration/部署另行确认。
+- [x] T026 [REVIEW] 运行全仓 typecheck/test/build、diff check 和凭据扫描。
+- [ ] T027 [REVIEW] 更新 PRD、QA、CONTEXT 和长期决策；生产 migration/部署另行确认。（本轮已更新 tasks/CONTEXT；生产 rollout 与最终验收后再关闭。）
 
 ## Dependencies
 
