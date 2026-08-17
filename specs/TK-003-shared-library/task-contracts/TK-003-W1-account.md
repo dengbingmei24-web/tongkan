@@ -1,7 +1,7 @@
 # Worker Task Contract: TK-003-W1 Account Shared Library
 
 **Feature**: TK-003
-**Baseline Commit**: BASELINE_PENDING_SPEC_COMMIT
+**Frozen Specification Baseline**: `23aaef6`
 **Branch**: `codex/TK-003-W1-account`
 **Worktree**: C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-003-W1-account
 **Owner**: W1 Account/D1 worker
