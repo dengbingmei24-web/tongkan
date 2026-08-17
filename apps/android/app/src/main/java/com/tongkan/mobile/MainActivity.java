@@ -9,6 +9,7 @@ import android.content.res.Configuration;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
@@ -21,6 +22,8 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
@@ -33,6 +36,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.ScrollView;
@@ -49,6 +53,10 @@ import com.tongkan.mobile.ui.AuthScreen;
 import com.tongkan.mobile.ui.BreathTheme;
 import com.tongkan.mobile.ui.HomeScreen;
 import com.tongkan.mobile.ui.MainNavigationView;
+import com.tongkan.mobile.ui.ImmersiveMediaGestureController;
+import com.tongkan.mobile.ui.PortraitComposerPositioner;
+import com.tongkan.mobile.ui.RoomChatOverlay;
+import com.tongkan.mobile.ui.RoomChatView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -163,6 +171,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private long ignoreOrientationPauseUntilMs;
     private int systemInsetTop;
     private int systemInsetBottom;
+    private int portraitComposerBottomMargin;
+    private FrameLayout portraitComposerLayer;
+    private ViewTreeObserver.OnGlobalLayoutListener keyboardLayoutListener;
     private FrameLayout immersiveControls;
     private View immersiveTapLayer;
     private ImageButton immersivePlayButton;
@@ -171,8 +182,24 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private Button immersiveSpeedButton;
     private SeekBar immersiveSeekBar;
     private TextView immersiveTimeText;
+    private ImageButton immersiveChatButton;
+    private View immersiveChatUnreadDot;
+    private LinearLayout immersiveAdjustmentHud;
+    private ImageView immersiveAdjustmentIcon;
+    private SeekBar immersiveAdjustmentProgress;
+    private TextView immersiveAdjustmentText;
+    private RoomChatView portraitChatView;
+    private RoomChatOverlay immersiveChatOverlay;
+    private ImmersiveMediaGestureController immersiveGestureController;
+    private String ownMemberId;
+    private String currentRoomNickname = "我";
     private boolean immersiveControlsVisible;
     private final Runnable hideImmersiveControls = () -> setImmersiveControlsVisible(false, false);
+    private final Runnable hideImmersiveAdjustmentHud = () -> {
+        if (immersiveAdjustmentHud == null) return;
+        immersiveAdjustmentHud.animate().alpha(0f).setDuration(180)
+            .withEndAction(() -> immersiveAdjustmentHud.setVisibility(View.GONE)).start();
+    };
 
     private static final String[][] DAILY_QUOTES = {
         {"生活就像一盒巧克力，你永远不知道下一颗是什么味道。", "《阿甘正传》"},
@@ -259,6 +286,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     @Override
     protected void onDestroy() {
+        if (rootContainer != null && keyboardLayoutListener != null) {
+            rootContainer.getViewTreeObserver().removeOnGlobalLayoutListener(keyboardLayoutListener);
+        }
         if (roomClient != null) roomClient.close();
         if (accountClient != null) accountClient.close();
         background.shutdownNow();
@@ -456,17 +486,52 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         videoThemeButton.setOnClickListener(view -> toggleTheme());
         quickActions.addView(videoThemeButton, margin(weight(1), 8, 0, 0, 0));
         footer.addView(quickActions, margin(matchHeight(50), 0, 8, 0, 0));
-        videoSection.addView(footer, matchWrap());
+        portraitChatView = new RoomChatView(this, false);
+        portraitChatView.setOnSendListener(this::sendChatMessage);
+        portraitChatView.setOnComposerFocusListener(this::onPortraitComposerFocusChanged);
+        portraitChatView.setSendEnabled(false);
+        LinearLayout.LayoutParams portraitChatParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        footer.addView(portraitChatView, margin(portraitChatParams, 0, 10, 0, 0));
+        videoSection.addView(footer, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        portraitComposerLayer = new FrameLayout(this);
+        portraitComposerLayer.setClipChildren(false);
+        portraitComposerLayer.setClipToPadding(false);
+        portraitComposerLayer.setVisibility(View.GONE);
+        View portraitComposer = portraitChatView.detachComposerForOverlay();
+        portraitComposerLayer.addView(portraitComposer, new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(50),
+            Gravity.CENTER_VERTICAL
+        ));
+        FrameLayout.LayoutParams composerLayerParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(66),
+            Gravity.BOTTOM
+        );
+        composerLayerParams.leftMargin = dp(26);
+        composerLayerParams.rightMargin = dp(26);
+        rootContainer.addView(portraitComposerLayer, composerLayerParams);
 
         applyTheme();
         setContentView(rootContainer);
         rootContainer.setOnApplyWindowInsetsListener((view, insets) -> {
-            systemInsetTop = insets.getSystemWindowInsetTop();
-            systemInsetBottom = insets.getSystemWindowInsetBottom();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
+                systemInsetTop = systemBars.top;
+                systemInsetBottom = systemBars.bottom;
+            } else {
+                systemInsetTop = insets.getSystemWindowInsetTop();
+                systemInsetBottom = insets.getSystemWindowInsetBottom();
+            }
             applySafeAreaInsets();
+            view.post(this::updatePortraitComposerPosition);
             return insets;
         });
+        keyboardLayoutListener = this::updatePortraitComposerPosition;
+        rootContainer.getViewTreeObserver().addOnGlobalLayoutListener(keyboardLayoutListener);
         rootContainer.requestApplyInsets();
+        rootContainer.post(this::updatePortraitComposerPosition);
     }
 
     private String[] dailyQuote() {
@@ -552,12 +617,23 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         immersiveTapLayer = new View(this);
         immersiveTapLayer.setBackgroundColor(Color.TRANSPARENT);
         immersiveTapLayer.setVisibility(View.GONE);
-        immersiveTapLayer.setOnClickListener(view -> {
-            if (appFullscreen) {
-                setImmersiveControlsVisible(!immersiveControlsVisible, true);
-            } else if (playerReady && authenticated && !awaitingMediaConfirmation) {
+        immersiveGestureController = new ImmersiveMediaGestureController(this, new ImmersiveMediaGestureController.Callback() {
+            @Override
+            public void onTap() {
+                if (appFullscreen) setImmersiveControlsVisible(!immersiveControlsVisible, true);
+            }
+
+            @Override
+            public void onAdjustment(ImmersiveMediaGestureController.ControlType type, int percent, boolean finished) {
+                showImmersiveAdjustment(type, percent, finished);
+            }
+        });
+        immersiveTapLayer.setOnTouchListener((view, event) -> {
+            if (appFullscreen) return immersiveGestureController.onTouch(view, event);
+            if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP && playerReady && authenticated && !awaitingMediaConfirmation) {
                 togglePlayback();
             }
+            return true;
         });
         playerContainer.addView(immersiveTapLayer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -609,6 +685,26 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         immersiveSpeedButton.setTag("immersiveButton");
         immersiveSpeedButton.setOnClickListener(view -> showSpeedDialog());
         actions.addView(immersiveSpeedButton, margin(new LinearLayout.LayoutParams(dp(78), dp(48)), 8, 0, 0, 0));
+        FrameLayout immersiveChatButtonHost = new FrameLayout(this);
+        immersiveChatButton = iconButton(R.drawable.ic_chat, "消息");
+        immersiveChatButton.setTag("immersiveIconButton");
+        immersiveChatButton.setOnClickListener(view -> {
+            setImmersiveChatUnread(false);
+            setImmersiveControlsVisible(true, false);
+            if (immersiveChatOverlay != null) immersiveChatOverlay.show();
+        });
+        immersiveChatButtonHost.addView(immersiveChatButton, new FrameLayout.LayoutParams(dp(48), dp(48)));
+        immersiveChatUnreadDot = new View(this);
+        GradientDrawable unreadBackground = new GradientDrawable();
+        unreadBackground.setShape(GradientDrawable.OVAL);
+        unreadBackground.setColor(0xFFFF3B30);
+        unreadBackground.setStroke(dp(2), Color.WHITE);
+        immersiveChatUnreadDot.setBackground(unreadBackground);
+        immersiveChatUnreadDot.setVisibility(View.GONE);
+        FrameLayout.LayoutParams unreadParams = new FrameLayout.LayoutParams(dp(12), dp(12), Gravity.TOP | Gravity.END);
+        unreadParams.setMargins(0, dp(2), dp(1), 0);
+        immersiveChatButtonHost.addView(immersiveChatUnreadDot, unreadParams);
+        actions.addView(immersiveChatButtonHost, margin(new LinearLayout.LayoutParams(dp(48), dp(48)), 8, 0, 0, 0));
         View spacer = new View(this);
         actions.addView(spacer, weight(1));
         ImageButton exitFullscreen = iconButton(R.drawable.ic_exit_fullscreen, "退出全屏");
@@ -616,8 +712,52 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         exitFullscreen.setOnClickListener(view -> exitImmersiveViewing());
         actions.addView(exitFullscreen, new LinearLayout.LayoutParams(dp(48), dp(48)));
         bottom.addView(actions, matchHeight(48));
+
+        immersiveAdjustmentHud = new LinearLayout(this);
+        immersiveAdjustmentHud.setOrientation(LinearLayout.VERTICAL);
+        immersiveAdjustmentHud.setGravity(Gravity.CENTER);
+        immersiveAdjustmentHud.setPadding(dp(18), dp(14), dp(18), dp(12));
+        immersiveAdjustmentHud.setBackground(rounded(Color.argb(205, 18, 20, 25), Color.argb(80, 255, 255, 255), 16));
+        immersiveAdjustmentHud.setVisibility(View.GONE);
+        immersiveAdjustmentIcon = new ImageView(this);
+        immersiveAdjustmentHud.addView(immersiveAdjustmentIcon, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        immersiveAdjustmentText = text("50%", 15, Color.WHITE);
+        immersiveAdjustmentText.setTextColor(Color.WHITE);
+        immersiveAdjustmentText.setGravity(Gravity.CENTER);
+        immersiveAdjustmentHud.addView(immersiveAdjustmentText, margin(matchHeight(28), 0, 4, 0, 0));
+        immersiveAdjustmentProgress = new SeekBar(this);
+        immersiveAdjustmentProgress.setMax(100);
+        immersiveAdjustmentProgress.setEnabled(false);
+        immersiveAdjustmentProgress.setAlpha(1f);
+        immersiveAdjustmentHud.addView(immersiveAdjustmentProgress, new LinearLayout.LayoutParams(dp(138), dp(32)));
+        FrameLayout.LayoutParams hudParams = new FrameLayout.LayoutParams(dp(180), dp(128), Gravity.CENTER);
+        playerContainer.addView(immersiveAdjustmentHud, hudParams);
+
+        immersiveChatOverlay = new RoomChatOverlay(this, playerContainer);
+        immersiveChatOverlay.setVisibilityListener(visible -> {
+            if (visible) {
+                setImmersiveChatUnread(false);
+                mainHandler.removeCallbacks(hideImmersiveControls);
+                setImmersiveControlsVisible(true, false);
+            } else {
+                scheduleImmersiveControlsHide();
+            }
+        });
+        immersiveChatOverlay.getChatView().setOnSendListener(this::sendChatMessage);
+        immersiveChatOverlay.getChatView().setSendEnabled(false);
     }
 
+    private void showImmersiveAdjustment(ImmersiveMediaGestureController.ControlType type, int percent, boolean finished) {
+        if (immersiveAdjustmentHud == null) return;
+        mainHandler.removeCallbacks(hideImmersiveAdjustmentHud);
+        immersiveAdjustmentIcon.setImageResource(type == ImmersiveMediaGestureController.ControlType.BRIGHTNESS
+            ? R.drawable.ic_brightness : R.drawable.ic_volume);
+        immersiveAdjustmentText.setText((type == ImmersiveMediaGestureController.ControlType.BRIGHTNESS ? "亮度 " : "音量 ") + percent + "%");
+        immersiveAdjustmentProgress.setProgress(percent);
+        immersiveAdjustmentHud.setAlpha(1f);
+        immersiveAdjustmentHud.setVisibility(View.VISIBLE);
+        if (finished) mainHandler.postDelayed(hideImmersiveAdjustmentHud, 1000);
+    }
     private void configureSeekBar(SeekBar bar) {
         bar.setMax(1);
         bar.setEnabled(false);
@@ -656,6 +796,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void setImmersiveControlsVisible(boolean visible, boolean scheduleHide) {
         mainHandler.removeCallbacks(hideImmersiveControls);
+        if (!visible && immersiveChatOverlay != null && immersiveChatOverlay.isShowing()) return;
         immersiveControlsVisible = visible && appFullscreen;
         if (immersiveControls != null) immersiveControls.setVisibility(immersiveControlsVisible ? View.VISIBLE : View.GONE);
         if (scheduleHide && immersiveControlsVisible) scheduleImmersiveControlsHide();
@@ -663,7 +804,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void scheduleImmersiveControlsHide() {
         mainHandler.removeCallbacks(hideImmersiveControls);
-        if (appFullscreen && !playerPaused && !playerEnded && !playerBuffering && !userSeeking && !loadingVideo) {
+        boolean chatOpen = immersiveChatOverlay != null && immersiveChatOverlay.isShowing();
+        if (appFullscreen && !chatOpen && !playerPaused && !playerEnded && !playerBuffering && !userSeeking && !loadingVideo) {
             mainHandler.postDelayed(hideImmersiveControls, IMMERSIVE_CONTROLS_HIDE_DELAY_MS);
         }
     }
@@ -711,6 +853,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 htmlFullscreenContainer.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
                 htmlFullscreenContainer.setVisibility(View.VISIBLE);
                 rootLayout.setVisibility(View.GONE);
+                syncPortraitComposerVisibility();
                 applyImmersiveMode(true);
             }
 
@@ -778,8 +921,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             try {
                 RoomClient.CreateRoomResult result = RoomClient.createRoom();
                 runOnUiThread(() -> {
-                    createButton.setEnabled(true);
-                    createButton.setText("创建房间");
+                    createButton.setEnabled(false);
+                    createButton.setText("正在连接…");
+                    setConnectionStatus("房间已创建，正在建立连接…");
                     pendingPairWatchInvite = inviteBoundFriend;
                     pendingAutoShare = !inviteBoundFriend;
                     connectIdentity(result.roomId, result.hostKey, "host", result.inviteKey, nickname);
@@ -812,8 +956,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         currentKey = key;
         currentRole = role;
         currentInviteKey = inviteKey;
+        currentRoomNickname = nickname;
+        ownMemberId = null;
         authenticated = false;
-        showVideoScreen();
+        clearChatMessages();
+        setChatEnabled(false);
+        setPreparationControlsEnabled(false);
         roomText.setText("房间 " + roomId.substring(0, 8) + " · " + ("host".equals(role) ? "房主" : "朋友"));
         setConnectionStatus("正在连接房间…");
         shareButton.setEnabled(inviteKey != null && !inviteKey.isEmpty());
@@ -849,11 +997,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void loadVideoFromInput() {
         if (!authenticated || roomClient == null) {
-            showError("请先连接房间，再准备视频");
+            setConnectionStatus("正在连接房间，连接完成后再准备视频");
+            playerHint.setText("正在连接房间…");
             return;
         }
         if (loadingVideo) {
-            showError("视频正在准备中，请稍候");
+            playerHint.setText("视频正在准备中，请稍候");
             return;
         }
         loadingVideo = true;
@@ -1024,13 +1173,34 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     @Override
     public void onConnectionState(String state) {
-        runOnUiThread(() -> setConnectionStatus(state));
+        runOnUiThread(() -> {
+            setConnectionStatus(state);
+            boolean connectionUnavailable = state.contains("正在连接") || state.contains("正在重连") || state.contains("连接中断")
+                || "已断开".equals(state) || "连接失败".equals(state);
+            if (connectionUnavailable) {
+                authenticated = false;
+                setPreparationControlsEnabled(false);
+                setPlaybackControlsEnabled(false);
+            }
+            if ("已断开".equals(state) || "连接失败".equals(state)) {
+                createButton.setEnabled(true);
+                createButton.setText("创建房间");
+                joinButton.setEnabled(true);
+                joinButton.setText("加入房间");
+            }
+            setChatEnabled(authenticated);
+        });
     }
 
     @Override
     public void onAuthenticated(String ownMemberId, JSONObject snapshot) {
         runOnUiThread(() -> {
+            MainActivity.this.ownMemberId = ownMemberId;
             authenticated = true;
+            setChatEnabled(true);
+            setPreparationControlsEnabled(!loadingVideo);
+            createButton.setEnabled(true);
+            createButton.setText("创建房间");
             joinButton.setEnabled(true);
             joinButton.setText("加入房间");
             showVideoScreen();
@@ -1053,6 +1223,63 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     @Override
     public void onAnchor(PlaybackAnchor anchor, String actorNickname) {
         runOnUiThread(() -> applyAnchor(anchor, actorNickname));
+    }
+
+    @Override
+    public void onChatMessage(String messageId, String memberId, String nickname, String text, long serverSentAtMs) {
+        runOnUiThread(() -> {
+            boolean own = ownMemberId != null && ownMemberId.equals(memberId);
+            String displayNickname = chatDisplayNickname(own, nickname);
+            boolean portraitAdded = portraitChatView != null && portraitChatView.addMessage(messageId, displayNickname, text, own);
+            boolean overlayAdded = immersiveChatOverlay != null
+                && immersiveChatOverlay.getChatView().addMessage(messageId, displayNickname, text, own);
+            if (!own && appFullscreen && (portraitAdded || overlayAdded) && immersiveChatOverlay != null && !immersiveChatOverlay.isShowing()) {
+                setImmersiveChatUnread(true);
+                immersiveChatOverlay.showIncomingBubble(displayNickname, text);
+            }
+        });
+    }
+
+    private boolean sendChatMessage(String text) {
+        if (roomClient == null || !authenticated) {
+            showError("房间正在重连，暂时无法发送消息");
+            return false;
+        }
+        String messageId = roomClient.sendChat(text);
+        if (messageId == null) return false;
+        if (portraitChatView != null) portraitChatView.addMessage(messageId, currentRoomNickname, text, true);
+        if (immersiveChatOverlay != null) immersiveChatOverlay.getChatView().addMessage(messageId, currentRoomNickname, text, true);
+        return true;
+    }
+
+    private void setChatEnabled(boolean enabled) {
+        if (portraitChatView != null) portraitChatView.setSendEnabled(enabled);
+        if (immersiveChatOverlay != null) immersiveChatOverlay.getChatView().setSendEnabled(enabled);
+        if (immersiveChatButton != null) immersiveChatButton.setEnabled(enabled);
+    }
+
+    private void clearChatMessages() {
+        setImmersiveChatUnread(false);
+        if (portraitChatView != null) portraitChatView.clearMessages();
+        if (immersiveChatOverlay != null) immersiveChatOverlay.clearMessages();
+    }
+
+    private String chatDisplayNickname(boolean own, String nickname) {
+        if (own) return currentRoomNickname == null || currentRoomNickname.trim().isEmpty() ? "我" : currentRoomNickname.trim();
+        String normalized = nickname == null ? "" : nickname.trim();
+        if (normalized.isEmpty() || "我".equals(normalized)) {
+            if (currentPair != null && currentPair.partner != null && currentPair.partner.nickname != null
+                && !currentPair.partner.nickname.trim().isEmpty()) {
+                return currentPair.partner.nickname.trim();
+            }
+            return "对方";
+        }
+        return normalized;
+    }
+
+    private void setImmersiveChatUnread(boolean unread) {
+        if (immersiveChatUnreadDot != null) immersiveChatUnreadDot.setVisibility(unread ? View.VISIBLE : View.GONE);
+        if (immersiveChatButton != null) immersiveChatButton.setContentDescription(unread ? "消息，有未读消息" : "消息");
     }
 
     @Override
@@ -1196,6 +1423,76 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             return;
         }
         rootLayout.setPadding(0, systemInsetTop, 0, systemInsetBottom);
+    }
+
+    private void updatePortraitComposerPosition() {
+        if (rootContainer == null || portraitComposerLayer == null) return;
+        syncPortraitComposerVisibility();
+        if (portraitComposerLayer.getVisibility() != View.VISIBLE || rootContainer.getHeight() <= 0) {
+            setPortraitComposerBottomMargin(systemInsetBottom);
+            return;
+        }
+
+        int[] rootLocation = new int[2];
+        rootContainer.getLocationOnScreen(rootLocation);
+        int rootBottomOnScreen = rootLocation[1] + rootContainer.getHeight();
+
+        int imeTopOnScreen = Integer.MAX_VALUE;
+        WindowInsets rootInsets = rootContainer.getRootWindowInsets();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && rootInsets != null
+            && rootInsets.isVisible(WindowInsets.Type.ime())) {
+            int imeBottom = rootInsets.getInsets(WindowInsets.Type.ime()).bottom;
+            Rect windowBounds = getWindowManager().getCurrentWindowMetrics().getBounds();
+            if (imeBottom >= dp(80)) imeTopOnScreen = windowBounds.bottom - imeBottom;
+        }
+
+        Rect visibleFrame = new Rect();
+        rootContainer.getWindowVisibleDisplayFrame(visibleFrame);
+        int bottomMargin = PortraitComposerPositioner.bottomMargin(
+            rootBottomOnScreen,
+            visibleFrame.bottom,
+            imeTopOnScreen,
+            systemInsetBottom,
+            dp(80),
+            dp(6)
+        );
+        setPortraitComposerBottomMargin(bottomMargin);
+    }
+
+    private void onPortraitComposerFocusChanged(boolean focused) {
+        if (rootContainer == null || appFullscreen) return;
+        rootContainer.requestApplyInsets();
+        rootContainer.post(this::updatePortraitComposerPosition);
+        rootContainer.postDelayed(this::updatePortraitComposerPosition, focused ? 80 : 180);
+        rootContainer.postDelayed(this::updatePortraitComposerPosition, focused ? 220 : 360);
+    }
+
+    private void syncPortraitComposerVisibility() {
+        if (portraitComposerLayer == null || portraitChatView == null) return;
+        boolean portrait = getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE;
+        boolean shouldShow = portrait
+            && !appFullscreen
+            && htmlFullscreenView == null
+            && videoSection != null
+            && videoSection.getVisibility() == View.VISIBLE
+            && videoFooter != null
+            && videoFooter.getVisibility() == View.VISIBLE
+            && portraitChatView.getVisibility() == View.VISIBLE;
+        if (!shouldShow && portraitComposerLayer.getVisibility() == View.VISIBLE) {
+            portraitChatView.dismissComposer();
+        }
+        portraitComposerLayer.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
+        if (shouldShow) portraitComposerLayer.bringToFront();
+    }
+
+    private void setPortraitComposerBottomMargin(int bottomMarginPx) {
+        if (portraitComposerLayer == null) return;
+        int normalizedMargin = Math.max(0, bottomMarginPx);
+        if (portraitComposerBottomMargin == normalizedMargin) return;
+        portraitComposerBottomMargin = normalizedMargin;
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) portraitComposerLayer.getLayoutParams();
+        params.bottomMargin = normalizedMargin;
+        portraitComposerLayer.setLayoutParams(params);
     }
 
     private void updatePlayerAspectRatio() {
@@ -1399,6 +1696,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         return mainNavigationView.pairPage(
             accountSession.user.nickname,
             accountSession.user.email,
+            accountSession.user.id,
             currentPair,
             currentPairInvite,
             pairMessage,
@@ -1409,9 +1707,71 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 @Override public void onAcceptInvite(String code) { acceptPairInvite(code); }
                 @Override public void onRefresh() { refreshPairState(true); }
                 @Override public void onInviteWatch() { inviteBoundFriendToWatch(); }
+                @Override public void onEditProfile() { showEditProfileDialog(); }
                 @Override public void onLogout() { confirmAccountLogout(); }
             }
         );
+    }
+
+    private void showEditProfileDialog() {
+        if (accountSession == null || pairLoading) return;
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(accountSession.user.nickname);
+        input.setSelection(input.length());
+        input.setHint("1–24 个字符");
+        int padding = dp(18);
+        FrameLayout holder = new FrameLayout(this);
+        holder.setPadding(padding, dp(4), padding, 0);
+        holder.addView(input, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
+        new AlertDialog.Builder(this)
+            .setTitle("编辑昵称")
+            .setMessage("昵称会显示在双人空间和之后进入的房间消息中。")
+            .setView(holder)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("保存", (dialog, which) -> updateAccountNickname(input.getText().toString()))
+            .show();
+    }
+
+    private void updateAccountNickname(String value) {
+        AccountModels.Session session = accountSession;
+        if (session == null || pairLoading) return;
+        String nickname = value == null ? "" : value.trim().replaceAll("\\s+", " ");
+        int codePoints = nickname.codePointCount(0, nickname.length());
+        if (codePoints < 1 || codePoints > 24) {
+            Toast.makeText(this, "昵称需要为 1–24 个字符", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        pairLoading = true;
+        pairMessage = "正在保存个人资料…";
+        showMainTab("pair");
+        accountClient.updateProfile(session.token, nickname, new AccountClient.ResultCallback<AccountModels.User>() {
+            @Override public void onSuccess(AccountModels.User user) {
+                runOnUiThread(() -> {
+                    pairLoading = false;
+                    AccountModels.Session updated = new AccountModels.Session(session.token, session.expiresAt, user);
+                    if (!saveAccountSession(updated)) {
+                        pairMessage = "昵称已更新，但本机保存失败，请重新登录。";
+                        showMainTab("pair");
+                        return;
+                    }
+                    currentRoomNickname = user.nickname;
+                    pairMessage = authenticated
+                        ? "昵称已更新；对方将在你下次进入房间时看到新昵称。"
+                        : "昵称已更新。";
+                    showMainTab("pair");
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    pairLoading = false;
+                    pairMessage = failure.getMessage();
+                    if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
+                    else showMainTab("pair");
+                });
+            }
+        });
     }
 
     private void createPairInvite() {
@@ -1607,6 +1967,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void showEntryScreen() {
         appFullscreen = false;
+        setPortraitComposerBottomMargin(0);
         setImmersiveControlsVisible(false, false);
         if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(View.GONE);
         applyImmersiveMode(false);
@@ -1669,6 +2030,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         applyTheme();
+        rootContainer.post(this::updatePortraitComposerPosition);
     }
 
     private void showPreparationPanel() {
@@ -1688,6 +2050,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             && videoSection.getVisibility() == View.VISIBLE
             && playerContainer.getVisibility() == View.VISIBLE;
         videoFooter.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
+        syncPortraitComposerVisibility();
+        if (shouldShow && rootContainer != null) rootContainer.post(this::updatePortraitComposerPosition);
     }
 
     private void syncPlayerInteractionLayerVisibility() {
@@ -1798,12 +2162,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         boolean landscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE;
+        setPortraitComposerBottomMargin(0);
         orientationButton.setText(landscape ? "竖屏" : "横屏");
         setButtonIcon(orientationButton, R.drawable.ic_rotate);
         rootContainer.post(() -> {
             if (appFullscreen) updateFullscreenPlayerLayout();
             else updatePlayerAspectRatio();
             applySafeAreaInsets();
+            updatePortraitComposerPosition();
             restorePlaybackAfterOrientationChange();
         });
     }
@@ -1828,7 +2194,20 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void toggleAppFullscreen() {
         appFullscreen = !appFullscreen;
+        setPortraitComposerBottomMargin(0);
         mainHandler.removeCallbacks(hideImmersiveControls);
+        mainHandler.removeCallbacks(hideImmersiveAdjustmentHud);
+        if (appFullscreen) {
+            immersiveGestureController.beginSession();
+            if (!preferences.getBoolean("immersiveGestureHintShown", false)) {
+                preferences.edit().putBoolean("immersiveGestureHintShown", true).apply();
+                Toast.makeText(this, "左侧上下滑动调亮度 · 右侧上下滑动调音量", Toast.LENGTH_LONG).show();
+            }
+        } else {
+            immersiveGestureController.restoreBrightness();
+            if (immersiveChatOverlay != null) immersiveChatOverlay.hide();
+            if (immersiveAdjustmentHud != null) immersiveAdjustmentHud.setVisibility(View.GONE);
+        }
         videoHeader.setVisibility(appFullscreen ? View.GONE : View.VISIBLE);
         syncVideoFooterVisibility();
         preparationPanel.setVisibility(appFullscreen ? View.GONE : (roomMedia == null && loadedMedia == null ? View.VISIBLE : View.GONE));
@@ -1843,6 +2222,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void applyImmersiveMode(boolean enabled) {
+        getWindow().setSoftInputMode(enabled
+            ? WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            : WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         if (enabled) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
             getWindow().getDecorView().setSystemUiVisibility(
@@ -1868,6 +2250,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         htmlFullscreenView = null;
         htmlFullscreenContainer.setVisibility(View.GONE);
         if (rootLayout != null) rootLayout.setVisibility(View.VISIBLE);
+        syncPortraitComposerVisibility();
         if (htmlFullscreenCallback != null) htmlFullscreenCallback.onCustomViewHidden();
         htmlFullscreenCallback = null;
         applyImmersiveMode(appFullscreen);
@@ -1877,6 +2260,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     public void onBackPressed() {
         if (htmlFullscreenView != null) {
             hideHtmlFullscreen();
+            return;
+        }
+        if (appFullscreen && immersiveChatOverlay != null && immersiveChatOverlay.isShowing()) {
+            immersiveChatOverlay.hide();
             return;
         }
         if (appFullscreen) {
@@ -1913,6 +2300,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (roomClient != null) roomClient.close();
         roomClient = null;
         authenticated = false;
+        ownMemberId = null;
+        setChatEnabled(false);
+        clearChatMessages();
         currentRoomId = null;
         currentKey = null;
         currentRole = null;
@@ -1947,6 +2337,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         authScreen.applyTheme();
         homeScreen.applyTheme();
         mainNavigationView.applyTheme();
+        if (portraitChatView != null) portraitChatView.setDarkMode(darkMode);
+        if (immersiveChatOverlay != null) immersiveChatOverlay.setDarkMode(true);
         if (videoThemeButton != null) {
             videoThemeButton.setText(darkMode ? "浅色" : "深色");
             setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);

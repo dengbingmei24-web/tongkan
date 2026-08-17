@@ -122,6 +122,12 @@ export class AccountRepository {
     ).bind(user.id, user.emailHmac, user.emailMasked, user.nickname, user.avatarId, user.createdAt, user.updatedAt).run();
   }
 
+  async updateUserNickname(id: string, nickname: string, updatedAt: number): Promise<void> {
+    await this.db.prepare(
+      "UPDATE users SET nickname = ?, updated_at = ? WHERE id = ?",
+    ).bind(nickname, updatedAt, id).run();
+  }
+
   async insertSession(session: SessionRecord): Promise<void> {
     await this.db.prepare(
       "INSERT INTO auth_sessions (id, user_id, token_hash, device_name, expires_at, revoked_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

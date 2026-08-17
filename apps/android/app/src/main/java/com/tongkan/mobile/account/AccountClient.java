@@ -103,6 +103,21 @@ public final class AccountClient {
         execute(request, value -> AccountModels.User.fromJson(new JSONObject(value).getJSONObject("user")), callback);
     }
 
+    public void updateProfile(String token, String nickname, ResultCallback<AccountModels.User> callback) {
+        if (!requireConfigured(callback)) return;
+        JSONObject body = new JSONObject();
+        try {
+            body.put("nickname", nickname);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成资料更新请求。", 0, false));
+            return;
+        }
+        Request request = requestBuilder("/api/me", token)
+            .patch(RequestBody.create(body.toString(), JSON))
+            .build();
+        execute(request, value -> AccountModels.User.fromJson(new JSONObject(value).getJSONObject("user")), callback);
+    }
+
     public void logout(String token, ResultCallback<Void> callback) {
         if (!requireConfigured(callback)) return;
         execute(post("/api/auth/logout", new JSONObject(), token), value -> null, callback);

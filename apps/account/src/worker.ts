@@ -61,6 +61,14 @@ export default {
         const authenticated = await service.authenticate(bearerToken(request));
         return json({ user: service.publicUser(authenticated.user) }, 200, origin);
       }
+      if (url.pathname === "/api/me" && request.method === "PATCH") {
+        const body = await readObject(request);
+        const user = await service.updateProfile(
+          bearerToken(request),
+          stringField(body, "nickname") ?? "",
+        );
+        return json({ user }, 200, origin);
+      }
       if (url.pathname === "/api/pair/invites" && request.method === "POST") {
         const authenticated = await service.authenticate(bearerToken(request));
         return json(await pairService.createInvite(authenticated.user), 201, origin);

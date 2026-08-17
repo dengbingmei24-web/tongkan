@@ -34,6 +34,7 @@ QQ 邮箱使用 SMTP 授权码而不是登录密码；当前适配器连接 `smt
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 - `GET /api/me`
+- `PATCH /api/me`：更新当前账号昵称，JSON 为 `{ "nickname": "新昵称" }`
 - `POST /api/pair/invites`
 - `POST /api/pair/invites/{code}/accept`
 - `GET /api/pair`

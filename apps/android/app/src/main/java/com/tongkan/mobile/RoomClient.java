@@ -31,6 +31,7 @@ public final class RoomClient {
         void onAuthenticated(String ownMemberId, JSONObject snapshot);
         void onSnapshot(JSONObject snapshot);
         void onAnchor(PlaybackAnchor anchor, String actorNickname);
+        default void onChatMessage(String messageId, String memberId, String nickname, String text, long serverSentAtMs) {}
         void onError(String message);
     }
 
@@ -48,6 +49,7 @@ public final class RoomClient {
 
     private static final String HTTP_ORIGIN = "https://tongkan-personal.pages.dev";
     private static final String WS_ORIGIN = "wss://tongkan-personal.pages.dev";
+    private static final int MAX_CHAT_CODE_POINTS = 120;
 
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -60,6 +62,7 @@ public final class RoomClient {
     private final Listener listener;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private volatile WebSocket socket;
+    private volatile boolean authenticated;
     private volatile boolean shouldReconnect;
     private volatile int reconnectAttempt;
     private volatile long serverOffsetMs;
@@ -82,6 +85,7 @@ public final class RoomClient {
 
     public synchronized void close() {
         shouldReconnect = false;
+        authenticated = false;
         cancelFuture(reconnectFuture);
         cancelFuture(pingFuture);
         WebSocket current = socket;
@@ -117,8 +121,37 @@ public final class RoomClient {
         }
     }
 
+    public String sendChat(String rawText) {
+        String text = trimUnicode(rawText);
+        if (text.isEmpty()) {
+            listener.onError("消息不能为空");
+            return null;
+        }
+        if (text.codePointCount(0, text.length()) > MAX_CHAT_CODE_POINTS) {
+            listener.onError("消息不能超过 120 个字符");
+            return null;
+        }
+        WebSocket current = socket;
+        if (!authenticated || current == null) {
+            listener.onError("房间尚未连接，暂时无法发送消息");
+            return null;
+        }
+        String messageId = UUID.randomUUID().toString();
+        try {
+            if (!current.send(RoomProtocol.chatMessage(messageId, text).toString())) {
+                listener.onError("消息发送失败，请稍后重试");
+                return null;
+            }
+            return messageId;
+        } catch (JSONException error) {
+            listener.onError("无法生成消息");
+            return null;
+        }
+    }
+
     private synchronized void openSocket() {
         if (!shouldReconnect || scheduler.isShutdown()) return;
+        authenticated = false;
         listener.onConnectionState(reconnectAttempt == 0 ? "正在连接" : "正在重连");
 
         OkHttpClient client = new OkHttpClient.Builder()
@@ -161,6 +194,7 @@ public final class RoomClient {
                 synchronized (self) {
                     if (self.socket != ws) return;
                     self.socket = null;
+                    self.authenticated = false;
                     cancelFuture(pingFuture);
                     pingFuture = null;
                     if (!shouldReconnect) {
@@ -182,6 +216,7 @@ public final class RoomClient {
                 synchronized (self) {
                     if (self.socket != ws) return;
                     self.socket = null;
+                    self.authenticated = false;
                     lastNetworkError = networkErrorMessage(t);
                     listener.onConnectionState("连接中断，正在重连…");
                     scheduleReconnect();
@@ -190,7 +225,7 @@ public final class RoomClient {
         });
     }
 
-    private void handleMessage(String raw) {
+    void handleMessage(String raw) {
         try {
             JSONObject event = new JSONObject(raw);
             String type = event.optString("type");
@@ -205,6 +240,7 @@ public final class RoomClient {
                 JSONObject snapshot = event.getJSONObject("snapshot");
                 updateServerOffset(snapshot, receivedAt);
                 reconnectAttempt = 0;
+                authenticated = true;
                 listener.onConnectionState("已连接");
                 startPing();
                 listener.onAuthenticated(event.getJSONObject("member").getString("id"), snapshot);
@@ -218,6 +254,16 @@ public final class RoomClient {
             }
             if ("playback.anchor".equals(type)) {
                 listener.onAnchor(PlaybackAnchor.fromJson(event.getJSONObject("anchor")), event.optString("actorNickname", "对方"));
+                return;
+            }
+            if ("chat.message".equals(type)) {
+                listener.onChatMessage(
+                    event.getString("messageId"),
+                    event.getString("memberId"),
+                    event.optString("nickname", "对方"),
+                    event.getString("text"),
+                    event.optLong("serverSentAtMs", receivedAt)
+                );
                 return;
             }
             if ("member.updated".equals(type)) {
@@ -288,6 +334,23 @@ public final class RoomClient {
             while ((line = reader.readLine()) != null) result.append(line);
         }
         return result.toString();
+    }
+
+    private static String trimUnicode(String value) {
+        if (value == null || value.isEmpty()) return "";
+        int start = 0;
+        int end = value.length();
+        while (start < end) {
+            int codePoint = value.codePointAt(start);
+            if (!Character.isWhitespace(codePoint) && !Character.isSpaceChar(codePoint)) break;
+            start += Character.charCount(codePoint);
+        }
+        while (end > start) {
+            int codePoint = value.codePointBefore(end);
+            if (!Character.isWhitespace(codePoint) && !Character.isSpaceChar(codePoint)) break;
+            end -= Character.charCount(codePoint);
+        }
+        return value.substring(start, end);
     }
 
     static String networkErrorMessage(Throwable error) {

@@ -14,6 +14,7 @@ export interface AuthRepository {
   userByEmail(emailHmac: string): Promise<UserRecord | null>;
   userById(id: string): Promise<UserRecord | null>;
   createUser(user: UserRecord): Promise<void>;
+  updateUserNickname(id: string, nickname: string, updatedAt: number): Promise<void>;
   insertSession(session: SessionRecord): Promise<void>;
   sessionByTokenHash(tokenHash: string): Promise<SessionRecord | null>;
   revokeSession(id: string, revokedAt: number): Promise<void>;
@@ -146,6 +147,14 @@ export class AuthService {
     await this.repository.revokeSession(authenticated.session.id, this.now());
   }
 
+  async updateProfile(rawToken: string | null, rawNickname: string): Promise<PublicUser> {
+    const authenticated = await this.authenticate(rawToken);
+    const nickname = normalizeNickname(rawNickname);
+    const updatedAt = this.now();
+    await this.repository.updateUserNickname(authenticated.user.id, nickname, updatedAt);
+    return this.publicUser({ ...authenticated.user, nickname, updatedAt });
+  }
+
   publicUser(user: UserRecord): PublicUser {
     return {
       id: user.id,
@@ -176,6 +185,15 @@ export class AuthService {
 function safeNickname(value: string): string {
   const trimmed = value.trim().slice(0, 24);
   return trimmed || "同看用户";
+}
+
+function normalizeNickname(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  const length = Array.from(normalized).length;
+  if (length < 1 || length > 24 || /[\u0000-\u001f\u007f]/.test(normalized)) {
+    throw new AuthError("INVALID_NICKNAME", "昵称需要为 1–24 个字符。", 400);
+  }
+  return normalized;
 }
 
 function safeDeviceName(value: string | undefined): string {

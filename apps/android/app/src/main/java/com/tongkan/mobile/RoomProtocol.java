@@ -61,6 +61,14 @@ final class RoomProtocol {
         return new JSONObject().put("type", "playback.report").put("report", report);
     }
 
+    static JSONObject chatMessage(String messageId, String text) throws JSONException {
+        return new JSONObject()
+            .put("type", "chat.message")
+            .put("messageId", messageId)
+            .put("text", text)
+            .put("clientSentAtMs", System.currentTimeMillis());
+    }
+
     static JSONObject pingMessage(long clientSentAtMs) throws JSONException {
         return new JSONObject().put("type", "ping").put("clientSentAtMs", clientSentAtMs);
     }

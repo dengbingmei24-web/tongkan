@@ -30,6 +30,7 @@ public final class MainNavigationView {
         void onAcceptInvite(String code);
         void onRefresh();
         void onInviteWatch();
+        void onEditProfile();
         void onLogout();
     }
 
@@ -129,6 +130,7 @@ public final class MainNavigationView {
     public View pairPage(
         String nickname,
         String email,
+        String userId,
         AccountModels.Pair pair,
         AccountModels.PairInvite invite,
         String message,
@@ -147,7 +149,14 @@ public final class MainNavigationView {
         LinearLayout accountPanel = components.panel(18);
         accountPanel.addView(components.code("ACCOUNT / CONNECTED"), components.matchWrap());
         accountPanel.addView(components.title(nickname, 21), components.margin(components.matchWrap(), 0, 16, 0, 0));
-        accountPanel.addView(components.body(email), components.margin(components.matchWrap(), 0, 4, 0, 0));
+        accountPanel.addView(components.body("邮箱 · " + email), components.margin(components.matchWrap(), 0, 4, 0, 0));
+        TextView idText = components.code("同看 ID · " + userId);
+        idText.setTextIsSelectable(true);
+        accountPanel.addView(idText, components.margin(components.matchWrap(), 0, 6, 0, 0));
+        Button editProfile = components.button("编辑昵称", false);
+        editProfile.setEnabled(!loading);
+        editProfile.setOnClickListener(view -> actions.onEditProfile());
+        accountPanel.addView(editProfile, components.margin(components.matchHeight(48), 0, 14, 0, 0));
         content.addView(accountPanel, components.margin(components.matchWrap(), 0, 24, 0, 0));
 
         if (pair == null) {

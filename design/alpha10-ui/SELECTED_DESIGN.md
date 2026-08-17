@@ -96,6 +96,7 @@ Breath Tech 同时满足两种感觉：
 - 使用 XML shape / `GradientDrawable` 表达黑白表面、边界和圆角。
 - 使用有边界 Ripple、`StateListAnimator` 或按压监听表达即时反馈。
 - 使用 Window Insets 处理状态栏、导航栏和横竖屏安全区。
+- 竖屏观看页的消息列表保留在下半区卡片内，输入栏作为根 `FrameLayout` 的独立顶层控件；键盘出现时只抬升输入栏，不移动视频、控制栏或整张消息卡片。
 - 建议把账号、四个主页面和播放器职责从 `MainActivity.java` 拆分为独立 Java View/Controller，不做大型框架重写。
 
 ## 7. 原型与验证

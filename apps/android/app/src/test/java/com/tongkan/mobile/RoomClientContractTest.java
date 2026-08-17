@@ -4,6 +4,8 @@ import org.json.JSONObject;
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class RoomClientContractTest {
     private static final BilibiliMedia MEDIA = new BilibiliMedia(
@@ -48,6 +50,20 @@ public class RoomClientContractTest {
             1_700_000_000_200L
         );
         ContractFixtures.assertJsonEquals(ContractFixtures.read("android-playback-report.json"), actual);
+    }
+
+    @Test
+    public void chatMessageMatchesSharedServerContract() throws Exception {
+        long before = System.currentTimeMillis();
+        JSONObject actual = RoomProtocol.chatMessage("android-message-1", "你好 👋");
+        long after = System.currentTimeMillis();
+
+        assertEquals("chat.message", actual.getString("type"));
+        assertEquals("android-message-1", actual.getString("messageId"));
+        assertEquals("你好 👋", actual.getString("text"));
+        assertTrue(actual.getLong("clientSentAtMs") >= before);
+        assertTrue(actual.getLong("clientSentAtMs") <= after);
+        assertEquals(4, actual.length());
     }
 
     @Test

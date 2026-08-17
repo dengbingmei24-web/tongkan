@@ -28,6 +28,13 @@ class MemoryRepository implements AuthRepository {
   async userByEmail(emailHmac: string): Promise<UserRecord | null> { return this.users.find((item) => item.emailHmac === emailHmac) ?? null; }
   async userById(id: string): Promise<UserRecord | null> { return this.users.find((item) => item.id === id) ?? null; }
   async createUser(user: UserRecord): Promise<void> { this.users.push(user); }
+  async updateUserNickname(id: string, nickname: string, updatedAt: number): Promise<void> {
+    const user = this.users.find((item) => item.id === id);
+    if (user) {
+      user.nickname = nickname;
+      user.updatedAt = updatedAt;
+    }
+  }
   async insertSession(session: SessionRecord): Promise<void> { this.sessions.push(session); }
   async sessionByTokenHash(tokenHash: string): Promise<SessionRecord | null> { return this.sessions.find((item) => item.tokenHash === tokenHash) ?? null; }
   async revokeSession(id: string, revokedAt: number): Promise<void> {
@@ -117,5 +124,16 @@ describe("AuthService", () => {
     await service.verifyCode("user@example.com", sent.debugCode ?? "", "Android");
     await expect(service.verifyCode("user@example.com", sent.debugCode ?? "", "Android"))
       .rejects.toMatchObject({ code: "CODE_NOT_FOUND" });
+  });
+
+  it("updates the authenticated nickname and rejects invalid values", async () => {
+    const { repository, service } = createService();
+    const sent = await service.sendCode("user@example.com", null);
+    const verified = await service.verifyCode("user@example.com", sent.debugCode ?? "", "Android");
+    const updated = await service.updateProfile(verified.token, "  两个人的昵称  ");
+    expect(updated.nickname).toBe("两个人的昵称");
+    expect(repository.users[0]?.nickname).toBe("两个人的昵称");
+    await expect(service.updateProfile(verified.token, "   "))
+      .rejects.toMatchObject({ code: "INVALID_NICKNAME", status: 400 });
   });
 });
