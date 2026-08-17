@@ -72,6 +72,12 @@ public class AccountModelsTest {
         assertEquals("keep", kept.archive.retention);
         assertFalse(kept.pairDeleted);
 
+        AccountModels.PairMutationResult deletedAccess = AccountModels.PairMutationResult.fromJson(new JSONObject()
+            .put("archive", JSONObject.NULL)
+            .put("pairDeleted", false));
+        assertNull(deletedAccess.archive);
+        assertFalse(deletedAccess.pairDeleted);
+
         AccountModels.PairMutationResult deleted = AccountModels.PairMutationResult.fromJson(new JSONObject()
             .put("archive", JSONObject.NULL)
             .put("pairDeleted", true));
