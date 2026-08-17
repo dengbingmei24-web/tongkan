@@ -158,6 +158,123 @@ describe('AccountRepository local D1 integration', () => {
     }
   }, 120_000);
 
+  it('makes concurrent same-user keep and delete requests idempotent', async () => {
+    const repository = new AccountRepository(database);
+    const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
+
+    for (const [seed, decision] of [[104, 'keep'], [105, 'delete']] as const) {
+      const { pairId, userA, userB } = await seedActivePair(seed);
+      const firstService = new PairService(env, repository, () => 1_900_000_004_000 + seed);
+      const secondService = new PairService(env, repository, () => 1_900_000_004_000 + seed);
+
+      const [first, second] = await Promise.all([
+        firstService.unbind(userA, pairId, decision),
+        secondService.unbind(userA, pairId, decision),
+      ]);
+
+      expect(second).toEqual(first);
+      expect(await countRows(
+        'SELECT COUNT(*) AS count FROM pair_archive_members WHERE pair_id = ? AND user_id = ? AND retention_status = ?',
+        pairId,
+        userA.id,
+        decision,
+      )).toBe(1);
+      expect(await countRows(
+        `SELECT COUNT(*) AS count FROM pair_archive_members WHERE pair_id = ? AND user_id = ? AND retention_status = 'pending'`,
+        pairId,
+        userB.id,
+      )).toBe(1);
+    }
+  });
+
+  it('rejects the losing decision for concurrent same-user unbind requests', async () => {
+    const repository = new AccountRepository(database);
+    const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
+    const { pairId, userA } = await seedActivePair(106);
+    const keepService = new PairService(env, repository, () => 1_900_000_005_000);
+    const deleteService = new PairService(env, repository, () => 1_900_000_005_000);
+
+    const results = await Promise.allSettled([
+      keepService.unbind(userA, pairId, 'keep'),
+      deleteService.unbind(userA, pairId, 'delete'),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((result) => result.status === 'rejected');
+    if (!rejected || rejected.status !== 'rejected') throw new Error('Expected one rejected unbind.');
+    expect(rejected.reason).toMatchObject({ code: 'PAIR_RETENTION_FINAL', status: 409 });
+    const winnerDecision = results[0]?.status === 'fulfilled' ? 'keep' : 'delete';
+    expect(await countRows(
+      'SELECT COUNT(*) AS count FROM pair_archive_members WHERE pair_id = ? AND user_id = ? AND retention_status = ?',
+      pairId,
+      userA.id,
+      winnerDecision,
+    )).toBe(1);
+  });
+
+  it('keeps the losing member pending when the other user wins the unbind CAS', async () => {
+    const repository = new AccountRepository(database);
+    const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
+    const { pairId, userA, userB } = await seedActivePair(107);
+    const serviceA = new PairService(env, repository, () => 1_900_000_006_000);
+    const serviceB = new PairService(env, repository, () => 1_900_000_006_100);
+
+    const results = await Promise.allSettled([
+      serviceA.unbind(userA, pairId, 'keep'),
+      serviceB.unbind(userB, pairId, 'delete'),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejectedIndex = results.findIndex((result) => result.status === 'rejected');
+    const rejected = results[rejectedIndex];
+    if (!rejected || rejected.status !== 'rejected') throw new Error('Expected one rejected unbind.');
+    expect(rejected.reason).toMatchObject({ code: 'PAIR_UNBIND_CONFLICT', status: 409 });
+    const losingUser = rejectedIndex === 0 ? userA : userB;
+    expect(await countRows(
+      `SELECT COUNT(*) AS count FROM pair_archive_members WHERE pair_id = ? AND user_id = ? AND retention_status = 'pending'`,
+      pairId,
+      losingUser.id,
+    )).toBe(1);
+  });
+
+  it('returns a non-disclosing 404 when a lost CAS has already been physically deleted', async () => {
+    const repository = new AccountRepository(database);
+    const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
+    const { pairId, userA, userB } = await seedActivePair(108);
+    const service = new PairService(env, repository, () => 1_900_000_007_000);
+    const applyWinningUnbind = repository.unbindPair.bind(repository);
+    repository.unbindPair = async (targetPairId, _userId, _retention, now) => {
+      await applyWinningUnbind(targetPairId, userA.id, 'delete', now);
+      await repository.setPairArchiveRetention(targetPairId, userB.id, 'delete', now + 1);
+      return false;
+    };
+
+    await expect(service.unbind(userA, pairId, 'delete')).rejects.toMatchObject({
+      code: 'PAIR_ARCHIVE_NOT_FOUND',
+      status: 404,
+    });
+    expect(await countRows('SELECT COUNT(*) AS count FROM pairs WHERE id = ?', pairId)).toBe(0);
+  });
+
+  it('does not attribute a later physical deletion to the successful unbind request', async () => {
+    const repository = new AccountRepository(database);
+    const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
+    const { pairId, userA, userB } = await seedActivePair(109);
+    const service = new PairService(env, repository, () => 1_900_000_008_000);
+    const applyUnbind = repository.unbindPair.bind(repository);
+    repository.unbindPair = async (targetPairId, userId, retention, now) => {
+      const applied = await applyUnbind(targetPairId, userId, retention, now);
+      if (applied) await repository.setPairArchiveRetention(targetPairId, userB.id, 'delete', now + 1);
+      return applied;
+    };
+
+    await expect(service.unbind(userA, pairId, 'delete')).resolves.toEqual({
+      archive: null,
+      pairDeleted: false,
+    });
+    expect(await countRows('SELECT COUNT(*) AS count FROM pairs WHERE id = ?', pairId)).toBe(0);
+  });
+
   it('rolls the whole batch back when archive creation fails', async () => {
     const repository = new AccountRepository(database);
     const { pairId, userA, userB } = await seedActivePair(101);

@@ -122,10 +122,10 @@ export class PairService {
     if (activePair?.pairId === targetPairId) {
       const applied = await this.repository.unbindPair(targetPairId, user.id, retention, this.now());
       if (!applied) {
-        throw new AuthError('PAIR_UNBIND_CONFLICT', '绑定状态刚刚发生变化，请刷新后重试。', 409);
+        return this.resolveUnbindCasMiss(user.id, targetPairId, retention);
       }
       const archive = await this.repository.pairArchiveByUser(targetPairId, user.id);
-      return archive ? this.mutationResult(archive, false) : { archive: null, pairDeleted: true };
+      return archive ? this.mutationResult(archive, false) : { archive: null, pairDeleted: false };
     }
     return this.retryFinalizedUnbind(user.id, targetPairId, retention);
   }
@@ -177,6 +177,20 @@ export class PairService {
     if (existing.retentionStatus === retention) return this.mutationResult(existing, false);
     if (existing.retentionStatus === 'pending') {
       throw new AuthError('PAIR_NOT_ACTIVE', '当前没有可解绑的好友关系。', 409);
+    }
+    throw new AuthError('PAIR_RETENTION_FINAL', '数据保留选择已经确认，不能修改。', 409);
+  }
+
+  private async resolveUnbindCasMiss(
+    userId: string,
+    pairId: string,
+    retention: PairRetentionDecision,
+  ): Promise<PairMutationResult> {
+    const existing = await this.repository.pairArchiveByUser(pairId, userId);
+    if (!existing) throw new AuthError('PAIR_ARCHIVE_NOT_FOUND', '旧空间不存在或已删除。', 404);
+    if (existing.retentionStatus === retention) return this.mutationResult(existing, false);
+    if (existing.retentionStatus === 'pending') {
+      throw new AuthError('PAIR_UNBIND_CONFLICT', '绑定状态刚刚发生变化，请刷新后重试。', 409);
     }
     throw new AuthError('PAIR_RETENTION_FINAL', '数据保留选择已经确认，不能修改。', 409);
   }
