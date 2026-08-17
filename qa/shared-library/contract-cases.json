@@ -1,0 +1,403 @@
+{
+  "schemaVersion": 1,
+  "feature": "TK-003-shared-library",
+  "openApiContract": "specs/TK-003-shared-library/contracts/openapi.yaml",
+  "defaultPreviewOrigin": "https://account-preview.tongkan-personal.pages.dev/account-api",
+  "notes": [
+    "仅用于本地或精确 Preview 主机；禁止指向生产环境。",
+    "Token 与 Preview 测试密钥只允许来自进程环境变量或安全 stdin。",
+    "所有测试账号、pair、分类和视频均为可丢弃 Preview 夹具。",
+    "{{NAME}} 可引用非 secret 环境变量或前序 capture，runner 不输出解析值。"
+  ],
+  "errorContract": {
+    "400": ["INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED"],
+    "401": ["UNAUTHORIZED"],
+    "403": ["ARCHIVE_FORBIDDEN"],
+    "404": ["NOT_FOUND"],
+    "409": ["PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED"]
+  },
+  "batchErrorCodes": ["INVALID_BILIBILI_URL", "B23_RESOLUTION_FAILED", "CATEGORY_NOT_FOUND", "LIBRARY_LIMIT_REACHED"],
+  "environmentVariables": [
+    { "name": "TONGKAN_QA_TOKEN_A", "secret": true },
+    { "name": "TONGKAN_QA_TOKEN_B", "secret": true },
+    { "name": "TONGKAN_QA_TOKEN_C", "secret": true },
+    { "name": "TONGKAN_QA_TEST_KEY", "secret": true, "optional": true },
+    { "name": "TONGKAN_QA_RUN_ID", "secret": false },
+    { "name": "TONGKAN_QA_BV_URL", "secret": false },
+    { "name": "TONGKAN_QA_B23_SAME_URL", "secret": false },
+    { "name": "TONGKAN_QA_PARTIAL_URL", "secret": false },
+    { "name": "TONGKAN_QA_CATEGORY_MISS_URL", "secret": false },
+    { "name": "TONGKAN_QA_UNRESOLVED_B23_URL", "secret": false },
+    { "name": "TONGKAN_QA_SEARCH_TERM", "secret": false },
+    { "name": "TONGKAN_QA_KEEP_PAIR_ID", "secret": false },
+    { "name": "TONGKAN_QA_PENDING_PAIR_ID", "secret": false },
+    { "name": "TONGKAN_QA_DELETE_PAIR_ID", "secret": false },
+    { "name": "TONGKAN_QA_BOTH_DELETED_PAIR_ID", "secret": false },
+    { "name": "TONGKAN_QA_OLD_ITEM_ID", "secret": false }
+  ],
+  "cases": [
+    {
+      "id": "unauthorized-active-library",
+      "title": "未登录读取活动片库",
+      "category": "error-contract",
+      "mode": "sequential",
+      "requests": [
+        { "name": "read-without-token", "actor": "none", "method": "GET", "path": "/api/library", "expect": { "statuses": [401], "errorCode": "UNAUTHORIZED", "bodyAbsent": ["currentRevision"] } }
+      ]
+    },
+    {
+      "id": "third-account-without-pair",
+      "title": "第三账号没有活动好友关系",
+      "category": "authorization",
+      "mode": "sequential",
+      "requests": [
+        { "name": "read-without-active-pair", "actor": "C", "method": "GET", "path": "/api/library", "expect": { "statuses": [409], "errorCode": "PAIR_REQUIRED", "bodyAbsent": ["currentRevision"] } }
+      ]
+    },
+    {
+      "id": "active-library-baseline",
+      "title": "绑定双方读取同一权威快照",
+      "category": "snapshot",
+      "mode": "sequential",
+      "requiredEnvironment": ["TONGKAN_QA_KEEP_PAIR_ID"],
+      "requests": [
+        {
+          "name": "actor-a-read", "actor": "A", "method": "GET", "path": "/api/library",
+          "expect": {
+            "statuses": [200], "body": { "readOnly": false }, "bodyNot": { "pairId": "{{TONGKAN_QA_KEEP_PAIR_ID}}" },
+            "uniqueBy": [{ "path": "categories", "property": "id" }, { "path": "items", "property": "id" }]
+          },
+          "capture": { "ACTIVE_PAIR_ID": "pairId", "BASE_REVISION": "revision" }
+        },
+        { "name": "actor-b-read", "actor": "B", "method": "GET", "path": "/api/library", "expect": { "statuses": [200], "body": { "pairId": "{{ACTIVE_PAIR_ID}}", "revision": "{{BASE_REVISION}}", "readOnly": false } } }
+      ]
+    },
+    {
+      "id": "batch-b23-bv-dedupe",
+      "title": "BV 与同媒体 B23 去重且批次部分成功",
+      "category": "batch",
+      "mode": "sequential",
+      "dependsOn": ["active-library-baseline"],
+      "requiredEnvironment": ["TONGKAN_QA_BV_URL", "TONGKAN_QA_B23_SAME_URL", "TONGKAN_QA_UNRESOLVED_B23_URL"],
+      "requests": [
+        {
+          "name": "add-mixed-batch", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
+          "body": { "inputs": ["{{TONGKAN_QA_BV_URL}}", "{{TONGKAN_QA_B23_SAME_URL}}", "https://example.com/not-bilibili", "{{TONGKAN_QA_UNRESOLVED_B23_URL}}"], "expectedRevision": "{{BASE_REVISION}}" },
+          "expect": {
+            "statuses": [200], "batchStatusCounts": { "added": 1, "duplicate": 1, "rejected": 2 },
+            "batchErrorCounts": { "INVALID_BILIBILI_URL": 1, "B23_RESOLUTION_FAILED": 1 },
+            "revisionDelta": { "path": "library.revision", "from": "BASE_REVISION", "delta": 1 },
+            "body": { "library.pairId": "{{ACTIVE_PAIR_ID}}", "library.readOnly": false },
+            "uniqueBy": [{ "path": "library.items", "property": "id" }]
+          },
+          "capture": { "PRIMARY_ITEM_ID": "results.0.item.id", "POST_BATCH_REVISION": "library.revision" }
+        },
+        {
+          "name": "actor-b-sees-same-item", "actor": "B", "method": "GET", "path": "/api/library",
+          "expect": { "statuses": [200], "body": { "pairId": "{{ACTIVE_PAIR_ID}}", "revision": "{{POST_BATCH_REVISION}}" }, "arrayContains": [{ "path": "items", "match": { "id": "{{PRIMARY_ITEM_ID}}", "page": 1 } }] }
+        }
+      ]
+    },
+    {
+      "id": "zero-change-batches",
+      "title": "仅重复或仅拒绝批次不增加 revision",
+      "category": "revision",
+      "mode": "sequential",
+      "dependsOn": ["batch-b23-bv-dedupe"],
+      "requiredEnvironment": ["TONGKAN_QA_BV_URL", "TONGKAN_QA_B23_SAME_URL"],
+      "requests": [
+        {
+          "name": "duplicate-only", "actor": "B", "method": "POST", "path": "/api/library/items/batch",
+          "body": { "inputs": ["{{TONGKAN_QA_BV_URL}}", "{{TONGKAN_QA_B23_SAME_URL}}"], "expectedRevision": "{{POST_BATCH_REVISION}}" },
+          "expect": { "statuses": [200], "batchStatusCounts": { "duplicate": 2 }, "body": { "library.revision": "{{POST_BATCH_REVISION}}" } }
+        },
+        {
+          "name": "rejected-only", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
+          "body": { "inputs": ["javascript:alert(1)"], "expectedRevision": "{{POST_BATCH_REVISION}}" },
+          "expect": {
+            "statuses": [200], "batchStatusCounts": { "rejected": 1 }, "batchErrorCounts": { "INVALID_BILIBILI_URL": 1 },
+            "body": { "library.revision": "{{POST_BATCH_REVISION}}" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "metadata-partial",
+      "title": "元数据失败仍保存 partial 条目",
+      "category": "batch",
+      "mode": "sequential",
+      "dependsOn": ["zero-change-batches"],
+      "requiredEnvironment": ["TONGKAN_QA_PARTIAL_URL"],
+      "requests": [
+        {
+          "name": "add-partial-item", "actor": "B", "method": "POST", "path": "/api/library/items/batch",
+          "body": { "inputs": ["{{TONGKAN_QA_PARTIAL_URL}}"], "expectedRevision": "{{POST_BATCH_REVISION}}" },
+          "expect": {
+            "statuses": [200], "batchStatusCounts": { "added": 1 },
+            "body": { "results.0.item.metadataStatus": "partial", "results.0.item.watchStatus": "unwatched" },
+            "revisionDelta": { "path": "library.revision", "from": "POST_BATCH_REVISION", "delta": 1 }
+          },
+          "capture": { "PARTIAL_ITEM_ID": "results.0.item.id", "POST_PARTIAL_REVISION": "library.revision" }
+        }
+      ]
+    },
+    {
+      "id": "category-create-and-conflict",
+      "title": "分类创建、名称冲突与错误码",
+      "category": "category",
+      "mode": "sequential",
+      "dependsOn": ["metadata-partial"],
+      "requiredEnvironment": ["TONGKAN_QA_RUN_ID"],
+      "requests": [
+        {
+          "name": "create-category-a", "actor": "A", "method": "POST", "path": "/api/library/categories",
+          "body": { "name": "QA-A-{{TONGKAN_QA_RUN_ID}}", "expectedRevision": "{{POST_PARTIAL_REVISION}}" },
+          "expect": { "statuses": [201], "revisionDelta": { "path": "revision", "from": "POST_PARTIAL_REVISION", "delta": 1 } },
+          "capture": { "CATEGORY_A_ID": "categories.0.id", "CATEGORY_A_REVISION": "revision" }
+        },
+        {
+          "name": "create-category-b", "actor": "B", "method": "POST", "path": "/api/library/categories",
+          "body": { "name": "QA-B-{{TONGKAN_QA_RUN_ID}}", "expectedRevision": "{{CATEGORY_A_REVISION}}" },
+          "expect": { "statuses": [201], "revisionDelta": { "path": "revision", "from": "CATEGORY_A_REVISION", "delta": 1 } },
+          "capture": { "CATEGORY_B_ID": "categories.1.id", "CATEGORY_B_REVISION": "revision" }
+        },
+        {
+          "name": "duplicate-category-name", "actor": "A", "method": "POST", "path": "/api/library/categories",
+          "body": { "name": "  qa-a-{{TONGKAN_QA_RUN_ID}}  ", "expectedRevision": "{{CATEGORY_B_REVISION}}" },
+          "expect": { "statuses": [409], "errorCode": "CATEGORY_NAME_CONFLICT", "bodyAbsent": ["currentRevision"] }
+        }
+      ]
+    },
+    {
+      "id": "filter-status-sort-and-category-delete",
+      "title": "分类、搜索、状态、排序与删除分类置空",
+      "category": "organization",
+      "mode": "sequential",
+      "dependsOn": ["category-create-and-conflict"],
+      "requiredEnvironment": ["TONGKAN_QA_SEARCH_TERM"],
+      "requests": [
+        {
+          "name": "mark-primary-watched", "actor": "A", "method": "PATCH", "path": "/api/library/items/{{PRIMARY_ITEM_ID}}",
+          "body": { "categoryId": "{{CATEGORY_A_ID}}", "watchStatus": "watched", "expectedRevision": "{{CATEGORY_B_REVISION}}" },
+          "expect": { "statuses": [200], "revisionDelta": { "path": "revision", "from": "CATEGORY_B_REVISION", "delta": 1 } },
+          "capture": { "POST_PRIMARY_UPDATE_REVISION": "revision" }
+        },
+        {
+          "name": "categorize-partial-unwatched", "actor": "B", "method": "PATCH", "path": "/api/library/items/{{PARTIAL_ITEM_ID}}",
+          "body": { "categoryId": "{{CATEGORY_B_ID}}", "watchStatus": "unwatched", "expectedRevision": "{{POST_PRIMARY_UPDATE_REVISION}}" },
+          "expect": { "statuses": [200], "revisionDelta": { "path": "revision", "from": "POST_PRIMARY_UPDATE_REVISION", "delta": 1 } },
+          "capture": { "POST_PARTIAL_UPDATE_REVISION": "revision" }
+        },
+        {
+          "name": "combined-filter", "actor": "A", "method": "GET", "path": "/api/library",
+          "query": { "query": "{{TONGKAN_QA_SEARCH_TERM}}", "status": "watched", "categoryId": "{{CATEGORY_A_ID}}" },
+          "expect": {
+            "statuses": [200], "arrayCount": { "items": 1 },
+            "arrayContains": [{ "path": "items", "match": { "id": "{{PRIMARY_ITEM_ID}}", "watchStatus": "watched", "categoryId": "{{CATEGORY_A_ID}}" } }]
+          }
+        },
+        {
+          "name": "reorder-categories", "actor": "B", "method": "POST", "path": "/api/library/categories/reorder",
+          "body": { "orderedCategoryIds": ["{{CATEGORY_B_ID}}", "{{CATEGORY_A_ID}}"], "expectedRevision": "{{POST_PARTIAL_UPDATE_REVISION}}" },
+          "expect": {
+            "statuses": [200], "revisionDelta": { "path": "revision", "from": "POST_PARTIAL_UPDATE_REVISION", "delta": 1 },
+            "arrayOrder": [{ "path": "categories", "property": "id", "expected": ["{{CATEGORY_B_ID}}", "{{CATEGORY_A_ID}}"] }]
+          },
+          "capture": { "POST_CATEGORY_REORDER_REVISION": "revision" }
+        },
+        {
+          "name": "reorder-items", "actor": "A", "method": "POST", "path": "/api/library/items/reorder",
+          "body": { "orderedItemIds": ["{{PARTIAL_ITEM_ID}}", "{{PRIMARY_ITEM_ID}}"], "expectedRevision": "{{POST_CATEGORY_REORDER_REVISION}}" },
+          "expect": {
+            "statuses": [200], "revisionDelta": { "path": "revision", "from": "POST_CATEGORY_REORDER_REVISION", "delta": 1 },
+            "arrayOrder": [{ "path": "items", "property": "id", "expected": ["{{PARTIAL_ITEM_ID}}", "{{PRIMARY_ITEM_ID}}"] }]
+          },
+          "capture": { "POST_ITEM_REORDER_REVISION": "revision" }
+        },
+        {
+          "name": "delete-category-a", "actor": "B", "method": "DELETE", "path": "/api/library/categories/{{CATEGORY_A_ID}}",
+          "query": { "expectedRevision": "{{POST_ITEM_REORDER_REVISION}}" },
+          "expect": {
+            "statuses": [200], "revisionDelta": { "path": "revision", "from": "POST_ITEM_REORDER_REVISION", "delta": 1 },
+            "arrayContains": [{ "path": "items", "match": { "id": "{{PRIMARY_ITEM_ID}}", "categoryId": null, "watchStatus": "watched" } }]
+          },
+          "capture": { "POST_CATEGORY_DELETE_REVISION": "revision" }
+        },
+        {
+          "name": "zero-change-item-update", "actor": "A", "method": "PATCH", "path": "/api/library/items/{{PRIMARY_ITEM_ID}}",
+          "body": { "categoryId": null, "watchStatus": "watched", "expectedRevision": "{{POST_CATEGORY_DELETE_REVISION}}" },
+          "expect": { "statuses": [200], "body": { "revision": "{{POST_CATEGORY_DELETE_REVISION}}" } }
+        }
+      ]
+    },
+    {
+      "id": "request-validation-and-not-found",
+      "title": "请求格式、分类缺失与资源不存在错误码",
+      "category": "error-contract",
+      "mode": "sequential",
+      "dependsOn": ["filter-status-sort-and-category-delete"],
+      "requiredEnvironment": ["TONGKAN_QA_CATEGORY_MISS_URL"],
+      "requests": [
+        {
+          "name": "invalid-json", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
+          "rawBody": "{", "contentType": "application/json",
+          "expect": { "statuses": [400], "errorCode": "INVALID_JSON" }
+        },
+        {
+          "name": "json-required", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
+          "rawBody": "{}", "contentType": "text/plain",
+          "expect": { "statuses": [400], "errorCode": "JSON_REQUIRED" }
+        },
+        {
+          "name": "invalid-request", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
+          "body": { "expectedRevision": "{{POST_CATEGORY_DELETE_REVISION}}" },
+          "expect": { "statuses": [400], "errorCode": "INVALID_REQUEST" }
+        },
+        {
+          "name": "missing-category-item-result", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
+          "body": { "inputs": ["{{TONGKAN_QA_CATEGORY_MISS_URL}}"], "categoryId": "ffffffffffffffffffffffffffffffff", "expectedRevision": "{{POST_CATEGORY_DELETE_REVISION}}" },
+          "expect": {
+            "statuses": [200], "batchStatusCounts": { "rejected": 1 }, "batchErrorCounts": { "CATEGORY_NOT_FOUND": 1 },
+            "body": { "library.revision": "{{POST_CATEGORY_DELETE_REVISION}}" }
+          }
+        },
+        {
+          "name": "missing-item", "actor": "B", "method": "PATCH", "path": "/api/library/items/ffffffffffffffffffffffffffffffff",
+          "body": { "watchStatus": "watched", "expectedRevision": "{{POST_CATEGORY_DELETE_REVISION}}" },
+          "expect": { "statuses": [404], "errorCode": "NOT_FOUND", "bodyAbsent": ["currentRevision"] }
+        },
+        {
+          "name": "revision-unchanged-after-errors", "actor": "A", "method": "GET", "path": "/api/library",
+          "expect": { "statuses": [200], "body": { "revision": "{{POST_CATEGORY_DELETE_REVISION}}" } }
+        }
+      ]
+    },
+    {
+      "id": "stale-revision-direct",
+      "title": "旧 revision 写入返回当前 revision 且零写入",
+      "category": "concurrency",
+      "mode": "sequential",
+      "dependsOn": ["request-validation-and-not-found"],
+      "requiredEnvironment": ["TONGKAN_QA_RUN_ID"],
+      "requests": [
+        {
+          "name": "stale-category-rename", "actor": "B", "method": "PATCH", "path": "/api/library/categories/{{CATEGORY_B_ID}}",
+          "body": { "name": "stale-{{TONGKAN_QA_RUN_ID}}", "expectedRevision": "{{CATEGORY_B_REVISION}}" },
+          "expect": { "statuses": [409], "errorCode": "LIBRARY_VERSION_CONFLICT", "body": { "currentRevision": "{{POST_CATEGORY_DELETE_REVISION}}" } }
+        }
+      ]
+    },
+    {
+      "id": "stale-revision-race-20",
+      "title": "二十轮双方旧 revision 并发仅一方成功",
+      "category": "concurrency",
+      "mode": "revisionRace",
+      "iterations": 20,
+      "dependsOn": ["stale-revision-direct"],
+      "requiredEnvironment": ["TONGKAN_QA_RUN_ID"],
+      "baselineRequests": [
+        {
+          "name": "read-race-baseline", "actor": "A", "method": "GET", "path": "/api/library",
+          "expect": { "statuses": [200] }, "capture": { "RACE_REVISION": "revision" }
+        }
+      ],
+      "requests": [
+        {
+          "name": "actor-a-rename", "actor": "A", "method": "PATCH", "path": "/api/library/categories/{{CATEGORY_B_ID}}",
+          "body": { "name": "race-a-{{TONGKAN_QA_RUN_ID}}-{{ITERATION}}", "expectedRevision": "{{RACE_REVISION}}" }
+        },
+        {
+          "name": "actor-b-rename", "actor": "B", "method": "PATCH", "path": "/api/library/categories/{{CATEGORY_B_ID}}",
+          "body": { "name": "race-b-{{TONGKAN_QA_RUN_ID}}-{{ITERATION}}", "expectedRevision": "{{RACE_REVISION}}" }
+        }
+      ],
+      "aggregateExpect": {
+        "statusCounts": { "200": 1, "409": 1 },
+        "errorCodeCounts": { "LIBRARY_VERSION_CONFLICT": 1 },
+        "conflictRevisionMatchesSuccessRevision": true
+      }
+    },
+    {
+      "id": "rebinding-old-item-isolation",
+      "title": "重绑后旧 pair 晚到写入不能修改新 pair",
+      "category": "archive",
+      "mode": "sequential",
+      "dependsOn": ["stale-revision-race-20"],
+      "requiredEnvironment": ["TONGKAN_QA_KEEP_PAIR_ID", "TONGKAN_QA_OLD_ITEM_ID"],
+      "requests": [
+        {
+          "name": "read-new-active-pair", "actor": "A", "method": "GET", "path": "/api/library",
+          "expect": { "statuses": [200], "bodyNot": { "pairId": "{{TONGKAN_QA_KEEP_PAIR_ID}}" } },
+          "capture": { "NEW_ACTIVE_PAIR_ID": "pairId", "NEW_ACTIVE_REVISION": "revision" }
+        },
+        {
+          "name": "late-old-item-write", "actor": "A", "method": "PATCH", "path": "/api/library/items/{{TONGKAN_QA_OLD_ITEM_ID}}",
+          "body": { "watchStatus": "watched", "expectedRevision": "{{NEW_ACTIVE_REVISION}}" },
+          "expect": { "statuses": [404], "errorCode": "NOT_FOUND" }
+        },
+        {
+          "name": "new-active-pair-unchanged", "actor": "A", "method": "GET", "path": "/api/library",
+          "expect": { "statuses": [200], "body": { "pairId": "{{NEW_ACTIVE_PAIR_ID}}", "revision": "{{NEW_ACTIVE_REVISION}}" } }
+        }
+      ]
+    },
+    {
+      "id": "archive-keep-readable",
+      "title": "keep 用户读取旧空间只读片库",
+      "category": "archive",
+      "mode": "sequential",
+      "requiredEnvironment": ["TONGKAN_QA_KEEP_PAIR_ID", "TONGKAN_QA_OLD_ITEM_ID"],
+      "requests": [
+        {
+          "name": "keep-owner-read", "actor": "A", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_KEEP_PAIR_ID}}/library",
+          "expect": {
+            "statuses": [200], "body": { "pairId": "{{TONGKAN_QA_KEEP_PAIR_ID}}", "readOnly": true },
+            "arrayContains": [{ "path": "items", "match": { "id": "{{TONGKAN_QA_OLD_ITEM_ID}}" } }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "archive-forbidden-states",
+      "title": "pending、delete 与第三方归档读取均拒绝",
+      "category": "archive",
+      "mode": "sequential",
+      "requiredEnvironment": ["TONGKAN_QA_KEEP_PAIR_ID", "TONGKAN_QA_PENDING_PAIR_ID", "TONGKAN_QA_DELETE_PAIR_ID"],
+      "requests": [
+        {
+          "name": "pending-owner-read", "actor": "B", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_PENDING_PAIR_ID}}/library",
+          "expect": { "statuses": [403], "errorCode": "ARCHIVE_FORBIDDEN" }
+        },
+        {
+          "name": "delete-owner-read", "actor": "A", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_DELETE_PAIR_ID}}/library",
+          "expect": { "statuses": [403], "errorCode": "ARCHIVE_FORBIDDEN" }
+        },
+        {
+          "name": "third-party-read", "actor": "C", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_KEEP_PAIR_ID}}/library",
+          "expect": { "statuses": [403], "errorCode": "ARCHIVE_FORBIDDEN" }
+        }
+      ]
+    },
+    {
+      "id": "both-delete-not-found",
+      "title": "双方 delete 后所有账号均看不到旧片库",
+      "category": "cascade",
+      "mode": "sequential",
+      "requiredEnvironment": ["TONGKAN_QA_BOTH_DELETED_PAIR_ID"],
+      "requests": [
+        {
+          "name": "former-member-a-read", "actor": "A", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_BOTH_DELETED_PAIR_ID}}/library",
+          "expect": { "statuses": [404], "errorCode": "NOT_FOUND" }
+        },
+        {
+          "name": "former-member-b-read", "actor": "B", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_BOTH_DELETED_PAIR_ID}}/library",
+          "expect": { "statuses": [404], "errorCode": "NOT_FOUND" }
+        },
+        {
+          "name": "third-party-read", "actor": "C", "method": "GET", "path": "/api/pair/archives/{{TONGKAN_QA_BOTH_DELETED_PAIR_ID}}/library",
+          "expect": { "statuses": [404], "errorCode": "NOT_FOUND" }
+        }
+      ]
+    }
+  ]
+}
