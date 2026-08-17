@@ -4,8 +4,8 @@
 
 ## 1. 安全与环境门槛
 
-- API 必须指向主机名含 `preview` 的 HTTPS 地址，或本机 `localhost/127.0.0.1`；脚本没有生产覆盖开关。
-- Session Token 只通过进程环境变量 `TONGKAN_QA_TOKEN_A/B` 或 `-SecureStdin` 输入。
+- 远程 API 只允许精确主机 `account-preview.tongkan-personal.pages.dev` 且必须使用 HTTPS；本机只允许 `localhost/127.0.0.1`。类似 `preview.attacker.example` 的主机必须被拒绝，脚本没有生产覆盖开关。
+- Session Token 只通过进程环境变量 `TONGKAN_QA_TOKEN_A/B/C` 或 `-SecureStdin` 输入。
 - 预览测试密钥只通过 `TONGKAN_QA_TEST_KEY` 或 `-SecureStdin` 输入。
 - 禁止把 token、测试邮箱、邀请码、响应正文、数据库导出或私人资料写入仓库、Issue、PR、截图和日志。
 - pairId 仅记录末 6 位用于证据关联；完整值只保存在当前验收进程环境变量中。
@@ -18,6 +18,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File qa/account-unbind/run-preview.ps1 `
   -Mode ValidateOnly
 ```
+
+使用 `-CaseId` 选择用例时，脚本会递归展开 `dependsOn`。例如单独选择 `different-decision-conflict` 时，会先执行 `same-decision-repeat`；依赖不存在或形成循环时，脚本在发出网络请求前失败。
 
 真实预览执行示例（token 在安全提示中输入，pairId 通过环境变量提供）：
 
@@ -57,6 +59,7 @@ Remove-Item Env:TONGKAN_QA_PAIR_CONCURRENT
 | `TONGKAN_QA_PAIR_BOTH_DELETE` | A-B 活动 pair | A delete，B delete |
 | `TONGKAN_QA_PAIR_REPEAT` | A-B 活动 pair | 先执行同值重试，再执行异值冲突 |
 | `TONGKAN_QA_PAIR_CONCURRENT` | A-B 活动 pair | 同时提交两次解绑 |
+| `TONGKAN_QA_PAIR_FOREIGN` | A-B 活动 pair，C 为有效但无关账号 | 验证有效第三方账号只能得到统一 404 |
 | `TONGKAN_QA_OLD_PAIR_ID` | A-B 已解绑 pair | A 随后与 C 绑定 |
 | `TONGKAN_QA_NEW_PAIR_ID` | A-C 当前活动 pair | 验证旧请求晚到不影响它 |
 | `TONGKAN_QA_DELETED_PAIR_ID` | 双方已 delete 的 pair | 用于删除后 404 与 D1 行检查 |
@@ -76,10 +79,11 @@ Remove-Item Env:TONGKAN_QA_PAIR_CONCURRENT
 | 6 | `different-decision-conflict` | 已 keep 后改 delete | 409 `PAIR_RETENTION_FINAL` |  |
 | 7 | `concurrent-unbind` | A/B 同时解绑同一 pair | 恰好一个 200、一个 409 `PAIR_UNBIND_CONFLICT` |  |
 | 8 | `unauthorized-unbind` | 不带 Bearer Token | 401 `AUTH_REQUIRED` |  |
-| 9 | `invalid-retention` | retention=`later` | 400 `PAIR_RETENTION_INVALID` |  |
-| 10 | `late-old-pair-request` | A 已重绑 C 后发送旧 pair 请求 | 409 `PAIR_UNBIND_CONFLICT`；GET 仍返回 A-C 新 pair |  |
-| 11 | `old-invite-invalidated` | B 接受解绑前旧邀请码 | 404 `PAIR_INVITE_NOT_FOUND` |  |
-| 12 | `retry-after-physical-delete` | 对已清理 pair 重试决定 | 404 `PAIR_ARCHIVE_NOT_FOUND`，不泄露历史关系 |  |
+| 9 | `foreign-pair-hidden` | 有效账号 C 对 A-B 活动 pair 提交解绑 | 404 `PAIR_ARCHIVE_NOT_FOUND`，响应不泄露关系是否存在，A-B 状态不变 |  |
+| 10 | `invalid-retention` | retention=`later` | 400 `PAIR_RETENTION_INVALID` |  |
+| 11 | `late-old-pair-request` | A 已重绑 C 后发送旧 pair 请求 | 409 `PAIR_UNBIND_CONFLICT`；GET 仍返回 A-C 新 pair |  |
+| 12 | `old-invite-invalidated` | B 接受解绑前旧邀请码 | 404 `PAIR_INVITE_NOT_FOUND` |  |
+| 13 | `retry-after-physical-delete` | 对已清理 pair 重试决定 | 404 `PAIR_ARCHIVE_NOT_FOUND`，不泄露历史关系 |  |
 
 错误响应只记录 HTTP 状态与 `error` 字段，不复制 `message` 或完整响应体。
 
@@ -175,7 +179,7 @@ SELECT COUNT(*) AS archive_member_count FROM pair_archive_members WHERE pair_id 
 
 ## 9. 最终判定
 
-- [ ] 12 个 API 合同用例全部通过或有明确阻断 Issue。
+- [ ] 13 个 API 合同用例全部通过或有明确阻断 Issue。
 - [ ] 多 pending、稳定排序、快照和 delete 隐藏通过。
 - [ ] Android 双账号重启、重新绑定和延迟旧请求通过。
 - [ ] 20/20 并发轮次通过，无重复归档或新 pair 被误解绑。
