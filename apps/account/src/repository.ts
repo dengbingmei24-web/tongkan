@@ -382,6 +382,9 @@ export class AccountRepository {
            WHERE id = ? AND used_at IS NULL AND expires_at > ?`,
         ).bind(pairId, accepterUserId, now, invite.id, now),
         this.db.prepare(
+          "INSERT INTO pair_library_state (pair_id, revision, created_at, updated_at) VALUES (?, 0, ?, ?)",
+        ).bind(pairId, now, now),
+        this.db.prepare(
           "INSERT INTO active_pair_members (user_id, pair_id, partner_user_id, joined_at) VALUES (?, ?, ?, ?)",
         ).bind(invite.inviterUserId, pairId, accepterUserId, now),
         this.db.prepare(
@@ -391,7 +394,7 @@ export class AccountRepository {
           "UPDATE pair_invites SET used_at = ?, accepted_by_user_id = ? WHERE id = ? AND used_at IS NULL AND expires_at > ?",
         ).bind(now, accepterUserId, invite.id, now),
       ]);
-      return results[0]?.meta.changes === 1 && results[3]?.meta.changes === 1;
+      return results[0]?.meta.changes === 1 && results[4]?.meta.changes === 1;
     } catch (error) {
       if (String(error).includes("UNIQUE constraint failed")) return false;
       throw error;

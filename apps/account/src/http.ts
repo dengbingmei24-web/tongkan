@@ -14,7 +14,11 @@ export function json(data: unknown, status = 200, origin?: string, extraHeaders?
 export function errorResponse(error: unknown, origin?: string): Response {
   if (error instanceof AuthError) {
     const headers = error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : undefined;
-    return json({ error: error.code, message: error.message }, error.status, origin, headers);
+    return json({
+      error: error.code,
+      message: error.message,
+      ...(error.currentRevision === undefined ? {} : { currentRevision: error.currentRevision }),
+    }, error.status, origin, headers);
   }
   console.error("Account request failed", error instanceof Error ? error.message : String(error));
   return json({ error: "INTERNAL_ERROR", message: "服务暂时不可用，请稍后重试。" }, 500, origin);

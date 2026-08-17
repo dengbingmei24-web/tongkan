@@ -4,6 +4,7 @@ export class AuthError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfterSeconds?: number,
+    readonly currentRevision?: number,
   ) {
     super(message);
   }
