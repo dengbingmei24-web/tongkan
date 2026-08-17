@@ -248,6 +248,41 @@ describe('PairService archives', () => {
     await expect(service.unbind(userA, pairId, 'delete')).rejects.toMatchObject({ code: 'PAIR_RETENTION_FINAL' });
   });
 
+  for (const decision of ['keep', 'delete'] as const) {
+    it(`makes concurrent same-user ${decision} unbind requests idempotent`, async () => {
+      const repository = new MemoryPairRepository();
+      const firstService = new PairService(testEnv, repository, () => 1_800_000_000_000);
+      const secondService = new PairService(testEnv, repository, () => 1_800_000_000_000);
+      const pairId = await bind(repository, firstService, userA, userB);
+
+      const [first, second] = await Promise.all([
+        firstService.unbind(userA, pairId, decision),
+        secondService.unbind(userA, pairId, decision),
+      ]);
+
+      expect(second).toEqual(first);
+      expect(repository.archives.get(pairId + ':' + userA.id)?.retentionStatus).toBe(decision);
+      expect(repository.archives.get(pairId + ':' + userB.id)?.retentionStatus).toBe('pending');
+    });
+  }
+
+  it('rejects the losing decision when concurrent same-user unbind requests differ', async () => {
+    const repository = new MemoryPairRepository();
+    const keepService = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const deleteService = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const pairId = await bind(repository, keepService, userA, userB);
+
+    const results = await Promise.allSettled([
+      keepService.unbind(userA, pairId, 'keep'),
+      deleteService.unbind(userA, pairId, 'delete'),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.find((result) => result.status === 'rejected');
+    if (!rejected || rejected.status !== 'rejected') throw new Error('Expected one rejected unbind.');
+    expect(rejected.reason).toMatchObject({ code: 'PAIR_RETENTION_FINAL', status: 409 });
+  });
+
   it('returns a conflict when an active unbind loses the CAS race', async () => {
     const repository = new MemoryPairRepository();
     const service = new PairService(testEnv, repository, () => 1_800_000_000_000);
@@ -263,6 +298,40 @@ describe('PairService archives', () => {
       status: 409,
     });
     expect(repository.archives.get(pairId + ':' + userA.id)?.retentionStatus).toBe('pending');
+  });
+
+  it('returns not found when a lost unbind CAS has already been physically deleted', async () => {
+    const repository = new MemoryPairRepository();
+    const service = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const pairId = await bind(repository, service, userA, userB);
+    const applyWinningUnbind = repository.unbindPair.bind(repository);
+    repository.unbindPair = async (targetPairId, _userId, _retention, now) => {
+      await applyWinningUnbind(targetPairId, userA.id, 'delete', now);
+      await repository.setPairArchiveRetention(targetPairId, userB.id, 'delete', now + 1);
+      return false;
+    };
+
+    await expect(service.unbind(userA, pairId, 'delete')).rejects.toMatchObject({
+      code: 'PAIR_ARCHIVE_NOT_FOUND',
+      status: 404,
+    });
+  });
+
+  it('does not attribute a later physical deletion to the successful unbind request', async () => {
+    const repository = new MemoryPairRepository();
+    const service = new PairService(testEnv, repository, () => 1_800_000_000_000);
+    const pairId = await bind(repository, service, userA, userB);
+    const applyUnbind = repository.unbindPair.bind(repository);
+    repository.unbindPair = async (targetPairId, userId, retention, now) => {
+      const applied = await applyUnbind(targetPairId, userId, retention, now);
+      if (applied) await repository.setPairArchiveRetention(targetPairId, userB.id, 'delete', now + 1);
+      return applied;
+    };
+
+    await expect(service.unbind(userA, pairId, 'delete')).resolves.toEqual({
+      archive: null,
+      pairDeleted: false,
+    });
   });
 
   it('does not finalize a pending archive through the unbind endpoint', async () => {
