@@ -3,7 +3,7 @@
 > Current cross-conversation snapshot. Historical conversation logs are archived at `docs/archive/context/CONTEXT_HISTORY_2026-08.md`.
 
 ---
-last_updated: 2026-08-17T15:32:27+08:00
+last_updated: 2026-08-17T15:48:24+08:00
 current_version: 1.0.0-alpha10.1-p1.0 (versionCode 35)
 target_version: Complete TK-001 online API acceptance and real two-device FCM + Beta regression
 status: Documentation governance is complete on `codex/TK-002-player-chat`; TK-001 Account → Android → QA remains integrated and the frozen dual-device APK is unchanged. Production TK-001 rollout and real two-device acceptance remain pending.
@@ -29,6 +29,7 @@ status: Documentation governance is complete on `codex/TK-002-player-chat`; TK-0
 
 ## In Progress
 
+- Planning `TK-003-shared-library` as the Alpha 10.2 implementation: reviewer freezes data/OpenAPI contracts, then three isolated workers handle Account/D1, Android, and QA respectively. Existing old worktrees and the uncommitted Context handoff must be cleaned into a committed baseline before workers start.
 - User will run the frozen P1.0 APK on two physical devices after work.
 - Required FCM checks: background/lock-screen delivery, notification tap into the correct room and cold-start deep-link recovery.
 - Required Beta checks: create/join, play/pause, seek, all six speeds, media switch, 15-second disconnect/reconnect, landscape unread red dot/input and at least 30 minutes continuous viewing.
@@ -68,3 +69,5 @@ status: Documentation governance is complete on `codex/TK-002-player-chat`; TK-0
 - 2026-08-17: P1.0 dual-device APK was frozen and opened for later physical testing.
 - 2026-08-17: User postponed physical testing until after work and authorized the previously accepted documentation-governance migration.
 - 2026-08-17: Completed the two-stage documentation migration, compacted current Context, archived full history, updated all known references and passed documentation/Web validation; frozen APK and production services were unchanged.
+- 2026-08-17: Audited all current Context, PRD, TK-001 Spec Kit tasks, QA and security records. Confirmed the real remaining order is two-device P1.0 acceptance → TK-001 online/production acceptance → branch publication → Alpha 10.2 shared library → Alpha 10.3 calendar → Alpha 10.4 history/statistics → Beta/1.0 hardening; several unchecked TK-001 worker boxes are stale documentation because their code is already integrated. No code, APK, push or deployment changed.
+- 2026-08-17: User chose Alpha 10.2 shared library as the next feature and requested multi-agent execution. Proposed TK-003 because TK-002 is already used: reviewer owns spec/contracts/integration; W1 owns Account Worker/D1; W2 owns Android client/UI; W3 owns QA/black-box acceptance. No worker was started yet because the baseline is not clean and old worktrees remain attached.
