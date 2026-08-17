@@ -975,6 +975,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     createButton.setEnabled(true);
                     createButton.setText("创建房间");
                     pendingPairWatchInvite = false;
+                    pendingLibraryMedia = null;
                     showError("创建房间失败，请检查网络后重试");
                 });
             }
@@ -2076,34 +2077,76 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void showRoomLibraryPicker() {
-        if (accountSession == null || currentPair == null) {
-            Toast.makeText(this, "登录并绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
+        AccountModels.Session session = accountSession;
+        if (session == null) {
+            Toast.makeText(this, "登录后可使用共同片库", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (currentPair == null && !pairLoaded) {
+            libraryPickerButton.setEnabled(false);
+            libraryPickerButton.setText("正在读取好友状态…");
+            accountClient.getPair(session.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
+                @Override public void onSuccess(AccountModels.PairState pairState) {
+                    runOnUiThread(() -> {
+                        currentPairState = pairState;
+                        currentPair = pairState.pair;
+                        pairLoaded = true;
+                        pairLoading = false;
+                        if (currentPair == null) {
+                            restoreLibraryPickerButton();
+                            Toast.makeText(MainActivity.this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
+                        } else {
+                            fetchRoomLibrary(session);
+                        }
+                    });
+                }
+
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> {
+                        restoreLibraryPickerButton();
+                        if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
+                        else Toast.makeText(MainActivity.this, failure.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+                }
+            });
+            return;
+        }
+        if (currentPair == null) {
+            Toast.makeText(this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
             return;
         }
         if (currentLibrary != null && !currentLibrary.readOnly && currentPair.pairId.equals(currentLibrary.pairId)) {
             showRoomLibraryItems(currentLibrary);
             return;
         }
+        fetchRoomLibrary(session);
+    }
+
+    private void fetchRoomLibrary(AccountModels.Session session) {
         libraryPickerButton.setEnabled(false);
         libraryPickerButton.setText("正在读取片库…");
-        accountClient.getLibrary(accountSession.token, "", "all", null, new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
+        accountClient.getLibrary(session.token, "", "all", null, new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
             @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
                 runOnUiThread(() -> {
                     currentLibrary = snapshot;
-                    libraryPickerButton.setEnabled(true);
-                    libraryPickerButton.setText("从共同片库选择");
+                    restoreLibraryPickerButton();
                     showRoomLibraryItems(snapshot);
                 });
             }
 
             @Override public void onFailure(AccountClient.Failure failure) {
                 runOnUiThread(() -> {
-                    libraryPickerButton.setEnabled(true);
-                    libraryPickerButton.setText("从共同片库选择");
-                    Toast.makeText(MainActivity.this, failure.getMessage(), Toast.LENGTH_LONG).show();
+                    restoreLibraryPickerButton();
+                    if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
+                    else Toast.makeText(MainActivity.this, failure.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
         });
+    }
+
+    private void restoreLibraryPickerButton() {
+        libraryPickerButton.setEnabled(true);
+        libraryPickerButton.setText("从共同片库选择");
     }
 
     private void showRoomLibraryItems(AccountModels.LibrarySnapshot snapshot) {
