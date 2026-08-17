@@ -3,11 +3,17 @@ package com.tongkan.mobile.account;
 import com.tongkan.mobile.BuildConfig;
 
 import org.json.JSONException;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -30,12 +36,18 @@ public final class AccountClient {
         public final String code;
         public final int status;
         public final boolean networkFailure;
+        public final long currentRevision;
 
         Failure(String code, String message, int status, boolean networkFailure) {
+            this(code, message, status, networkFailure, -1);
+        }
+
+        Failure(String code, String message, int status, boolean networkFailure, long currentRevision) {
             super(message);
             this.code = code;
             this.status = status;
             this.networkFailure = networkFailure;
+            this.currentRevision = currentRevision;
         }
 
         public boolean isAuthenticationFailure() {
@@ -48,6 +60,10 @@ public final class AccountClient {
     }
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
+    private static final Set<String> LIBRARY_ERROR_CODES = new HashSet<>(Arrays.asList(
+        "UNAUTHORIZED", "INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED", "ARCHIVE_FORBIDDEN",
+        "NOT_FOUND", "PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED"
+    ));
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
@@ -233,6 +249,145 @@ public final class AccountClient {
         }
         execute(post("/api/pair/watch-invites", body, token), value -> AccountModels.WatchInviteResult.fromJson(new JSONObject(value)), callback);
     }
+
+    public void getLibrary(
+        String token,
+        String query,
+        String status,
+        String categoryId,
+        ResultCallback<AccountModels.LibrarySnapshot> callback
+    ) {
+        if (!requireConfigured(callback)) return;
+        String normalizedStatus = status == null || status.isEmpty() ? "all" : status;
+        if (!"all".equals(normalizedStatus) && !"unwatched".equals(normalizedStatus) && !"watched".equals(normalizedStatus)) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "片库筛选状态无效。", 0, false));
+            return;
+        }
+        if (categoryId != null && !categoryId.matches("[a-f0-9]{32}")) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "片库分类无效。", 0, false));
+            return;
+        }
+        StringBuilder path = new StringBuilder("/api/library?status=").append(encode(normalizedStatus));
+        if (query != null && !query.trim().isEmpty()) path.append("&query=").append(encode(query.trim()));
+        if (categoryId != null) path.append("&categoryId=").append(categoryId);
+        execute(requestBuilder(path.toString(), token).get().build(), AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void getArchiveLibrary(String token, String pairId, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        if (!requireConfigured(callback) || !requireId(pairId, "旧空间无效。", callback)) return;
+        execute(requestBuilder("/api/pair/archives/" + pairId + "/library", token).get().build(), AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void addLibraryItems(
+        String token,
+        List<String> inputs,
+        String categoryId,
+        long expectedRevision,
+        ResultCallback<AccountModels.BatchAddResult> callback
+    ) {
+        if (!requireConfigured(callback)) return;
+        if (inputs == null || inputs.isEmpty() || inputs.size() > 20 || expectedRevision < 0) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "一次请输入 1–20 条 B站链接。", 0, false));
+            return;
+        }
+        if (categoryId != null && !categoryId.matches("[a-f0-9]{32}")) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "片库分类无效。", 0, false));
+            return;
+        }
+        JSONObject body = new JSONObject();
+        try {
+            JSONArray values = new JSONArray();
+            for (String input : inputs) {
+                String normalized = input == null ? "" : input.trim();
+                if (normalized.isEmpty() || normalized.length() > 2000) {
+                    callback.onFailure(new Failure("INVALID_REQUEST", "链接不能为空且不能超过 2000 字符。", 0, false));
+                    return;
+                }
+                values.put(normalized);
+            }
+            body.put("inputs", values);
+            body.put("categoryId", categoryId == null ? JSONObject.NULL : categoryId);
+            body.put("expectedRevision", expectedRevision);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成批量添加请求。", 0, false));
+            return;
+        }
+        execute(post("/api/library/items/batch", body, token), value -> AccountModels.BatchAddResult.fromJson(new JSONObject(value)), callback);
+    }
+
+    public void createLibraryCategory(String token, String name, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        mutateWithName(token, "/api/library/categories", "POST", name, expectedRevision, callback);
+    }
+
+    public void renameLibraryCategory(String token, String categoryId, String name, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        if (!requireConfigured(callback) || !requireId(categoryId, "片库分类无效。", callback)) return;
+        mutateWithName(token, "/api/library/categories/" + categoryId, "PATCH", name, expectedRevision, callback);
+    }
+
+    public void deleteLibraryCategory(String token, String categoryId, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        if (!requireConfigured(callback) || !requireId(categoryId, "片库分类无效。", callback) || !requireRevision(expectedRevision, callback)) return;
+        Request request = requestBuilder("/api/library/categories/" + categoryId + "?expectedRevision=" + expectedRevision, token).delete().build();
+        execute(request, AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void reorderLibraryCategories(String token, List<String> orderedIds, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        reorder(token, "/api/library/categories/reorder", "orderedCategoryIds", orderedIds, expectedRevision, callback);
+    }
+
+    public void updateLibraryItem(
+        String token,
+        String itemId,
+        String categoryId,
+        String watchStatus,
+        boolean refreshMetadata,
+        long expectedRevision,
+        ResultCallback<AccountModels.LibrarySnapshot> callback
+    ) {
+        if (!requireConfigured(callback) || !requireId(itemId, "片库条目无效。", callback) || !requireRevision(expectedRevision, callback)) return;
+        if (categoryId != null && !categoryId.matches("[a-f0-9]{32}")) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "片库分类无效。", 0, false));
+            return;
+        }
+        if (watchStatus != null && !"unwatched".equals(watchStatus) && !"watched".equals(watchStatus)) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "观看状态无效。", 0, false));
+            return;
+        }
+        JSONObject body = new JSONObject();
+        try {
+            if (categoryId != null) body.put("categoryId", categoryId);
+            if (watchStatus != null) body.put("watchStatus", watchStatus);
+            if (refreshMetadata) body.put("refreshMetadata", true);
+            body.put("expectedRevision", expectedRevision);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成片库更新请求。", 0, false));
+            return;
+        }
+        execute(patch("/api/library/items/" + itemId, body, token), AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void clearLibraryItemCategory(String token, String itemId, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        if (!requireConfigured(callback) || !requireId(itemId, "片库条目无效。", callback) || !requireRevision(expectedRevision, callback)) return;
+        JSONObject body = new JSONObject();
+        try {
+            body.put("categoryId", JSONObject.NULL);
+            body.put("expectedRevision", expectedRevision);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成片库更新请求。", 0, false));
+            return;
+        }
+        execute(patch("/api/library/items/" + itemId, body, token), AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void deleteLibraryItem(String token, String itemId, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        if (!requireConfigured(callback) || !requireId(itemId, "片库条目无效。", callback) || !requireRevision(expectedRevision, callback)) return;
+        Request request = requestBuilder("/api/library/items/" + itemId + "?expectedRevision=" + expectedRevision, token).delete().build();
+        execute(request, AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void reorderLibraryItems(String token, List<String> orderedIds, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        reorder(token, "/api/library/items/reorder", "orderedItemIds", orderedIds, expectedRevision, callback);
+    }
+
     public void close() {
         for (Call call : calls) call.cancel();
         calls.clear();
@@ -246,6 +401,10 @@ public final class AccountClient {
 
     private Request post(String path, JSONObject body, String token) {
         return requestBuilder(path, token).post(RequestBody.create(body.toString(), JSON)).build();
+    }
+
+    private Request patch(String path, JSONObject body, String token) {
+        return requestBuilder(path, token).patch(RequestBody.create(body.toString(), JSON)).build();
     }
 
     private Request.Builder requestBuilder(String path, String token) {
@@ -302,14 +461,109 @@ public final class AccountClient {
         }
     }
 
-    private static Failure parseFailure(int status, String body) {
+    static Failure parseFailure(int status, String body) {
         try {
             JSONObject json = new JSONObject(body);
-            String code = json.optString("error", "HTTP_" + status);
-            String message = json.optString("message", "账号服务请求失败，请稍后重试。");
-            return new Failure(code, message, status, false);
+            if (!(json.opt("error") instanceof String) || !(json.opt("message") instanceof String)) {
+                return new Failure("INVALID_RESPONSE", "账号服务返回了无法识别的错误。", status, false);
+            }
+            String code = json.getString("error");
+            String message = json.getString("message").trim();
+            if (code.isEmpty() || message.isEmpty()) return new Failure("INVALID_RESPONSE", "账号服务返回了无法识别的错误。", status, false);
+            long revision = -1;
+            if ("LIBRARY_VERSION_CONFLICT".equals(code)) {
+                if (!json.has("currentRevision") || json.getLong("currentRevision") < 0) {
+                    return new Failure("INVALID_RESPONSE", "片库版本冲突响应无效，请刷新重试。", status, false);
+                }
+                revision = json.getLong("currentRevision");
+            } else if (LIBRARY_ERROR_CODES.contains(code) && json.has("currentRevision")) {
+                return new Failure("INVALID_RESPONSE", "账号服务返回了无法识别的错误。", status, false);
+            }
+            return new Failure(code, message, status, false, revision);
         } catch (JSONException error) {
             return new Failure("HTTP_" + status, "账号服务请求失败（" + status + "）。", status, false);
+        }
+    }
+
+    static AccountModels.LibrarySnapshot parseLibrarySnapshot(String body) throws Exception {
+        return AccountModels.LibrarySnapshot.fromJson(new JSONObject(body));
+    }
+
+    private void mutateWithName(
+        String token,
+        String path,
+        String method,
+        String name,
+        long expectedRevision,
+        ResultCallback<AccountModels.LibrarySnapshot> callback
+    ) {
+        if (!requireConfigured(callback) || !requireRevision(expectedRevision, callback)) return;
+        String normalized = name == null ? "" : name.trim();
+        if (normalized.isEmpty() || normalized.codePointCount(0, normalized.length()) > 24) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "分类名称需要为 1–24 个字符。", 0, false));
+            return;
+        }
+        JSONObject body = new JSONObject();
+        try {
+            body.put("name", normalized);
+            body.put("expectedRevision", expectedRevision);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成分类请求。", 0, false));
+            return;
+        }
+        Request request = "PATCH".equals(method) ? patch(path, body, token) : post(path, body, token);
+        execute(request, AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    private void reorder(
+        String token,
+        String path,
+        String field,
+        List<String> orderedIds,
+        long expectedRevision,
+        ResultCallback<AccountModels.LibrarySnapshot> callback
+    ) {
+        if (!requireConfigured(callback) || !requireRevision(expectedRevision, callback)) return;
+        if (orderedIds == null || new HashSet<>(orderedIds).size() != orderedIds.size()) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "排序列表无效。", 0, false));
+            return;
+        }
+        JSONArray values = new JSONArray();
+        for (String id : orderedIds) {
+            if (id == null || !id.matches("[a-f0-9]{32}")) {
+                callback.onFailure(new Failure("INVALID_REQUEST", "排序列表包含无效条目。", 0, false));
+                return;
+            }
+            values.put(id);
+        }
+        JSONObject body = new JSONObject();
+        try {
+            body.put(field, values);
+            body.put("expectedRevision", expectedRevision);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成排序请求。", 0, false));
+            return;
+        }
+        execute(post(path, body, token), AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    private static <T> boolean requireId(String id, String message, ResultCallback<T> callback) {
+        if (id != null && id.matches("[a-f0-9]{32}")) return true;
+        callback.onFailure(new Failure("INVALID_REQUEST", message, 0, false));
+        return false;
+    }
+
+    private static <T> boolean requireRevision(long revision, ResultCallback<T> callback) {
+        if (revision >= 0) return true;
+        callback.onFailure(new Failure("INVALID_REQUEST", "片库版本无效，请刷新后重试。", 0, false));
+        return false;
+    }
+
+    private static String encode(String value) {
+        try {
+            return URLEncoder.encode(value, "UTF-8").replace("+", "%20");
+        } catch (UnsupportedEncodingException error) {
+            throw new IllegalStateException("UTF-8 is unavailable", error);
         }
     }
 

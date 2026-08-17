@@ -130,6 +130,226 @@ public final class AccountModels {
             return new WatchInviteResult(json.optInt("attempted"), json.optInt("delivered"), json.optBoolean("fallbackRequired", true));
         }
     }
+
+    public static final class PublicActor {
+        public final String id;
+        public final String nickname;
+
+        public PublicActor(String id, String nickname) {
+            this.id = id;
+            this.nickname = nickname;
+        }
+
+        public static PublicActor fromJson(JSONObject json) throws JSONException {
+            String id = requiredText(json, "id", 128);
+            String nickname = requiredText(json, "nickname", 24);
+            return new PublicActor(id, nickname);
+        }
+    }
+
+    public static final class LibraryCategory {
+        public final String id;
+        public final String name;
+        public final int position;
+        public final long createdAt;
+        public final long updatedAt;
+
+        public LibraryCategory(String id, String name, int position, long createdAt, long updatedAt) {
+            this.id = id;
+            this.name = name;
+            this.position = position;
+            this.createdAt = createdAt;
+            this.updatedAt = updatedAt;
+        }
+
+        public static LibraryCategory fromJson(JSONObject json) throws JSONException {
+            String id = requiredId(json, "id");
+            String name = requiredText(json, "name", 24);
+            int position = nonNegativeInt(json, "position");
+            long createdAt = positiveLong(json, "createdAt");
+            long updatedAt = positiveLong(json, "updatedAt");
+            if (updatedAt < createdAt) throw new JSONException("Invalid library category timestamps");
+            return new LibraryCategory(id, name, position, createdAt, updatedAt);
+        }
+    }
+
+    public static final class LibraryItem {
+        public final String id;
+        public final String bvid;
+        public final int page;
+        public final Long cid;
+        public final String canonicalUrl;
+        public final String title;
+        public final String coverUrl;
+        public final String ownerName;
+        public final Integer durationSeconds;
+        public final String metadataStatus;
+        public final String categoryId;
+        public final String watchStatus;
+        public final int position;
+        public final PublicActor addedBy;
+        public final PublicActor updatedBy;
+        public final long createdAt;
+        public final long updatedAt;
+
+        public LibraryItem(
+            String id,
+            String bvid,
+            int page,
+            Long cid,
+            String canonicalUrl,
+            String title,
+            String coverUrl,
+            String ownerName,
+            Integer durationSeconds,
+            String metadataStatus,
+            String categoryId,
+            String watchStatus,
+            int position,
+            PublicActor addedBy,
+            PublicActor updatedBy,
+            long createdAt,
+            long updatedAt
+        ) {
+            this.id = id;
+            this.bvid = bvid;
+            this.page = page;
+            this.cid = cid;
+            this.canonicalUrl = canonicalUrl;
+            this.title = title;
+            this.coverUrl = coverUrl;
+            this.ownerName = ownerName;
+            this.durationSeconds = durationSeconds;
+            this.metadataStatus = metadataStatus;
+            this.categoryId = categoryId;
+            this.watchStatus = watchStatus;
+            this.position = position;
+            this.addedBy = addedBy;
+            this.updatedBy = updatedBy;
+            this.createdAt = createdAt;
+            this.updatedAt = updatedAt;
+        }
+
+        public static LibraryItem fromJson(JSONObject json) throws JSONException {
+            String id = requiredId(json, "id");
+            String bvid = requiredText(json, "bvid", 32);
+            if (!bvid.matches("(?:BV[0-9A-Za-z]{10}|av[1-9][0-9]*)")) throw new JSONException("Invalid library media identity");
+            int page = positiveInt(json, "page");
+            Long cid = nullablePositiveLong(json, "cid");
+            String canonicalUrl = requiredHttpsUrl(json, "canonicalUrl");
+            String title = requiredText(json, "title", 300);
+            String coverUrl = nullableHttpsUrl(json, "coverUrl");
+            String ownerName = nullableText(json, "ownerName", 100);
+            Integer durationSeconds = nullableNonNegativeInt(json, "durationSeconds");
+            String metadataStatus = requiredEnum(json, "metadataStatus", "ready", "partial");
+            String categoryId = nullableId(json, "categoryId");
+            String watchStatus = requiredEnum(json, "watchStatus", "unwatched", "watched");
+            int position = nonNegativeInt(json, "position");
+            PublicActor addedBy = PublicActor.fromJson(json.getJSONObject("addedBy"));
+            PublicActor updatedBy = PublicActor.fromJson(json.getJSONObject("updatedBy"));
+            long createdAt = positiveLong(json, "createdAt");
+            long updatedAt = positiveLong(json, "updatedAt");
+            if (updatedAt < createdAt) throw new JSONException("Invalid library item timestamps");
+            return new LibraryItem(id, bvid, page, cid, canonicalUrl, title, coverUrl, ownerName,
+                durationSeconds, metadataStatus, categoryId, watchStatus, position, addedBy, updatedBy, createdAt, updatedAt);
+        }
+    }
+
+    public static final class LibrarySnapshot {
+        public final String pairId;
+        public final long revision;
+        public final boolean readOnly;
+        public final List<LibraryCategory> categories;
+        public final List<LibraryItem> items;
+
+        public LibrarySnapshot(String pairId, long revision, boolean readOnly, List<LibraryCategory> categories, List<LibraryItem> items) {
+            this.pairId = pairId;
+            this.revision = revision;
+            this.readOnly = readOnly;
+            this.categories = Collections.unmodifiableList(new ArrayList<>(categories));
+            this.items = Collections.unmodifiableList(new ArrayList<>(items));
+        }
+
+        public static LibrarySnapshot fromJson(JSONObject json) throws JSONException {
+            String pairId = requiredId(json, "pairId");
+            long revision = nonNegativeLong(json, "revision");
+            if (!(json.opt("readOnly") instanceof Boolean)) throw new JSONException("Invalid library read-only state");
+            JSONArray categoryJson = json.getJSONArray("categories");
+            JSONArray itemJson = json.getJSONArray("items");
+            List<LibraryCategory> categories = new ArrayList<>(categoryJson.length());
+            List<LibraryItem> items = new ArrayList<>(itemJson.length());
+            Set<String> categoryIds = new HashSet<>();
+            Set<String> itemIds = new HashSet<>();
+            Set<Integer> categoryPositions = new HashSet<>();
+            Set<Integer> itemPositions = new HashSet<>();
+            for (int index = 0; index < categoryJson.length(); index += 1) {
+                LibraryCategory category = LibraryCategory.fromJson(categoryJson.getJSONObject(index));
+                if (!categoryIds.add(category.id) || !categoryPositions.add(category.position)) {
+                    throw new JSONException("Duplicate library category response");
+                }
+                categories.add(category);
+            }
+            for (int index = 0; index < itemJson.length(); index += 1) {
+                LibraryItem item = LibraryItem.fromJson(itemJson.getJSONObject(index));
+                if (!itemIds.add(item.id) || !itemPositions.add(item.position)) {
+                    throw new JSONException("Duplicate library item response");
+                }
+                if (item.categoryId != null && !categoryIds.contains(item.categoryId)) {
+                    throw new JSONException("Unknown library item category");
+                }
+                items.add(item);
+            }
+            categories.sort(Comparator.comparingInt(value -> value.position));
+            items.sort(Comparator.comparingInt(value -> value.position));
+            return new LibrarySnapshot(pairId, revision, json.getBoolean("readOnly"), categories, items);
+        }
+    }
+
+    public static final class BatchItemResult {
+        public final String input;
+        public final String status;
+        public final LibraryItem item;
+        public final String error;
+
+        public BatchItemResult(String input, String status, LibraryItem item, String error) {
+            this.input = input;
+            this.status = status;
+            this.item = item;
+            this.error = error;
+        }
+
+        public static BatchItemResult fromJson(JSONObject json) throws JSONException {
+            String input = requiredText(json, "input", 2000);
+            String status = requiredEnum(json, "status", "added", "duplicate", "rejected");
+            LibraryItem item = null;
+            if (json.has("item") && json.get("item") != JSONObject.NULL) item = LibraryItem.fromJson(json.getJSONObject("item"));
+            String error = nullableEnum(json, "error", "INVALID_BILIBILI_URL", "B23_RESOLUTION_FAILED", "CATEGORY_NOT_FOUND", "LIBRARY_LIMIT_REACHED");
+            if ("rejected".equals(status) && error == null) throw new JSONException("Rejected batch result requires an error");
+            if (!"rejected".equals(status) && error != null) throw new JSONException("Successful batch result cannot contain an error");
+            if ("added".equals(status) && item == null) throw new JSONException("Added batch result requires an item");
+            return new BatchItemResult(input, status, item, error);
+        }
+    }
+
+    public static final class BatchAddResult {
+        public final List<BatchItemResult> results;
+        public final LibrarySnapshot library;
+
+        public BatchAddResult(List<BatchItemResult> results, LibrarySnapshot library) {
+            this.results = Collections.unmodifiableList(new ArrayList<>(results));
+            this.library = library;
+        }
+
+        public static BatchAddResult fromJson(JSONObject json) throws JSONException {
+            JSONArray resultJson = json.getJSONArray("results");
+            List<BatchItemResult> results = new ArrayList<>(resultJson.length());
+            for (int index = 0; index < resultJson.length(); index += 1) {
+                results.add(BatchItemResult.fromJson(resultJson.getJSONObject(index)));
+            }
+            return new BatchAddResult(results, LibrarySnapshot.fromJson(json.getJSONObject("library")));
+        }
+    }
+
     public static final class Pair {
         public final String pairId;
         public final long boundAt;
@@ -269,5 +489,84 @@ public final class AccountModels {
             if (pairDeleted && archive != null) throw new JSONException("Deleted pair cannot expose archive");
             return new PairMutationResult(archive, pairDeleted);
         }
+    }
+
+    private static String requiredId(JSONObject json, String name) throws JSONException {
+        String value = requiredText(json, name, 32);
+        if (!value.matches("[a-f0-9]{32}")) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static String nullableId(JSONObject json, String name) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        return requiredId(json, name);
+    }
+
+    private static String requiredText(JSONObject json, String name, int maxLength) throws JSONException {
+        if (!(json.opt(name) instanceof String)) throw new JSONException("Invalid " + name);
+        String value = json.getString(name).trim();
+        if (value.isEmpty() || value.codePointCount(0, value.length()) > maxLength) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static String nullableText(JSONObject json, String name, int maxLength) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        return requiredText(json, name, maxLength);
+    }
+
+    private static String requiredEnum(JSONObject json, String name, String... allowed) throws JSONException {
+        String value = requiredText(json, name, 64);
+        for (String option : allowed) if (option.equals(value)) return value;
+        throw new JSONException("Invalid " + name);
+    }
+
+    private static String nullableEnum(JSONObject json, String name, String... allowed) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        return requiredEnum(json, name, allowed);
+    }
+
+    private static int positiveInt(JSONObject json, String name) throws JSONException {
+        int value = json.getInt(name);
+        if (value <= 0) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static int nonNegativeInt(JSONObject json, String name) throws JSONException {
+        int value = json.getInt(name);
+        if (value < 0) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static long positiveLong(JSONObject json, String name) throws JSONException {
+        long value = json.getLong(name);
+        if (value <= 0) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static long nonNegativeLong(JSONObject json, String name) throws JSONException {
+        long value = json.getLong(name);
+        if (value < 0) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static Long nullablePositiveLong(JSONObject json, String name) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        return positiveLong(json, name);
+    }
+
+    private static Integer nullableNonNegativeInt(JSONObject json, String name) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        return nonNegativeInt(json, name);
+    }
+
+    private static String requiredHttpsUrl(JSONObject json, String name) throws JSONException {
+        String value = requiredText(json, name, 2048);
+        if (!value.matches("https://[^\\s]+")) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static String nullableHttpsUrl(JSONObject json, String name) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        return requiredHttpsUrl(json, name);
     }
 }
