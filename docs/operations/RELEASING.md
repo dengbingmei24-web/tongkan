@@ -25,7 +25,7 @@ Android 配置位于 `apps/android/app/build.gradle`：
 ## 每次发布步骤
 
 1. 更新 `apps/android/app/build.gradle` 的 `versionCode` 和 `versionName`。
-2. 更新 `CHANGELOG.md`、`README.md` 和 `CONTEXT.md`。
+2. 更新 `docs/releases/CHANGELOG.md`、`README.md` 和 `CONTEXT.md`。
 3. 运行 `pnpm android:check`。
 4. 提交源码：`git commit -m "release: Android <version>"`。
 5. 推送提交：`git push origin master`。

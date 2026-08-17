@@ -16,26 +16,31 @@ apps/
 packages/
   protocol/     共享类型定义、协议常量、B站链接解析
 scripts/        构建/部署/测试脚本
-qa/             测试契约 JSON、QA 清单
+qa/             可执行测试契约与验收记录
+docs/           PRD、决策、质量、运维、架构与历史归档
+design/         Web/Android 设计规范与原型
+specs/          Spec Kit 功能规格、计划、任务与合同
 release/        构建产物目录
 ```
 
 ## 上下文管理协议（最重要）
 
-项目上下文由四个根目录文件组成：
+根目录只保留四个 Markdown 入口：
 
 | 文件 | 作用 |
 |---|---|
+| `README.md` | 用户入口、安装使用和公开项目介绍 |
 | `AGENTS.md` | AI 执行规则、技能路由、安全和构建约束 |
 | `PROJECT_CONTEXT.md` | 稳定产品背景、仓库目录地图、架构和文档索引 |
-| `CONTEXT.md` | 当前版本、开发状态、问题、任务和跨对话交接 |
-| `DECISIONS.md` | 已确认的长期产品、设计和技术决策 |
+| `CONTEXT.md` | 精简的当前版本、开发状态、问题、任务和跨对话交接 |
+
+长期决策真源位于 `docs/decisions/DECISIONS.md`；所有专题文档从 `docs/README.md` 进入。
 
 **每次新对话开头必须按顺序执行**：
 
 1. 读取 `CONTEXT.md`，确认当前版本和最近状态。
 2. 读取 `PROJECT_CONTEXT.md`，定位任务对应的目录和真源文档。
-3. 如果任务涉及产品、架构、协议、UI 或版本范围，搜索并读取 `DECISIONS.md` 中的相关决策。
+3. 如果任务涉及产品、架构、协议、UI 或版本范围，搜索并读取 `docs/decisions/DECISIONS.md` 中的相关决策。
 4. 根据 `PROJECT_CONTEXT.md` 的“任务到目录和文档映射”读取对应 PRD、设计、部署或 QA 文档。
 5. 修改前检查 `git status --short`，不要覆盖已有未提交改动。
 
@@ -43,11 +48,11 @@ release/        构建产物目录
 
 - 无论是否修改代码，都更新 `CONTEXT.md` 的 `last_updated` 和本轮状态。
 - 至少检查并按需更新：`current_version`、`status`、Completed、In Progress、Known Issues、Next Steps、Conversation Log。
-- 如果用户确认了跨对话仍然有效的产品、设计、协议或架构选择，追加到 `DECISIONS.md`。
+- 如果用户确认了跨对话仍然有效的产品、设计、协议或架构选择，追加到 `docs/decisions/DECISIONS.md`。
 - 如果仓库结构、核心产品边界或文档真源发生长期变化，更新 `PROJECT_CONTEXT.md`。
 - 产品范围变化同步对应 PRD；设计变化同步 `design/alpha9-ui/SELECTED_DESIGN.md`。
 
-**隔离执行任务例外**：执行任务不得修改 `CONTEXT.md`、`DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态。执行任务结束时只填写任务合同要求的 Draft PR / `handoff.md`；由审查任务统一更新全局上下文。
+**隔离执行任务例外**：执行任务不得修改 `CONTEXT.md`、`docs/decisions/DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态。执行任务结束时只填写任务合同要求的 Draft PR / `handoff.md`；由审查任务统一更新全局上下文。
 
 **对话过长或即将压缩上下文时**：优先更新 `CONTEXT.md`，确保目标、已完成工作、阻塞和下一步完整可恢复。
 
@@ -185,9 +190,9 @@ Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
 | 房间会话逻辑 | `apps/signaling/src/room-session.ts` |
 | 共享类型 | `packages/protocol/src/types.ts` |
 | 线上部署配置 | `apps/signaling/wrangler.toml` |
-| QA 清单 | `QA_CHECKLIST.md` |
-| PRD | `PRD.md` |
-| 部署文档 | `DEPLOYMENT.md` |
+| QA 清单 | `docs/quality/QA_CHECKLIST.md` |
+| PRD | `docs/product/PRD.md` |
+| 部署文档 | `docs/operations/DEPLOYMENT.md` |
 | 上下文快照 | `CONTEXT.md` ← 每次先读这个 |
 
 ## 线上环境
@@ -227,7 +232,7 @@ Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
 
 <!-- SPECKIT START -->
 复杂任务必须先确认自己是审查任务还是隔离执行任务，并读取
-`.specify/memory/constitution.md`、D-079、`docs/development/MULTI_SESSION_WORKFLOW.md`
+`.specify/memory/constitution.md`、`docs/decisions/DECISIONS.md` 中的 D-079、`docs/development/MULTI_SESSION_WORKFLOW.md`
 以及当前 `specs/TK-xxx-name/` 下的 spec、plan、tasks、合同和 checklist。
 最多三个执行任务，每个任务使用审查任务创建的独立 worktree；执行任务永远不得
 修改全局上下文/PRD/生产配置或部署，且不得自行 push、merge、rebase、force push。

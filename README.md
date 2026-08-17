@@ -9,8 +9,8 @@
 
 - [🌐 打开在线网页版](https://tongkan-personal.pages.dev)
 - [📱 下载 Android 1.0.0-alpha.9.2](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
-- [📝 查看版本更新](./CHANGELOG.md)
-- [🚀 查看后续发布方式](./RELEASING.md)
+- [📝 查看版本更新](./docs/releases/CHANGELOG.md)
+- [🚀 查看后续发布方式](./docs/operations/RELEASING.md)
 
 > 推荐选择：两部 Android 手机同步看 B站时使用 App；电脑端临时创建房间、聊天、屏幕共享或同步视频直链时可以直接使用网页版。
 
@@ -56,10 +56,10 @@
 
 1. [`CONTEXT.md`](./CONTEXT.md)：当前版本、正在进行的工作、已知问题和下一步。
 2. [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md)：产品目标、完整目录地图、架构、关键文件和文档导航。
-3. [`DECISIONS.md`](./DECISIONS.md)：已经确认的长期产品、设计和技术决策。
+3. [`docs/decisions/DECISIONS.md`](./docs/decisions/DECISIONS.md)：已经确认的长期产品、设计和技术决策。
 4. [`AGENTS.md`](./AGENTS.md)：AI 的强制工作规则、构建方式和安全约束。
 
-任务文档入口：Android 后续开发看 [`ANDROID_FOLLOWUP_PRD.md`](./ANDROID_FOLLOWUP_PRD.md)，整体产品范围看 [`PRD.md`](./PRD.md)，Alpha 9 设计看 [`design/alpha9-ui/SELECTED_DESIGN.md`](./design/alpha9-ui/SELECTED_DESIGN.md)。
+任务文档入口：Android 后续开发看 [`docs/product/ANDROID_FOLLOWUP_PRD.md`](./docs/product/ANDROID_FOLLOWUP_PRD.md)，整体产品范围看 [`docs/product/PRD.md`](./docs/product/PRD.md)，Alpha 9 设计看 [`design/alpha9-ui/SELECTED_DESIGN.md`](./design/alpha9-ui/SELECTED_DESIGN.md)。
 
 > `CONTEXT.md` 是动态交接真源；不要根据 README 中的历史描述判断当前版本。
 
@@ -84,7 +84,7 @@ Android 工程位于 [`apps/android`](./apps/android)，使用原生 Java、受�
 
 - [下载 Alpha 9.2 APK](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
 - [查看全部 GitHub Releases](https://github.com/dengbingmei24-web/tongkan/releases)
-- [查看版本变更记录](./CHANGELOG.md)
+- [查看版本变更记录](./docs/releases/CHANGELOG.md)
 
 最低系统版本为 Android 8.0（API 26）。Debug APK 使用 Android 调试证书签名，只用于个人安装测试；以后发布正式版时需要改用长期保存的 Release 签名。
 
@@ -102,7 +102,7 @@ pnpm android:check
 - APK 不直接提交到仓库，统一放在 GitHub Releases 中。
 - 每个版本使用不可重复的标签，例如 `v1.0.0-alpha.9.2`。
 - 推送 `v*` 标签后，GitHub Actions 会自动测试、构建 APK、生成 SHA-256 并创建预发布版。
-- 完整发布步骤见 [`RELEASING.md`](./RELEASING.md)。
+- 完整发布步骤见 [`docs/operations/RELEASING.md`](./docs/operations/RELEASING.md)。
 
 ## 本地启动
 
@@ -214,7 +214,7 @@ pnpm build
 pnpm test:integration
 ```
 
-发布前还应按 [`QA_CHECKLIST.md`](./QA_CHECKLIST.md) 完成真实双浏览器、B站播放器和屏幕共享验收；自动化测试不能替代浏览器权限、标签页音频和跨网络 WebRTC 测试。
+发布前还应按 [`docs/quality/QA_CHECKLIST.md`](./docs/quality/QA_CHECKLIST.md) 完成真实双浏览器、B站播放器和屏幕共享验收；自动化测试不能替代浏览器权限、标签页音频和跨网络 WebRTC 测试。
 
 每次验收的实际环境、结果和失败证据使用 [`qa/TEST_RUN_TEMPLATE.md`](./qa/TEST_RUN_TEMPLATE.md) 单独记录，避免直接修改通用清单。
 
@@ -222,7 +222,7 @@ pnpm test:integration
 
 ## 公网部署和移动端方向
 
-生产构建、Cloudflare 一键部署、Edge 扩展打包，以及“手机网页 → Android App”的能力边界和开发顺序见 [`DEPLOYMENT.md`](./DEPLOYMENT.md)。
+生产构建、Cloudflare 一键部署、Edge 扩展打包，以及“手机网页 → Android App”的能力边界和开发顺序见 [`docs/operations/DEPLOYMENT.md`](./docs/operations/DEPLOYMENT.md)。
 
 只准备生产文件：
 

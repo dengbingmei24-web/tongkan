@@ -21,7 +21,7 @@ protected void onCreate(Bundle savedInstanceState) {
 **代价**: 屏幕旋转/配置变化后状态丢失（本 App 已锁定竖屏，无影响）
 
 **记忆**:
-- WebView + savedInstanceState = 100% 会崩溃  
+- WebView + savedInstanceState = 100% 会崩溃
 - 修复 WebView 崩溃的唯一可靠方案: super.onCreate(null)
 - 验证修改是否生效: 直接看 tmp build 目录下的文件
 - 修改文件: 复制到 C:\tmp\android-patch\ → Node.js 改 → 复制回来 → 立即验证

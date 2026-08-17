@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const inventoryPath = path.join(root, "DEPENDENCIES.md");
+const inventoryPath = path.join(root, "docs/architecture/DEPENDENCIES.md");
 const manifests = await discoverManifests();
 const dependencies = new Map();
 
@@ -29,7 +29,7 @@ if (process.argv.includes("--write")) {
 } else if (process.argv.includes("--check")) {
   const existing = await readFile(inventoryPath, "utf8").catch(() => "");
   if (existing !== output) {
-    console.error("DEPENDENCIES.md is out of date. Run: pnpm deps:report");
+    console.error("docs/architecture/DEPENDENCIES.md is out of date. Run: pnpm deps:report");
     process.exitCode = 1;
   } else {
     console.log("Dependency inventory is current.");

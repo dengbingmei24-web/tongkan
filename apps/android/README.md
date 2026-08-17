@@ -81,7 +81,7 @@ Android 账号登录通过构建参数注入公开的 Account Worker HTTPS 地�
 
 `.github/workflows/android.yml` 会在 Android、共享协议夹具或协议校验代码发生变化时自动运行全部检查，并上传 APK、JUnit 报告和 Lint 报告。
 
-推送 `v*` 版本标签时，`.github/workflows/android-release.yml` 会再次执行完整检查，并自动创建带 APK 和 SHA-256 校验文件的 GitHub 预发布版。版本升级与标签规则见仓库根目录的 `RELEASING.md`。
+推送 `v*` 版本标签时，`.github/workflows/android-release.yml` 会再次执行完整检查，并自动创建带 APK 和 SHA-256 校验文件的 GitHub 预发布版。版本升级与标签规则见仓库中的 `docs/operations/RELEASING.md`。
 
 ## Alpha 10.1 设备推送基础
 

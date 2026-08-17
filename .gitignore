@@ -31,9 +31,7 @@ apps/android/app/build/
 apps/android/build/
 release/
 
-# Local debugging notes and one-off browser probes.
-.crash-analysis.md
-.roomclient-loss-analysis.md
+# One-off browser probes and generated patch helpers.
 scripts/.tmp-*
 scripts/fix_java.js
 qa/bilibili-player-probe-*/

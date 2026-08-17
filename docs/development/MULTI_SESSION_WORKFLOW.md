@@ -8,7 +8,7 @@
 
 ### 审查/控制任务
 
-- 读取并维护 `CONTEXT.md`、`PROJECT_CONTEXT.md`、`DECISIONS.md` 和对应 PRD。
+- 读取并维护 `CONTEXT.md`、`PROJECT_CONTEXT.md`、`docs/decisions/DECISIONS.md` 和对应 PRD。
 - 创建 Spec Kit 工件、任务合同、分支与 worktree。
 - 管理依赖、解决冲突、执行集成测试、合并、部署和发布。
 - 对执行结果给出 `APPROVED`、`CHANGES_REQUESTED` 或 `BLOCKED`。

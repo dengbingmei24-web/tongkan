@@ -30,7 +30,7 @@ Implement atomic unilateral unbind, independent retention decisions and archive 
 ## Forbidden Scope
 
 - All Android, Web, signaling, protocol, global docs and deployment files.
-- `CONTEXT.md`, `DECISIONS.md`, PRDs and existing migrations.
+- `CONTEXT.md`, `docs/decisions/DECISIONS.md`, PRDs and existing migrations.
 - Secrets, `.dev.vars`, production data changes and build outputs.
 
 ## Frozen Contracts

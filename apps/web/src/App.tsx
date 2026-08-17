@@ -79,7 +79,7 @@ function Nav({ status = import.meta.env.PROD ? "公网版" : "本地开发" }: {
       <a className="wordmark" href="/" aria-label="返回同看首页"><span className="wordmark__symbol" aria-hidden="true" />同看</a>
       <span className="nav-pill__status"><span className="status-dot" />{status}</span>
       <a className="nav-pill__link" href="/self-test">双端自测</a>
-      <a className="nav-pill__link" href="/PRD.md">产品说明</a>
+      <a className="nav-pill__link" href="https://github.com/dengbingmei24-web/tongkan/blob/master/docs/product/PRD.md" target="_blank" rel="noreferrer">产品说明</a>
       <button className="theme-toggle" type="button" onClick={() => setTheme(nextTheme)} aria-label={`切换到${nextTheme === "dark" ? "深色" : "浅色"}主题`} title={`切换到${nextTheme === "dark" ? "深色" : "浅色"}主题`}>
         {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
       </button>

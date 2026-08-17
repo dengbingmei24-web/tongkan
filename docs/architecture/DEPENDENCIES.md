@@ -4,7 +4,7 @@
 
 | 包 | 声明版本 | 已安装版本 | 许可证 | 用途 | 使用方 |
 | --- | --- | --- | --- | --- | --- |
-| `@cloudflare/workers-types` | ^4.20250803.0 | 4.20260702.1 | MIT OR Apache-2.0 | development | @tongkan/signaling |
+| `@cloudflare/workers-types` | ^4.20250803.0 | 4.20260702.1 | MIT OR Apache-2.0 | development | @tongkan/account, @tongkan/signaling |
 | `@fontsource-variable/geist` | ^5.2.6 | 5.3.0 | OFL-1.1 | production | @tongkan/web |
 | `@fontsource/jetbrains-mono` | ^5.2.6 | 5.3.0 | OFL-1.1 | production | @tongkan/web |
 | `@types/react` | ^19.1.10 | 19.2.18 | MIT | development | @tongkan/web |
@@ -13,10 +13,10 @@
 | `lucide-react` | ^0.539.0 | 0.539.0 | ISC | production | @tongkan/web |
 | `react` | ^19.1.1 | 19.2.8 | MIT | production | @tongkan/web |
 | `react-dom` | ^19.1.1 | 19.2.8 | MIT | production | @tongkan/web |
-| `typescript` | ^5.9.2 | 5.9.3 | Apache-2.0 | development | @tongkan/protocol, @tongkan/signaling, @tongkan/web, tongkan |
+| `typescript` | ^5.9.2 | 5.9.3 | Apache-2.0 | development | @tongkan/account, @tongkan/protocol, @tongkan/signaling, @tongkan/web, tongkan |
 | `vite` | ^7.1.2 | 7.3.6 | MIT | development | @tongkan/web |
-| `vitest` | ^3.2.4 | 3.2.7 | MIT | development | @tongkan/protocol, @tongkan/signaling, @tongkan/web, tongkan |
-| `wrangler` | ^4.28.1 | 4.118.0 | MIT OR Apache-2.0 | development | @tongkan/signaling |
+| `vitest` | ^3.2.4 | 3.2.7 | MIT | development | @tongkan/account, @tongkan/protocol, @tongkan/signaling, @tongkan/web, tongkan |
+| `wrangler` | ^4.28.1 | 4.118.0 | MIT OR Apache-2.0 | development | @tongkan/account, @tongkan/signaling |
 
 ## 范围与解释
 

@@ -31,7 +31,7 @@
 
 - [ ] 没有提交房间密钥、TURN 凭据、`.env`、SMTP 授权码、Cloudflare Secret、Firebase 服务账号、Session/device token、扩展 `.pem`、APK、构建产物或带签名参数的视频 URL
 - [ ] 已检查消息来源、运行时输入、日志和持久化数据的影响
-- [ ] 若涉及安全审计发现，已注明 `SECURITY_AUDIT.md` 的编号
+- [ ] 若涉及安全审计发现，已注明 `docs/quality/SECURITY_AUDIT.md` 的编号
 
 ## 人工验收与证据
 
@@ -42,6 +42,6 @@
 ## 执行任务交接
 
 - [ ] 修改仅位于任务合同允许的写入范围。
-- [ ] 未修改 `CONTEXT.md`、`DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态；这些路径不能授权给执行任务。
+- [ ] 未修改 `CONTEXT.md`、`docs/decisions/DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态；这些路径不能授权给执行任务。
 - [ ] 已列出提交哈希、修改文件、验证结果、风险和未完成项。
 - [ ] 此 PR 保持 Draft，直到审查任务给出 `APPROVED`。

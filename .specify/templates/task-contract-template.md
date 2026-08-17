@@ -21,7 +21,7 @@
 
 ## Forbidden Scope
 
-- `CONTEXT.md`, `DECISIONS.md`, `PROJECT_CONTEXT.md`, global PRDs, production configuration and deployment state. These paths can never be delegated to a worker.
+- `CONTEXT.md`, `docs/decisions/DECISIONS.md`, `PROJECT_CONTEXT.md`, global PRDs, production configuration and deployment state. These paths can never be delegated to a worker.
 - Other worker branches/worktrees.
 - Secrets, APKs, Firebase JSON, service-account JSON and build outputs.
 - Worker-initiated push, merge, rebase, force push, production migration or deployment.

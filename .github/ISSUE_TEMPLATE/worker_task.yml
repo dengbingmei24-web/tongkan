@@ -65,7 +65,7 @@ body:
     attributes:
       label: 执行边界
       options:
-        - label: 不修改 CONTEXT.md、DECISIONS.md、全局 PRD 或生产部署状态。
+        - label: 不修改 CONTEXT.md、docs/decisions/DECISIONS.md、全局 PRD 或生产部署状态。
           required: true
         - label: 不提交 Secret、APK、Firebase JSON、服务账号 JSON 或构建产物。
           required: true

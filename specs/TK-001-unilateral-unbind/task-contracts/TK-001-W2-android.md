@@ -28,7 +28,7 @@ Add discoverable unbind, pending retention choice and read-only archive-summary 
 ## Forbidden Scope
 
 - Account Worker, signaling, Web, protocol, Gradle dependencies, manifests and global docs.
-- `CONTEXT.md`, `DECISIONS.md`, PRDs, release APKs and production configuration.
+- `CONTEXT.md`, `docs/decisions/DECISIONS.md`, PRDs, release APKs and production configuration.
 
 ## Frozen Contracts
 

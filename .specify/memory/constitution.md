@@ -24,7 +24,7 @@
 
 - 复杂任务由一个审查/控制任务维护规格、依赖、任务合同、验收、合并、部署和全局文档。
 - 最多三个执行任务在独立 `codex/TK-xxx-*` 分支与 Git worktree 中工作；写入范围必须互不重叠。
-- 执行任务在任何合同下都不得修改 `CONTEXT.md`、`DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态；这些改动只能由审查任务完成。
+- 执行任务在任何合同下都不得修改 `CONTEXT.md`、`docs/decisions/DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态；这些改动只能由审查任务完成。
 - Spec Kit 管理 constitution、specification、plan、contracts、tasks 和 checklist，不自动创建分支、自动提交、合并或部署。
 
 ### V. 最小改动、可验证和可回退
@@ -36,8 +36,8 @@
 
 ## 项目约束
 
-- 真源优先级：当前用户要求 > `AGENTS.md` > 已接受的 `DECISIONS.md` > `CONTEXT.md` > 对应 PRD/设计/部署/QA 文档。
-- 动态状态只写 `CONTEXT.md`；长期决定写 `DECISIONS.md`；Spec Kit 工件不得替代这两份文件。
+- 真源优先级：当前用户要求 > `AGENTS.md` > 已接受的 `docs/decisions/DECISIONS.md` > `CONTEXT.md` > 对应 PRD/设计/部署/QA 文档。
+- 动态状态只写 `CONTEXT.md`；长期决定写 `docs/decisions/DECISIONS.md`；Spec Kit 工件不得替代这两份文件。
 - Android 构建使用 JDK 17、Android SDK 35；中文路径失败时使用已约定的 ASCII 临时构建目录。
 - 发布前至少通过 `pnpm typecheck`、`pnpm test`、`pnpm build`、适用的 Android 检查、`git diff --check` 和凭据扫描。
 - 数据库迁移必须先审查 SQL，再验证生产与预览 D1 状态；执行任务不得自行部署生产迁移。
