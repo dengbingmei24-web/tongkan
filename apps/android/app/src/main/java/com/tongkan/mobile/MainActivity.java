@@ -52,6 +52,7 @@ import com.tongkan.mobile.account.SessionStore;
 import com.tongkan.mobile.ui.AuthScreen;
 import com.tongkan.mobile.ui.BreathTheme;
 import com.tongkan.mobile.ui.HomeScreen;
+import com.tongkan.mobile.ui.LibraryScreen;
 import com.tongkan.mobile.ui.MainNavigationView;
 import com.tongkan.mobile.ui.ImmersiveMediaGestureController;
 import com.tongkan.mobile.ui.PortraitComposerPositioner;
@@ -87,6 +88,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private AccountModels.Pair currentPair;
     private AccountModels.PairState currentPairState = AccountModels.PairState.empty();
     private AccountModels.PairInvite currentPairInvite;
+    private AccountModels.LibrarySnapshot currentLibrary;
+    private String currentArchivePairId;
+    private String libraryMessage = "";
+    private boolean libraryLoading;
+    private boolean libraryError;
+    private List<String> libraryRetryInputs = new ArrayList<>();
     private String pairMessage = "";
     private boolean pairLoading;
     private boolean pairLoaded;
@@ -140,6 +147,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private AuthScreen authScreen;
     private HomeScreen homeScreen;
     private MainNavigationView mainNavigationView;
+    private LibraryScreen libraryScreen;
     private BreathTheme breathTheme;
     private LinearLayout videoSection;
     private LinearLayout preparationPanel;
@@ -149,6 +157,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private Button continueButton;
     private ImageButton entryThemeButton;
     private Button cancelPreparationButton;
+    private Button libraryPickerButton;
     private Button changeVideoButton;
     private Button videoThemeButton;
     private Button danmakuButton;
@@ -165,6 +174,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean awaitingMediaConfirmation;
     private boolean pendingAutoShare;
     private boolean pendingPairWatchInvite;
+    private BilibiliMedia pendingLibraryMedia;
     private boolean darkMode;
     private boolean danmakuVisible;
     private boolean appFullscreen;
@@ -375,6 +385,24 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             }
         });
         mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTabFromNavigation);
+        libraryScreen = new LibraryScreen(this, breathTheme, new LibraryScreen.Listener() {
+            @Override public void onRefresh() { refreshLibrary(); }
+            @Override public void onBatchAdd(List<String> inputs, String categoryId) { addLibraryItems(inputs, categoryId); }
+            @Override public void onCreateCategory(String name) { createLibraryCategory(name); }
+            @Override public void onRenameCategory(AccountModels.LibraryCategory category, String name) { renameLibraryCategory(category, name); }
+            @Override public void onDeleteCategory(AccountModels.LibraryCategory category) { deleteLibraryCategory(category); }
+            @Override public void onReorderCategories(List<String> orderedIds) { reorderLibraryCategories(orderedIds); }
+            @Override public void onUpdateItem(AccountModels.LibraryItem item, String categoryId, String watchStatus, boolean refreshMetadata) {
+                updateLibraryItem(item, categoryId, watchStatus, refreshMetadata);
+            }
+            @Override public void onClearItemCategory(AccountModels.LibraryItem item) { clearLibraryItemCategory(item); }
+            @Override public void onDeleteItem(AccountModels.LibraryItem item) { deleteLibraryItem(item); }
+            @Override public void onReorderItems(List<String> orderedIds) { reorderLibraryItems(orderedIds); }
+            @Override public void onPlay(AccountModels.LibraryItem item) { playLibraryItem(item); }
+            @Override public void onOpenArchive(AccountModels.PairArchive archive) { openArchiveLibrary(archive); }
+            @Override public void onCloseArchive() { closeArchiveLibrary(); }
+            @Override public void onOpenAccount() { showMainTab("pair", true); }
+        });
         nicknameInput = homeScreen.getNicknameInput();
         inviteInput = homeScreen.getInviteInput();
         createButton = homeScreen.getCreateButton();
@@ -422,6 +450,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         TextView preparationDescription = text("粘贴链接后先在本机验证，成功后再让两边一起切换。", 13, Color.DKGRAY);
         preparationDescription.setTag("secondaryText");
         preparationPanel.addView(preparationDescription, margin(matchWrap(), 0, 4, 0, 0));
+        libraryPickerButton = button("从共同片库选择", false);
+        libraryPickerButton.setOnClickListener(view -> showRoomLibraryPicker());
+        preparationPanel.addView(libraryPickerButton, margin(matchHeight(48), 0, 14, 0, 0));
         preparationPanel.addView(label("B站视频链接"), margin(matchWrap(), 0, 16, 0, 0));
         videoInput = edit("BV、av 或 b23.tv 链接");
         preparationPanel.addView(videoInput, margin(matchHeight(52), 0, 8, 0, 0));
@@ -1216,6 +1247,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             joinButton.setText("加入房间");
             showVideoScreen();
             applySnapshot(snapshot);
+            if (pendingLibraryMedia != null) {
+                BilibiliMedia media = pendingLibraryMedia;
+                pendingLibraryMedia = null;
+                mainHandler.postDelayed(() -> prepareLibraryMedia(media), 250);
+            }
             if (pendingPairWatchInvite) {
                 pendingPairWatchInvite = false;
                 mainHandler.postDelayed(this::sendPairWatchInvite, 350);
@@ -1702,6 +1738,16 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         pairMessage = "";
         pairLoading = false;
         pairLoaded = false;
+        resetLibraryState();
+    }
+
+    private void resetLibraryState() {
+        currentLibrary = null;
+        currentArchivePairId = null;
+        libraryMessage = "";
+        libraryLoading = false;
+        libraryError = false;
+        libraryRetryInputs = new ArrayList<>();
     }
 
     private View pairPage() {
@@ -1725,6 +1771,353 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 @Override public void onLogout() { confirmAccountLogout(); }
             }
         );
+    }
+
+    private View libraryPage() {
+        LibraryScreen.PageState state;
+        if (accountSession == null) {
+            state = LibraryScreen.PageState.UNAUTHENTICATED;
+        } else if (currentLibrary != null) {
+            state = LibraryScreen.PageState.CONTENT;
+        } else if (libraryLoading || !pairLoaded) {
+            state = LibraryScreen.PageState.LOADING;
+        } else if (currentPair == null) {
+            state = LibraryScreen.PageState.UNBOUND;
+        } else if (libraryError) {
+            state = LibraryScreen.PageState.ERROR;
+        } else {
+            state = LibraryScreen.PageState.LOADING;
+        }
+        return libraryScreen.render(
+            state,
+            currentLibrary,
+            currentPairState == null ? new ArrayList<>() : currentPairState.archives,
+            libraryRetryInputs,
+            roomClient != null && authenticated,
+            libraryLoading,
+            libraryMessage
+        );
+    }
+
+    private void ensureLibraryLoaded(boolean force) {
+        AccountModels.Session session = accountSession;
+        if (session == null || libraryLoading) return;
+        if (!pairLoaded) {
+            libraryLoading = true;
+            libraryMessage = "正在读取好友和旧空间状态…";
+            showMainTab("library", false);
+            accountClient.getPair(session.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
+                @Override public void onSuccess(AccountModels.PairState pairState) {
+                    runOnUiThread(() -> {
+                        String previousPairId = currentPair == null ? null : currentPair.pairId;
+                        currentPairState = pairState;
+                        currentPair = pairState.pair;
+                        pairLoaded = true;
+                        pairLoading = false;
+                        libraryLoading = false;
+                        String nextPairId = currentPair == null ? null : currentPair.pairId;
+                        if (previousPairId == null || !previousPairId.equals(nextPairId)) resetLibraryState();
+                        if (currentPair == null) showMainTab("library", false);
+                        else loadActiveLibrary(true);
+                    });
+                }
+
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> handleLibraryFailure(failure, false));
+                }
+            });
+            return;
+        }
+        if (currentArchivePairId != null) {
+            if (force || currentLibrary == null || !currentArchivePairId.equals(currentLibrary.pairId)) loadArchiveLibrary(currentArchivePairId);
+            return;
+        }
+        if (currentPair == null) {
+            showMainTab("library", false);
+            return;
+        }
+        if (force || currentLibrary == null || !currentPair.pairId.equals(currentLibrary.pairId) || currentLibrary.readOnly) loadActiveLibrary(true);
+    }
+
+    private void refreshLibrary() {
+        ensureLibraryLoaded(true);
+    }
+
+    private void loadActiveLibrary(boolean showLoading) {
+        AccountModels.Session session = accountSession;
+        if (session == null || currentPair == null || libraryLoading) return;
+        currentArchivePairId = null;
+        libraryLoading = true;
+        libraryError = false;
+        if (showLoading) libraryMessage = "正在同步共同片库…";
+        showMainTab("library", false);
+        accountClient.getLibrary(session.token, "", "all", null, librarySnapshotCallback("片库已更新。"));
+    }
+
+    private void loadArchiveLibrary(String pairId) {
+        AccountModels.Session session = accountSession;
+        if (session == null || libraryLoading) return;
+        currentArchivePairId = pairId;
+        currentLibrary = null;
+        libraryLoading = true;
+        libraryError = false;
+        libraryMessage = "正在读取只读旧片库…";
+        showMainTab("library", false);
+        accountClient.getArchiveLibrary(session.token, pairId, librarySnapshotCallback("旧片库为只读状态。"));
+    }
+
+    private AccountClient.ResultCallback<AccountModels.LibrarySnapshot> librarySnapshotCallback(String successMessage) {
+        return new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
+            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
+                runOnUiThread(() -> {
+                    currentLibrary = snapshot;
+                    currentArchivePairId = snapshot.readOnly ? snapshot.pairId : null;
+                    libraryLoading = false;
+                    libraryError = false;
+                    libraryMessage = successMessage;
+                    showMainTab("library", false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleLibraryFailure(failure, false));
+            }
+        };
+    }
+
+    private void openArchiveLibrary(AccountModels.PairArchive archive) {
+        if (archive == null || libraryLoading) return;
+        loadArchiveLibrary(archive.pairId);
+    }
+
+    private void closeArchiveLibrary() {
+        currentArchivePairId = null;
+        currentLibrary = null;
+        if (currentPair == null) {
+            libraryMessage = "已返回当前空间。";
+            showMainTab("library", false);
+        } else {
+            loadActiveLibrary(true);
+        }
+    }
+
+    private void addLibraryItems(List<String> inputs, String categoryId) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || inputs == null || inputs.isEmpty()) {
+            if (inputs == null || inputs.isEmpty()) Toast.makeText(this, "请至少输入一条 B站链接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        libraryLoading = true;
+        libraryMessage = "正在添加视频…";
+        libraryRetryInputs = new ArrayList<>(inputs);
+        showMainTab("library", false);
+        accountClient.addLibraryItems(session.token, inputs, categoryId, currentLibrary.revision,
+            new AccountClient.ResultCallback<AccountModels.BatchAddResult>() {
+                @Override public void onSuccess(AccountModels.BatchAddResult result) {
+                    runOnUiThread(() -> {
+                        currentLibrary = result.library;
+                        libraryLoading = false;
+                        libraryError = false;
+                        int added = 0;
+                        int duplicate = 0;
+                        int rejected = 0;
+                        List<String> retryable = new ArrayList<>();
+                        for (AccountModels.BatchItemResult item : result.results) {
+                            if ("added".equals(item.status)) added += 1;
+                            else if ("duplicate".equals(item.status)) duplicate += 1;
+                            else {
+                                rejected += 1;
+                                if ("B23_RESOLUTION_FAILED".equals(item.error)) retryable.add(item.input);
+                            }
+                        }
+                        libraryRetryInputs = retryable;
+                        libraryMessage = "添加 " + added + " 条 · 重复 " + duplicate + " 条 · 未添加 " + rejected + " 条"
+                            + (retryable.isEmpty() ? "" : "；短链已保留，可稍后重试");
+                        showMainTab("library", false);
+                    });
+                }
+
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> handleLibraryFailure(failure, true));
+                }
+            });
+    }
+
+    private void createLibraryCategory(String name) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session)) return;
+        startLibraryMutation("正在创建分类…");
+        accountClient.createLibraryCategory(session.token, name, currentLibrary.revision, mutationCallback("分类已创建。"));
+    }
+
+    private void renameLibraryCategory(AccountModels.LibraryCategory category, String name) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || category == null) return;
+        startLibraryMutation("正在重命名分类…");
+        accountClient.renameLibraryCategory(session.token, category.id, name, currentLibrary.revision, mutationCallback("分类已更新。"));
+    }
+
+    private void deleteLibraryCategory(AccountModels.LibraryCategory category) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || category == null) return;
+        startLibraryMutation("正在删除分类…");
+        accountClient.deleteLibraryCategory(session.token, category.id, currentLibrary.revision, mutationCallback("分类已删除，视频已移到未分类。"));
+    }
+
+    private void reorderLibraryCategories(List<String> orderedIds) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session)) return;
+        startLibraryMutation("正在保存分类排序…");
+        accountClient.reorderLibraryCategories(session.token, orderedIds, currentLibrary.revision, mutationCallback("分类排序已保存。"));
+    }
+
+    private void updateLibraryItem(AccountModels.LibraryItem item, String categoryId, String watchStatus, boolean refreshMetadata) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || item == null) return;
+        startLibraryMutation(refreshMetadata ? "正在刷新视频信息…" : "正在更新视频…");
+        accountClient.updateLibraryItem(session.token, item.id, categoryId, watchStatus, refreshMetadata,
+            currentLibrary.revision, mutationCallback(refreshMetadata ? "视频信息已刷新。" : "视频已更新。"));
+    }
+
+    private void clearLibraryItemCategory(AccountModels.LibraryItem item) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || item == null) return;
+        startLibraryMutation("正在移动视频…");
+        accountClient.clearLibraryItemCategory(session.token, item.id, currentLibrary.revision, mutationCallback("视频已移到未分类。"));
+    }
+
+    private void deleteLibraryItem(AccountModels.LibraryItem item) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || item == null) return;
+        startLibraryMutation("正在删除视频…");
+        accountClient.deleteLibraryItem(session.token, item.id, currentLibrary.revision, mutationCallback("视频已从共同片库删除。"));
+    }
+
+    private void reorderLibraryItems(List<String> orderedIds) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session)) return;
+        startLibraryMutation("正在保存视频排序…");
+        accountClient.reorderLibraryItems(session.token, orderedIds, currentLibrary.revision, mutationCallback("视频排序已保存。"));
+    }
+
+    private boolean canMutateLibrary(AccountModels.Session session) {
+        if (session == null || currentLibrary == null || currentLibrary.readOnly || libraryLoading) return false;
+        return true;
+    }
+
+    private void startLibraryMutation(String message) {
+        libraryLoading = true;
+        libraryError = false;
+        libraryMessage = message;
+        showMainTab("library", false);
+    }
+
+    private AccountClient.ResultCallback<AccountModels.LibrarySnapshot> mutationCallback(String successMessage) {
+        return new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
+            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
+                runOnUiThread(() -> {
+                    currentLibrary = snapshot;
+                    libraryLoading = false;
+                    libraryError = false;
+                    libraryMessage = successMessage;
+                    showMainTab("library", false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleLibraryFailure(failure, false));
+            }
+        };
+    }
+
+    private void handleLibraryFailure(AccountClient.Failure failure, boolean preserveBatchInput) {
+        libraryLoading = false;
+        if (failure.isAuthenticationFailure()) {
+            handleAccountRestoreFailure(failure);
+            return;
+        }
+        if ("LIBRARY_VERSION_CONFLICT".equals(failure.code)) {
+            libraryMessage = "片库已被对方更新，正在获取最新版本…";
+            libraryError = false;
+            currentLibrary = null;
+            showMainTab("library", false);
+            if (currentArchivePairId != null) loadArchiveLibrary(currentArchivePairId);
+            else loadActiveLibrary(true);
+            Toast.makeText(this, "检测到同时修改，已刷新片库，请确认后重试", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!preserveBatchInput) libraryRetryInputs = new ArrayList<>();
+        libraryError = true;
+        libraryMessage = failure.getMessage();
+        showMainTab("library", false);
+    }
+
+    private void playLibraryItem(AccountModels.LibraryItem item) {
+        if (item == null) return;
+        BilibiliMedia media = BilibiliMedia.parse(item.canonicalUrl);
+        if (media == null || media.embedUrl() == null) {
+            Toast.makeText(this, "这个片库视频暂时无法播放，可先刷新视频信息", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (roomClient != null && authenticated) {
+            prepareLibraryMedia(media);
+            return;
+        }
+        pendingLibraryMedia = media;
+        pendingAutoShare = true;
+        createRoom(false);
+    }
+
+    private void prepareLibraryMedia(BilibiliMedia media) {
+        if (media == null || !authenticated || roomClient == null) return;
+        showVideoScreen();
+        videoInput.setText(media.canonicalUrl);
+        loadVideoFromInput();
+    }
+
+    private void showRoomLibraryPicker() {
+        if (accountSession == null || currentPair == null) {
+            Toast.makeText(this, "登录并绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (currentLibrary != null && !currentLibrary.readOnly && currentPair.pairId.equals(currentLibrary.pairId)) {
+            showRoomLibraryItems(currentLibrary);
+            return;
+        }
+        libraryPickerButton.setEnabled(false);
+        libraryPickerButton.setText("正在读取片库…");
+        accountClient.getLibrary(accountSession.token, "", "all", null, new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
+            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
+                runOnUiThread(() -> {
+                    currentLibrary = snapshot;
+                    libraryPickerButton.setEnabled(true);
+                    libraryPickerButton.setText("从共同片库选择");
+                    showRoomLibraryItems(snapshot);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    libraryPickerButton.setEnabled(true);
+                    libraryPickerButton.setText("从共同片库选择");
+                    Toast.makeText(MainActivity.this, failure.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private void showRoomLibraryItems(AccountModels.LibrarySnapshot snapshot) {
+        if (snapshot.items.isEmpty()) {
+            Toast.makeText(this, "共同片库还是空的，请先添加视频", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] labels = new String[snapshot.items.size()];
+        for (int index = 0; index < labels.length; index += 1) labels[index] = snapshot.items.get(index).title;
+        new AlertDialog.Builder(this)
+            .setTitle("选择要切换的视频")
+            .setItems(labels, (dialog, index) -> prepareLibraryMedia(BilibiliMedia.parse(snapshot.items.get(index).canonicalUrl)))
+            .setNegativeButton("取消", null)
+            .show();
     }
 
     private void showEditProfileDialog() {
@@ -1834,6 +2227,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 runOnUiThread(() -> {
                     currentPair = pair;
                     currentPairState = new AccountModels.PairState(pair, currentPairState.pendingArchives, currentPairState.archives);
+                    resetLibraryState();
                     currentPairInvite = null;
                     pairLoading = false;
                     pairLoaded = true;
@@ -1866,6 +2260,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 runOnUiThread(() -> {
                     currentPairState = pairState;
                     currentPair = pairState.pair;
+                    if (currentLibrary != null && (currentPair == null || !currentPair.pairId.equals(currentLibrary.pairId))) resetLibraryState();
                     if (currentPair != null) currentPairInvite = null;
                     pairLoading = false;
                     pairLoaded = true;
@@ -1976,6 +2371,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         AccountModels.Pair activePair = unbind ? null : currentPair;
         currentPair = activePair;
         currentPairState = new AccountModels.PairState(activePair, pendingArchives, archives);
+        resetLibraryState();
         if (unbind) currentPairInvite = null;
     }
 
@@ -2150,7 +2546,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         View content;
         switch (page) {
             case "library":
-                content = mainNavigationView.placeholder("02 / LIBRARY", "共同片库", "分类、排序和共享视频将在 Alpha 10 的片库阶段接入。");
+                content = libraryPage();
                 break;
             case "calendar":
                 content = mainNavigationView.placeholder("03 / CALENDAR", "观看日历", "日期计划、当天片单和观看安排将在日历阶段接入。");
@@ -2177,6 +2573,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         mainNavigationView.applyTheme();
         if (refreshPairOnEntry && "pair".equals(target) && accountSession != null && !pairLoading) {
             mainHandler.post(() -> refreshPairState(false));
+        }
+        if (refreshPairOnEntry && "library".equals(target) && accountSession != null && !libraryLoading) {
+            mainHandler.post(() -> ensureLibraryLoaded(false));
         }
     }
 
@@ -2227,6 +2626,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void setPreparationControlsEnabled(boolean enabled) {
         loadVideoButton.setEnabled(enabled);
         videoInput.setEnabled(enabled);
+        if (libraryPickerButton != null) libraryPickerButton.setEnabled(enabled);
         if (enabled) {
             loadVideoButton.setText("准备视频");
             cancelPreparationButton.setVisibility(View.GONE);

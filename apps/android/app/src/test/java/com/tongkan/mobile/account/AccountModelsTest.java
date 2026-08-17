@@ -105,6 +105,50 @@ public class AccountModelsTest {
         }
     }
 
+    @Test
+    public void parsesStrictLibrarySnapshotAndBatchResults() throws Exception {
+        JSONObject snapshotJson = librarySnapshot(false, 7);
+        AccountModels.LibrarySnapshot snapshot = AccountModels.LibrarySnapshot.fromJson(snapshotJson);
+        assertEquals("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", snapshot.pairId);
+        assertEquals(7, snapshot.revision);
+        assertFalse(snapshot.readOnly);
+        assertEquals("电影", snapshot.categories.get(0).name);
+        assertEquals("BV1Qxuc62E1y", snapshot.items.get(0).bvid);
+        assertEquals("partial", snapshot.items.get(0).metadataStatus);
+
+        JSONObject batchJson = new JSONObject()
+            .put("results", new JSONArray()
+                .put(new JSONObject().put("input", "https://www.bilibili.com/video/BV1Qxuc62E1y")
+                    .put("status", "added").put("item", snapshotJson.getJSONArray("items").getJSONObject(0)).put("error", JSONObject.NULL))
+                .put(new JSONObject().put("input", "https://b23.tv/abc")
+                    .put("status", "rejected").put("item", JSONObject.NULL).put("error", "B23_RESOLUTION_FAILED")))
+            .put("library", snapshotJson);
+        AccountModels.BatchAddResult batch = AccountModels.BatchAddResult.fromJson(batchJson);
+        assertEquals(2, batch.results.size());
+        assertEquals("B23_RESOLUTION_FAILED", batch.results.get(1).error);
+    }
+
+    @Test
+    public void rejectsMalformedLibrarySnapshotsAndConflictErrors() throws Exception {
+        JSONObject malformed = librarySnapshot(false, 1);
+        malformed.getJSONArray("items").getJSONObject(0).put("watchStatus", "later");
+        try {
+            AccountModels.LibrarySnapshot.fromJson(malformed);
+            fail("Expected invalid library snapshot");
+        } catch (org.json.JSONException expected) {
+            assertFalse(expected.getMessage().isEmpty());
+        }
+
+        AccountClient.Failure conflict = AccountClient.parseFailure(409,
+            "{\"error\":\"LIBRARY_VERSION_CONFLICT\",\"message\":\"stale\",\"currentRevision\":9}");
+        assertEquals("LIBRARY_VERSION_CONFLICT", conflict.code);
+        assertEquals(9, conflict.currentRevision);
+
+        AccountClient.Failure invalid = AccountClient.parseFailure(409,
+            "{\"error\":\"LIBRARY_VERSION_CONFLICT\",\"message\":\"stale\"}");
+        assertEquals("INVALID_RESPONSE", invalid.code);
+    }
+
     private static JSONObject pair(String pairId, long boundAt, String userId, String nickname) throws Exception {
         return new JSONObject()
             .put("pairId", pairId)
@@ -131,6 +175,40 @@ public class AccountModelsTest {
             .put("email", nickname.toLowerCase() + "***@example.com")
             .put("nickname", nickname)
             .put("avatarId", "signal-01");
+    }
+
+    private static JSONObject librarySnapshot(boolean readOnly, long revision) throws Exception {
+        JSONObject actor = new JSONObject().put("id", "user-1").put("nickname", "Alice");
+        JSONObject category = new JSONObject()
+            .put("id", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+            .put("name", "电影")
+            .put("position", 0)
+            .put("createdAt", 1_800_000_000_000L)
+            .put("updatedAt", 1_800_000_000_000L);
+        JSONObject item = new JSONObject()
+            .put("id", "cccccccccccccccccccccccccccccccc")
+            .put("bvid", "BV1Qxuc62E1y")
+            .put("page", 1)
+            .put("cid", JSONObject.NULL)
+            .put("canonicalUrl", "https://www.bilibili.com/video/BV1Qxuc62E1y")
+            .put("title", "BV1Qxuc62E1y")
+            .put("coverUrl", JSONObject.NULL)
+            .put("ownerName", JSONObject.NULL)
+            .put("durationSeconds", JSONObject.NULL)
+            .put("metadataStatus", "partial")
+            .put("categoryId", category.getString("id"))
+            .put("watchStatus", "unwatched")
+            .put("position", 0)
+            .put("addedBy", actor)
+            .put("updatedBy", actor)
+            .put("createdAt", 1_800_000_000_000L)
+            .put("updatedAt", 1_800_000_000_000L);
+        return new JSONObject()
+            .put("pairId", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .put("revision", revision)
+            .put("readOnly", readOnly)
+            .put("categories", new JSONArray().put(category))
+            .put("items", new JSONArray().put(item));
     }
 
     private static void assertPairStateFailure(JSONObject value) throws Exception {
