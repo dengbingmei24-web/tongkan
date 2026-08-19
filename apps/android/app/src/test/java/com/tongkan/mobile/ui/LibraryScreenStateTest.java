@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class LibraryScreenStateTest {
@@ -36,6 +37,50 @@ public class LibraryScreenStateTest {
         assertTrue(LibraryScreen.State.movedItemIds(Arrays.asList(first), 0, -1).contains(first.id));
     }
 
+    @Test
+    public void previewsBatchInputsAndRejectsInvalidRows() {
+        List<LibraryScreen.State.BatchDraft> drafts = LibraryScreen.State.batchDrafts(
+            "复制打开 https://b23.tv/AbCd123\nhttps://www.bilibili.com/video/BV1Qxuc62E1y?p=2\nhttps://example.com/video"
+        );
+        assertEquals(3, drafts.size());
+        assertEquals("短链待解析", drafts.get(0).label);
+        assertEquals("已识别 · P2", drafts.get(1).label);
+        assertFalse(drafts.get(2).accepted);
+        assertFalse(LibraryScreen.State.isBatchReady(drafts));
+        assertTrue(LibraryScreen.State.readyBatchInputs("https://example.com/video").isEmpty());
+        assertEquals(2, LibraryScreen.State.readyBatchInputs("BV1Qxuc62E1y\nhttps://b23.tv/AbCd123").size());
+    }
+
+    @Test
+    public void combinesMultilineShareTextAndSubmitsCanonicalUrls() {
+        String share = "【你敢在江浙沪背300块钱的包出门吗—哔哩哔哩】\nhttps://b23.tv/XM569Iw";
+        List<LibraryScreen.State.BatchDraft> drafts = LibraryScreen.State.batchDrafts(share);
+
+        assertEquals(1, drafts.size());
+        assertEquals("短链待解析", drafts.get(0).label);
+        assertEquals(Arrays.asList("https://b23.tv/XM569Iw"), LibraryScreen.State.readyBatchInputs(share));
+        assertEquals(
+            Arrays.asList("https://www.bilibili.com/video/BV1Qxuc62E1y?p=2"),
+            LibraryScreen.State.readyBatchInputs("分享标题 https://www.bilibili.com/video/BV1Qxuc62E1y?p=2")
+        );
+    }
+
+    @Test
+    public void groupsDefaultLibraryByCategoryAndExplainsShortLinkFailure() {
+        AccountModels.LibraryCategory movies = category("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "电影", 0);
+        AccountModels.LibraryItem first = item("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "电影一", "UP甲", "unwatched", movies.id, 0);
+        AccountModels.LibraryItem second = item("cccccccccccccccccccccccccccccccc", "纪录片", "UP乙", "watched", null, 1);
+        AccountModels.LibrarySnapshot snapshot = new AccountModels.LibrarySnapshot(
+            "dddddddddddddddddddddddddddddddd", 3, false, Arrays.asList(movies), Arrays.asList(first, second));
+
+        List<LibraryScreen.State.ItemGroup> groups = LibraryScreen.State.groupedItems(snapshot, snapshot.items);
+        assertEquals(Arrays.asList("电影", "未分类"), Arrays.asList(groups.get(0).label, groups.get(1).label));
+        assertTrue(LibraryScreen.State.shouldGroupByCategory("", "all", null, false));
+        assertFalse(LibraryScreen.State.shouldGroupByCategory("纪录", "all", null, false));
+        AccountModels.BatchItemResult result = new AccountModels.BatchItemResult(
+            "https://b23.tv/expired", "rejected", null, "B23_RESOLUTION_FAILED");
+        assertEquals("短链失效或视频不可用", LibraryScreen.State.batchResultLabel(result));
+    }
     private static AccountModels.LibraryCategory category(String id, String name, int position) {
         return new AccountModels.LibraryCategory(id, name, position, 1, 1);
     }

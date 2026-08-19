@@ -24,6 +24,7 @@ export interface ItemPatch {
   categoryId?: string | null;
   watchStatus?: LibraryWatchStatus;
   refreshMetadata?: boolean;
+  title?: string;
 }
 
 export class LibraryService {
@@ -211,7 +212,7 @@ export class LibraryService {
         const metadata = await this.metadata.metadataFor(identity);
         if (metadata.status === "ready") {
           next.cid = metadata.cid;
-          next.title = metadata.title;
+          if (isFallbackTitle(current)) next.title = metadata.title;
           next.coverUrl = metadata.coverUrl;
           next.ownerName = metadata.ownerName;
           next.durationSeconds = metadata.durationSeconds;
@@ -219,6 +220,7 @@ export class LibraryService {
         }
       }
     }
+    if (patch.title !== undefined) next.title = normalizedItemTitle(patch.title);
     if (sameMutableItem(current, next)) return this.repository.snapshot(pairId, false);
     const mutation = await this.repository.updateItem(pairId, user, expectedRevision, next, this.now());
     await this.ensureApplied(user.id, pairId, mutation);
@@ -298,6 +300,18 @@ function normalizedCategoryName(value: string): { name: string; key: string } {
   const name = value.trim();
   if (!name || Array.from(name).length > 24) throw new AuthError("INVALID_REQUEST", "分类名称需为 1 到 24 个字符。", 400);
   return { name, key: name.toLowerCase() };
+}
+
+function normalizedItemTitle(value: string): string {
+  const title = value.trim();
+  if (!title || Array.from(title).length > 160) {
+    throw new AuthError("INVALID_REQUEST", "视频名称需为 1 到 160 个字符。", 400);
+  }
+  return title;
+}
+
+function isFallbackTitle(item: LibraryItemRecord): boolean {
+  return item.title === (item.page > 1 ? item.bvid + " · P" + item.page : item.bvid);
 }
 
 function mediaKey(bvid: string, page: number): string {

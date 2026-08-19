@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [Uri]$ApiOrigin = "https://account-preview.tongkan-personal.pages.dev/account-api",
+  [Uri]$ApiOrigin = "https://tongkan-account-preview-gateway.pages.dev/account-api",
   [string]$CasesPath = "",
   [ValidateSet("ValidateOnly", "Live")]
   [string]$Mode = "ValidateOnly",
@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Net.Http
 
 $AllowedRemotePreviewHosts = @(
-  "account-preview.tongkan-personal.pages.dev"
+  "tongkan-account-preview-gateway.pages.dev"
 )
 
 if ([string]::IsNullOrWhiteSpace($CasesPath)) {

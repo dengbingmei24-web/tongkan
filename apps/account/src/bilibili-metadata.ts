@@ -4,7 +4,9 @@ import type { BatchItemErrorCode, LibraryMetadata } from "./library-models";
 const MAX_REDIRECTS = 3;
 const REQUEST_TIMEOUT_MS = 5_000;
 const MAX_METADATA_BYTES = 512 * 1024;
+const MAX_SHORT_RESPONSE_BYTES = 64 * 1024;
 const TRUSTED_BILIBILI_HOST = /(^|\.)bilibili\.com$/i;
+const BILIBILI_VIDEO_URL_RE = /(?:https?:\/\/|\/\/)(?:[0-9A-Za-z-]+\.)*bilibili\.com\/video\/(?:BV[0-9A-Za-z]{10}|av[1-9]\d*)[^\s<>"']*/gi;
 
 export interface IdentityResolution {
   identity: BiliMediaIdentity | null;
@@ -14,7 +16,11 @@ export interface IdentityResolution {
 export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export class BilibiliMetadataResolver {
-  constructor(private readonly fetcher: FetchLike = fetch) {}
+  private readonly fetcher: FetchLike;
+
+  constructor(fetcher: FetchLike = (input, init) => globalThis.fetch(input, init)) {
+    this.fetcher = fetcher;
+  }
 
   async resolveIdentity(input: string): Promise<IdentityResolution> {
     const parsed = parseBilibiliUrl(input);
@@ -91,14 +97,53 @@ export class BilibiliMetadataResolver {
     let current = new URL(value);
     for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
       this.assertSafeRedirectUrl(current, redirect === 0);
-      const response = await this.fetchWithTimeout(current, { method: "GET", redirect: "manual" });
-      if (response.status < 300 || response.status >= 400) return current.toString();
+      const alreadyResolved = this.resolvedVideoUrl(current.toString());
+      if (alreadyResolved) return alreadyResolved;
+      const response = await this.fetchWithTimeout(current, {
+        method: "GET",
+        redirect: "manual",
+        headers: { accept: "text/html,application/xhtml+xml" },
+      });
+      const responseUrl = this.resolvedVideoUrl(response.url);
+      if (responseUrl) return responseUrl;
+      if (response.status < 300 || response.status >= 400) {
+        const bodyUrl = await this.resolvedVideoUrlFromBody(response);
+        return bodyUrl ?? current.toString();
+      }
       if (redirect === MAX_REDIRECTS) throw new Error("Too many B23 redirects.");
       const location = response.headers.get("location");
       if (!location || location.length > 2000) throw new Error("Invalid B23 redirect.");
       current = new URL(location, current);
     }
     throw new Error("B23 resolution failed.");
+  }
+
+  private resolvedVideoUrl(value: string): string | null {
+    if (!value) return null;
+    try {
+      const url = new URL(value);
+      this.assertSafeRedirectUrl(url, false);
+      const parsed = parseBilibiliUrl(url.toString());
+      return parsed && !parsed.unresolved ? url.toString() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolvedVideoUrlFromBody(response: Response): Promise<string | null> {
+    const declaredLength = Number(response.headers.get("content-length") ?? "0");
+    if (declaredLength > MAX_SHORT_RESPONSE_BYTES) return null;
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > MAX_SHORT_RESPONSE_BYTES) return null;
+    const normalized = text
+      .replace(/&amp;/gi, "&")
+      .replace(/\\\//g, "/");
+    for (const matched of normalized.match(BILIBILI_VIDEO_URL_RE) ?? []) {
+      const candidate = matched.startsWith("//") ? "https:" + matched : matched;
+      const resolved = this.resolvedVideoUrl(candidate);
+      if (resolved) return resolved;
+    }
+    return null;
   }
 
   private assertSafeRedirectUrl(url: URL, initial: boolean): void {

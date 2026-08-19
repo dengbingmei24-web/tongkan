@@ -1,4 +1,5 @@
 import { hasTestAccess } from "./access-guard";
+import { ActiveRoomService } from "./active-room-service";
 import { AuthService } from "./auth-service";
 import { isTestMode, requireSecrets } from "./config";
 import type { Env } from "./env";
@@ -30,6 +31,7 @@ export default {
       const repository = new AccountRepository(env.DB);
       const service = new AuthService(env, repository, mailer);
       const pairService = new PairService(env, repository);
+      const activeRoomService = new ActiveRoomService(env, repository);
       const pushService = new PushService(env, repository);
       const libraryService = new LibraryService(new D1LibraryRepository(env.DB));
       if (url.pathname === "/api/auth/send-code" && request.method === "POST") {
@@ -87,6 +89,26 @@ export default {
       if (url.pathname === "/api/pair" && request.method === "GET") {
         const authenticated = await service.authenticate(bearerToken(request));
         return json(await pairService.getPairState(authenticated.user), 200, origin);
+      }
+      if (url.pathname === "/api/pair/active-room" && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await activeRoomService.get(authenticated.user), 200, origin);
+      }
+      if (url.pathname === "/api/pair/active-room" && request.method === "POST") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        const body = await readObject(request);
+        const expiresAtValue = body.expiresAt;
+        if (expiresAtValue !== undefined && typeof expiresAtValue !== "number") invalidRequest("房间展示有效期无效。");
+        return json(await activeRoomService.publish(
+          authenticated.user,
+          stringField(body, "url") ?? "",
+          expiresAtValue as number | undefined,
+        ), 201, origin);
+      }
+      if (url.pathname === "/api/pair/active-room" && request.method === "DELETE") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        await activeRoomService.clear(authenticated.user);
+        return json({ ok: true }, 200, origin);
       }
       const archiveLibraryMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/library$/);
       if (archiveLibraryMatch && request.method === "GET") {
@@ -182,16 +204,19 @@ export default {
         const categoryProvided = Object.prototype.hasOwnProperty.call(body, "categoryId");
         const watchStatus = optionalWatchStatus(body);
         const refreshMetadata = optionalBooleanField(body, "refreshMetadata");
-        if (!categoryProvided && watchStatus === undefined && refreshMetadata === undefined) invalidRequest("没有可更新的字段。");
+        const title = optionalStringField(body, "title", 160);
+        if (!categoryProvided && watchStatus === undefined && refreshMetadata === undefined && title === undefined) invalidRequest("没有可更新的字段。");
         const patch: {
           categoryProvided: boolean;
           categoryId?: string | null;
           watchStatus?: "unwatched" | "watched";
           refreshMetadata?: boolean;
+          title?: string;
         } = { categoryProvided };
         if (categoryProvided) patch.categoryId = nullableIdField(body, "categoryId");
         if (watchStatus !== undefined) patch.watchStatus = watchStatus;
         if (refreshMetadata !== undefined) patch.refreshMetadata = refreshMetadata;
+        if (title !== undefined) patch.title = title;
         return json(await libraryService.updateItem(
           authenticated.user,
           decodeURIComponent(itemMatch[1] ?? ""),
@@ -278,6 +303,15 @@ function optionalBooleanField(body: Record<string, unknown>, name: string): bool
   if (value === undefined) return undefined;
   if (typeof value !== "boolean") invalidRequest("布尔字段无效。");
   return value as boolean;
+}
+
+function optionalStringField(body: Record<string, unknown>, name: string, maxLength: number): string | undefined {
+  const value = body[name];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim() || Array.from(value.trim()).length > maxLength) {
+    invalidRequest("文本字段无效。");
+  }
+  return value.trim();
 }
 
 function optionalWatchStatus(body: Record<string, unknown>): "unwatched" | "watched" | undefined {

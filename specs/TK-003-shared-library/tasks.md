@@ -57,19 +57,36 @@
 ## Phase 7: Reviewer Integration
 
 - [x] T037 [REVIEW] 独立审查 W1-W3 写入范围、提交和测试，对发现的问题给出 CHANGES_REQUESTED 并复验。
-- [ ] T038 [REVIEW] 先集成 W1，运行 Account/local D1；审查后应用 Preview migration 0005 并部署 Preview Worker。
-- [ ] T039 [REVIEW] 集成 W3，运行双账号 Preview 黑盒、20 轮 revision 冲突和直接 D1 级联查询。
-- [ ] T040 [REVIEW] 集成 W2，运行 `pnpm android:check` 并构建 Alpha 10.2 测试 APK。
-- [ ] T041 [REVIEW] 运行全仓 typecheck/test/integration/build、diff check、凭据扫描和文档链接检查。
-- [ ] T042 [REVIEW] 更新 PRD、设计、QA、Decision、CONTEXT 和任务状态；生产 migration/部署另行获得用户批准。
-- [ ] T043 [REVIEW] 打开 release 文件夹并交付双机片库验收清单。
+- [x] T038 [REVIEW] 先集成 W1，运行 Account/local D1；审查后应用 Preview migration 0005 并部署 Preview Worker。
+- [x] T039 [REVIEW] 集成 W3，运行双账号 Preview 黑盒、20 轮 revision 冲突和直接 D1 级联查询。
+- [x] T040 [REVIEW] 集成 W2，运行 `pnpm android:check` 并构建 Alpha 10.2 测试 APK。
+- [x] T041 [REVIEW] 运行全仓 typecheck/test/integration/build、diff check、凭据扫描和文档链接检查。
+- [x] T042 [REVIEW] 更新 PRD、设计、QA、Decision、CONTEXT 和任务状态；生产 migration/部署已由用户另行批准并完成。
+- [x] T043 [REVIEW] 打开 release 文件夹并交付双机片库验收清单；物理执行按用户决定延期。
 
+## Phase 8: Alpha 10.2.1 UX Follow-up
+
+- [x] T044 [REVIEW] 将批量添加改为底部面板，并在提交前逐条识别 BV、av、B23 分享文本、无效输入和 20 条上限。
+- [x] T045 [REVIEW] 保存并展示每条 added/duplicate/rejected 结果，修正 B23 展开失败的误导性汇总文案。
+- [x] T046 [REVIEW] 默认片库改为按分类展示带封面的媒体分区，并保留搜索、筛选、管理和排序行为。
+- [x] T047 [REVIEW] 竖屏房间增加底部片库抽屉，横屏/全屏增加右侧片库抽屉，视频保持可见且切换仍为 0 秒暂停。
+- [x] T048 [REVIEW] 增加批量预览、分类分组和失败文案 JVM 测试，不引入 Android 新依赖。
+- [x] T049 [REVIEW] 运行 Android test/Lint/build、全仓相关门槛，构建并交付 `1.0.0-alpha10.2.1` APK。
+## Phase 9: Alpha 10.2.2 B23 Hotfix
+
+- [x] T050 [REVIEW] 用截图中的有效 B23 短链在本机 curl 与本地 Workers Runtime 复现，并区分链接状态与 Worker 运行时错误。
+- [x] T051 [REVIEW] 修复默认 fetch receiver，增加首跳收敛和受限 200 HTML 回退，同时保持 HTTPS/可信域名/跳转上限。
+- [x] T052 [REVIEW] 合并 Android 多行分享标题与链接，提交规范化 URL，并增加 JVM 回归测试。
+- [x] T053 [REVIEW] 通过 Account 51/51、Android 42/42、全仓 132 测试、typecheck/build、Preview 上传和真实本地 Worker B23 添加。
+- [x] T054 [REVIEW] 构建并校验 `1.0.0-alpha10.2.2` / versionCode 38 生产配置候选 APK。
+- [x] T055 [REVIEW] 获得用户明确授权后部署生产 Account Worker，验证 100% 活动、健康检查和未登录鉴权边界；未执行 D1 migration。
+- [ ] T056 [REVIEW] 安装 Alpha 10.2.2，用截图中的同一分享文本/短链完成真机添加与元数据复验。
 ## Dependencies
 
 - T003-T004 阻塞所有 Worker。
 - W1、W2、W3 在 OpenAPI 冻结后并行；W2 使用固定 JSON fixtures，不依赖 W1 worktree 编译。
 - T038 → T039 → T040 串行集成；任何 Worker 未 APPROVED 不得进入集成。
-- 生产 migration/Worker deploy 不属于 TK-003 默认授权。
+- 生产 migration/Worker deploy 不属于 TK-003 默认授权；用户已于 2026-08-18 单独批准并完成上线。
 
 ## Done When
 
@@ -79,3 +96,21 @@
 - 从片库立即同看/换视频保持 0 秒暂停。
 - keep 归档只读，双方 delete 后 D1 无片库残留。
 - 三个 Worker、Preview、Android 和全仓门槛全部通过。
+
+## Phase 10: Alpha 10.2.3 Daily-use Fixes
+
+- [x] T057 [REVIEW] 增加保留会话的匿名模式、首页返回账号入口、切换账号和登录表单重置。
+- [x] T058 [REVIEW] 将解绑改为单层 keep/delete 选择并继续以服务端权威状态确认结果。
+- [x] T059 [REVIEW] 片库同看优先邀请唯一好友，通知失败时显示复制链接与系统分享兜底。
+- [x] T060 [REVIEW] Account item PATCH 支持 1–160 字符 title，刷新元数据保留自定义名称且不新增 migration。
+- [x] T061 [REVIEW] Android 封面加载改用受信 JPEG 缩略图并增加 URL 回归测试。
+- [x] T062 [REVIEW] 通过全仓门禁、部署 Preview `093b89a5-2bcd-42fe-b7a6-9e8c04c0bd8c` 与 Production `62bc7034-2599-4519-bf3b-dd119e68dd67` Account Worker，并构建校验 Alpha 10.2.3 APK。
+## Phase 11: Alpha 10.2.4 Active Friend Room
+
+- [x] T063 [REVIEW] 修复 Android 解绑弹窗在当前主题下隐藏列表项的问题，改为显式 keep/delete/cancel 按钮。
+- [x] T064 [REVIEW] 新增 `0006_active_pair_rooms.sql`、加密存储、pair-only publish/read/clear 服务与解绑事务清理。
+- [x] T065 [REVIEW] Android 首页增加好友等待卡片、10 秒刷新和 guest 直达；账号模式建房自动发布。
+- [x] T066 [REVIEW] 将 FCM 降级为可选提醒，通知失败不强制分享，发布失败才显示链接兜底。
+- [x] T067 [REVIEW] 增加 Account 服务/D1、Android JSON 解析测试并同步 OpenAPI、PRD、设计、QA 与 Decision D-089。
+- [x] T068 [REVIEW] 应用 Preview migration 0006、部署 Preview Worker并完成双账号 API 黑盒验证。
+- [x] T069 [REVIEW] 获得独立生产 D1 migration 授权后迁移并部署生产 Worker，构建 Alpha 10.2.4 APK。

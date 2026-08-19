@@ -145,6 +145,58 @@ function partialFetch(): FetchLike {
 }
 
 describe("LibraryService", () => {
+  it("stops after a safe B23 redirect already reveals the video identity", async () => {
+    const requests: string[] = [];
+    const resolver = new BilibiliMetadataResolver(async (input) => {
+      const url = new URL(String(input));
+      requests.push(url.toString());
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://www.bilibili.com/video/BV1SBbS6hEHa?p=2&share_source=COPY" },
+      });
+    });
+
+    await expect(resolver.resolveIdentity("https://b23.tv/XM569Iw")).resolves.toMatchObject({
+      identity: { bvid: "BV1SBbS6hEHa", page: 2 },
+      error: null,
+    });
+    expect(requests).toEqual(["https://b23.tv/XM569Iw"]);
+  });
+
+  it("extracts a safe video target from a B23 200 HTML response", async () => {
+    const resolver = new BilibiliMetadataResolver(async () => new Response(
+      '<a href="https://www.bilibili.com/video/BV1SBbS6hEHa?share_source=COPY&amp;p=3">Found</a>',
+      { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+    ));
+
+    await expect(resolver.resolveIdentity("https://b23.tv/XM569Iw")).resolves.toMatchObject({
+      identity: { bvid: "BV1SBbS6hEHa", page: 3 },
+      error: null,
+    });
+  });
+
+  it("calls the runtime fetch with the global receiver", async () => {
+    const originalFetch = globalThis.fetch;
+    const receivers: unknown[] = [];
+    globalThis.fetch = (function (this: unknown) {
+      receivers.push(this);
+      return Promise.resolve(new Response(null, {
+        status: 302,
+        headers: { location: "https://www.bilibili.com/video/BV1SBbS6hEHa?p=1" },
+      }));
+    }) as typeof fetch;
+
+    try {
+      await expect(new BilibiliMetadataResolver().resolveIdentity("https://b23.tv/XM569Iw")).resolves.toMatchObject({
+        identity: { bvid: "BV1SBbS6hEHa", page: 1 },
+        error: null,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(receivers).toEqual([globalThis]);
+  });
+
   it("deduplicates B23 and the final BV page while incrementing revision once", async () => {
     const repository = new MemoryLibraryRepository();
     const service = new LibraryService(repository, new BilibiliMetadataResolver(readyFetch()), () => 1000);
@@ -210,6 +262,37 @@ describe("LibraryService", () => {
     expect(noOp.revision).toBe(updated.revision);
     const deletedCategory = await service.deleteCategory(user, categoryId, noOp.revision);
     expect(deletedCategory.items[0]?.categoryId).toBeNull();
+  });
+
+  it("renames a video and preserves the custom title when metadata is refreshed", async () => {
+    const repository = new MemoryLibraryRepository();
+    const service = new LibraryService(repository, new BilibiliMetadataResolver(readyFetch()), () => 3000);
+    const added = await service.addBatch(user, ["https://www.bilibili.com/video/BV1xx411c7mD"], null, 0);
+    const renamed = await service.updateItem(user, added.library.items[0]?.id ?? "", {
+      categoryProvided: false,
+      title: "  周末一起看  ",
+    }, added.library.revision);
+    expect(renamed.items[0]?.title).toBe("周末一起看");
+    const refreshed = await service.updateItem(user, renamed.items[0]?.id ?? "", {
+      categoryProvided: false,
+      refreshMetadata: true,
+    }, renamed.revision);
+    expect(refreshed.items[0]?.title).toBe("周末一起看");
+    expect(refreshed.items[0]?.coverUrl).toBe("https://i0.hdslb.com/bfs/archive/test.jpg");
+  });
+
+  it("rejects empty or overlong video names", async () => {
+    const repository = new MemoryLibraryRepository();
+    const service = new LibraryService(repository, new BilibiliMetadataResolver(partialFetch()));
+    const added = await service.addBatch(user, ["https://www.bilibili.com/video/BV1xx411c7mD"], null, 0);
+    await expect(service.updateItem(user, added.library.items[0]?.id ?? "", {
+      categoryProvided: false,
+      title: "   ",
+    }, added.library.revision)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    await expect(service.updateItem(user, added.library.items[0]?.id ?? "", {
+      categoryProvided: false,
+      title: "名".repeat(161),
+    }, added.library.revision)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   });
 });
 

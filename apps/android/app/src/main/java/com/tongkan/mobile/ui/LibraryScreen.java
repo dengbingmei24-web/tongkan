@@ -1,19 +1,26 @@
 package com.tongkan.mobile.ui;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.tongkan.mobile.BilibiliMedia;
 import com.tongkan.mobile.account.AccountModels;
 
 import java.util.ArrayList;
@@ -30,6 +37,7 @@ public final class LibraryScreen {
         void onDeleteCategory(AccountModels.LibraryCategory category);
         void onReorderCategories(List<String> orderedIds);
         void onUpdateItem(AccountModels.LibraryItem item, String categoryId, String watchStatus, boolean refreshMetadata);
+        void onRenameItem(AccountModels.LibraryItem item, String title);
         void onClearItemCategory(AccountModels.LibraryItem item);
         void onDeleteItem(AccountModels.LibraryItem item);
         void onReorderItems(List<String> orderedIds);
@@ -58,6 +66,7 @@ public final class LibraryScreen {
     private AccountModels.LibrarySnapshot snapshot;
     private List<AccountModels.PairArchive> archives = Collections.emptyList();
     private List<String> retryInputs = Collections.emptyList();
+    private List<AccountModels.BatchItemResult> batchResults = Collections.emptyList();
     private boolean roomConnected;
     private boolean loading;
     private String message = "";
@@ -76,6 +85,7 @@ public final class LibraryScreen {
         AccountModels.LibrarySnapshot snapshot,
         List<AccountModels.PairArchive> archives,
         List<String> retryInputs,
+        List<AccountModels.BatchItemResult> batchResults,
         boolean roomConnected,
         boolean loading,
         String message
@@ -84,6 +94,7 @@ public final class LibraryScreen {
         this.snapshot = snapshot;
         this.archives = archives == null ? Collections.emptyList() : archives;
         this.retryInputs = retryInputs == null ? Collections.emptyList() : retryInputs;
+        this.batchResults = batchResults == null ? Collections.emptyList() : batchResults;
         this.roomConnected = roomConnected;
         this.loading = loading;
         this.message = message == null ? "" : message;
@@ -130,13 +141,21 @@ public final class LibraryScreen {
         }
 
         addToolbar(content);
+        addBatchResultSection(content);
         addFilters(content);
         addArchiveSection(content);
         List<AccountModels.LibraryItem> visibleItems = State.filteredItems(snapshot, query, status, categoryId);
         if (visibleItems.isEmpty()) {
             String emptyTitle = snapshot.items.isEmpty() ? "把想看的视频放进来" : "没有符合筛选的视频";
-            String emptyBody = snapshot.items.isEmpty() ? "一次最多粘贴 20 条 B站链接，重复视频会自动识别。" : "换个关键词、分类或观看状态再试试。";
+            String emptyBody = snapshot.items.isEmpty() ? "一次最多粘贴 20 条 B站链接，逐条确认后再添加。" : "换个关键词、分类或观看状态再试试。";
             content.addView(statePanel(emptyTitle, emptyBody, snapshot.readOnly ? null : "添加视频", snapshot.readOnly ? null : this::showBatchDialog), components.margin(components.matchWrap(), 0, 18, 0, 0));
+        } else if (State.shouldGroupByCategory(query, status, categoryId, sorting)) {
+            for (State.ItemGroup group : State.groupedItems(snapshot, visibleItems)) {
+                content.addView(components.section(group.label + " · " + group.items.size()), components.margin(components.matchWrap(), 0, 22, 0, 8));
+                for (AccountModels.LibraryItem item : group.items) {
+                    content.addView(itemPanel(item, visibleItems), components.margin(components.matchWrap(), 0, 0, 0, 10));
+                }
+            }
         } else {
             for (AccountModels.LibraryItem item : visibleItems) {
                 content.addView(itemPanel(item, visibleItems), components.margin(components.matchWrap(), 0, 12, 0, 0));
@@ -186,6 +205,29 @@ public final class LibraryScreen {
         }
     }
 
+    private void addBatchResultSection(LinearLayout content) {
+        if (snapshot == null || snapshot.readOnly || batchResults.isEmpty()) return;
+        LinearLayout panel = components.panel(14);
+        panel.addView(components.section("上次添加结果"), components.matchWrap());
+        for (AccountModels.BatchItemResult result : batchResults) {
+            LinearLayout row = components.row();
+            TextView input = components.body(State.compactInput(result.input));
+            input.setMaxLines(2);
+            row.addView(input, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            TextView state = components.text(State.batchResultLabel(result), 11,
+                "rejected".equals(result.status) ? BreathComponents.ROLE_ACCENT_TEXT : BreathComponents.ROLE_MUTED_TEXT);
+            state.setGravity(Gravity.END);
+            row.addView(state, new LinearLayout.LayoutParams(components.dp(150), ViewGroup.LayoutParams.WRAP_CONTENT));
+            panel.addView(row, components.margin(components.matchWrap(), 0, 8, 0, 0));
+        }
+        if (!retryInputs.isEmpty()) {
+            Button retry = components.button("重新检查失败短链", false);
+            retry.setEnabled(!loading);
+            retry.setOnClickListener(view -> showBatchDialog());
+            panel.addView(retry, components.margin(components.matchHeight(46), 0, 12, 0, 0));
+        }
+        content.addView(panel, components.margin(components.matchWrap(), 0, 14, 0, 0));
+    }
     private void addFilters(LinearLayout content) {
         EditText search = components.input("搜索标题、UP 主或 BV 号", InputType.TYPE_CLASS_TEXT);
         search.setText(query);
@@ -226,23 +268,28 @@ public final class LibraryScreen {
     }
 
     private LinearLayout itemPanel(AccountModels.LibraryItem item, List<AccountModels.LibraryItem> visibleItems) {
-        LinearLayout panel = components.panel(16);
-        LinearLayout titleRow = components.row();
+        LinearLayout panel = components.panel(14);
+        LinearLayout mediaRow = components.row();
+        ImageView cover = new ImageView(context);
+        LibraryCoverLoader.load(cover, item.coverUrl, theme);
+        mediaRow.addView(cover, new LinearLayout.LayoutParams(components.dp(118), components.dp(67)));
         LinearLayout textColumn = new LinearLayout(context);
         textColumn.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout titleRow = components.row();
         TextView title = components.section(item.title);
         title.setMaxLines(2);
-        textColumn.addView(title, components.matchWrap());
+        titleRow.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView state = components.text("watched".equals(item.watchStatus) ? "已看完" : "想看", 11,
+            "watched".equals(item.watchStatus) ? BreathComponents.ROLE_MUTED_TEXT : BreathComponents.ROLE_ACCENT_TEXT);
+        state.setGravity(Gravity.END);
+        titleRow.addView(state, new LinearLayout.LayoutParams(components.dp(54), ViewGroup.LayoutParams.WRAP_CONTENT));
+        textColumn.addView(titleRow, components.matchWrap());
         String metadata = item.bvid + (item.page > 1 ? " · P" + item.page : "")
             + (item.ownerName == null ? "" : " · " + item.ownerName)
             + (item.durationSeconds == null ? "" : " · " + duration(item.durationSeconds));
         textColumn.addView(components.body(metadata), components.margin(components.matchWrap(), 0, 5, 0, 0));
-        titleRow.addView(textColumn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView state = components.text("watched".equals(item.watchStatus) ? "已看完" : "想看", 11,
-            "watched".equals(item.watchStatus) ? BreathComponents.ROLE_MUTED_TEXT : BreathComponents.ROLE_ACCENT_TEXT);
-        state.setGravity(Gravity.END);
-        titleRow.addView(state, new LinearLayout.LayoutParams(components.dp(58), ViewGroup.LayoutParams.WRAP_CONTENT));
-        panel.addView(titleRow, components.matchWrap());
+        mediaRow.addView(textColumn, components.margin(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f), 12, 0, 0, 0));
+        panel.addView(mediaRow, components.matchWrap());
 
         String category = item.categoryId == null ? "未分类" : categoryName(item.categoryId);
         String metadataState = "partial".equals(item.metadataStatus) ? " · 信息待补全" : "";
@@ -304,24 +351,89 @@ public final class LibraryScreen {
 
     private void showBatchDialog() {
         if (snapshot == null || snapshot.readOnly || loading) return;
-        EditText input = new EditText(context);
-        input.setHint("每行一条 B站链接，最多 20 条");
+        Dialog dialog = new Dialog(context);
+        LinearLayout sheet = components.column(20, 18, 20);
+        sheet.setTag(BreathComponents.ROLE_PANEL);
+        sheet.setBackground(BreathDrawables.panel(context, theme, 24));
+        sheet.addView(components.title("添加到共同片库", 24), components.matchWrap());
+        sheet.addView(components.body(categoryId == null ? "默认放入未分类；每行一条，提交前会逐条识别。" : "将添加到「" + categoryName(categoryId) + "」；每行一条。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
+
+        EditText input = components.input("粘贴 BV、av、b23.tv 或 B站分享文本", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setSingleLine(false);
         input.setGravity(Gravity.TOP | Gravity.START);
-        input.setMinLines(7);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setMinLines(5);
+        input.setMaxLines(8);
+        input.setPadding(components.dp(14), components.dp(12), components.dp(14), components.dp(12));
         input.setText(String.join("\n", retryInputs));
         if (input.length() > 0) input.setSelection(input.length());
-        new AlertDialog.Builder(context)
-            .setTitle("批量添加视频")
-            .setMessage(categoryId == null ? "将添加到未分类" : "将添加到「" + categoryName(categoryId) + "」")
-            .setView(input)
-            .setNegativeButton("取消", null)
-            .setPositiveButton("添加", (dialog, which) -> {
-                List<String> values = State.splitBatchInput(input.getText().toString());
-                if (values.size() > 20) values = new ArrayList<>(values.subList(0, 20));
-                listener.onBatchAdd(values, categoryId);
-            })
-            .show();
+        sheet.addView(input, components.margin(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, components.dp(142)), 0, 15, 0, 0));
+
+        TextView summary = components.body("尚未输入链接");
+        sheet.addView(summary, components.margin(components.matchWrap(), 0, 12, 0, 0));
+        LinearLayout preview = new LinearLayout(context);
+        preview.setOrientation(LinearLayout.VERTICAL);
+        ScrollView previewScroll = new ScrollView(context);
+        previewScroll.addView(preview, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        sheet.addView(previewScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        LinearLayout actions = components.row();
+        Button cancel = components.button("取消", false);
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        actions.addView(cancel, components.weight(1));
+        Button add = components.button("确认添加", true);
+        add.setEnabled(false);
+        add.setOnClickListener(view -> {
+            List<String> values = State.readyBatchInputs(input.getText().toString());
+            if (values.isEmpty()) return;
+            dialog.dismiss();
+            listener.onBatchAdd(values, categoryId);
+        });
+        actions.addView(add, components.margin(components.weight(1), 8, 0, 0, 0));
+        sheet.addView(actions, components.margin(components.matchHeight(48), 0, 14, 0, 0));
+
+        Runnable renderPreview = () -> {
+            preview.removeAllViews();
+            List<State.BatchDraft> drafts = State.batchDrafts(input.getText().toString());
+            int ready = 0;
+            for (State.BatchDraft draft : drafts) {
+                LinearLayout row = components.row();
+                TextView value = components.body(State.compactInput(draft.input));
+                value.setMaxLines(2);
+                row.addView(value, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                TextView state = components.text(draft.label, 11, draft.accepted ? BreathComponents.ROLE_ACCENT_TEXT : BreathComponents.ROLE_MUTED_TEXT);
+                state.setGravity(Gravity.END);
+                row.addView(state, new LinearLayout.LayoutParams(components.dp(132), ViewGroup.LayoutParams.WRAP_CONTENT));
+                preview.addView(row, components.margin(components.matchWrap(), 0, 7, 0, 0));
+                if (draft.accepted) ready += 1;
+            }
+            boolean valid = State.isBatchReady(drafts);
+            add.setEnabled(valid);
+            if (drafts.isEmpty()) summary.setText("尚未输入链接");
+            else if (drafts.size() > 20) summary.setText("共 " + drafts.size() + " 条，超过 20 条上限");
+            else if (!valid) summary.setText("已识别 " + ready + " 条；请修正标记为无法识别的内容");
+            else summary.setText("已识别 " + ready + " 条，可以添加");
+            components.applyTheme(preview);
+        };
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence value, int start, int before, int count) { renderPreview.run(); }
+            @Override public void afterTextChanged(Editable value) {}
+        });
+        renderPreview.run();
+        components.applyTheme(sheet);
+        dialog.setContentView(sheet);
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.gravity = Gravity.BOTTOM;
+            attributes.dimAmount = 0.28f;
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.setAttributes(attributes);
+            int height = Math.min(components.dp(680), Math.round(context.getResources().getDisplayMetrics().heightPixels * 0.82f));
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, height);
+        }
     }
 
     private void showCategoryFilter(View source) {
@@ -392,16 +504,30 @@ public final class LibraryScreen {
 
     private void showItemActions(AccountModels.LibraryItem item) {
         String watchAction = "watched".equals(item.watchStatus) ? "标记为未观看" : "标记为已看完";
-        String[] actions = {watchAction, "移动分类", "刷新视频信息", "删除视频"};
+        String[] actions = {"重命名视频", watchAction, "移动分类", "刷新视频信息", "删除视频"};
         new AlertDialog.Builder(context)
             .setTitle(item.title)
             .setItems(actions, (dialog, index) -> {
-                if (index == 0) listener.onUpdateItem(item, null, "watched".equals(item.watchStatus) ? "unwatched" : "watched", false);
-                else if (index == 1) showMoveCategory(item);
-                else if (index == 2) listener.onUpdateItem(item, null, null, true);
-                else if (index == 3) confirmDeleteItem(item);
+                if (index == 0) showItemNameDialog(item);
+                else if (index == 1) listener.onUpdateItem(item, null, "watched".equals(item.watchStatus) ? "unwatched" : "watched", false);
+                else if (index == 2) showMoveCategory(item);
+                else if (index == 3) listener.onUpdateItem(item, null, null, true);
+                else if (index == 4) confirmDeleteItem(item);
             })
             .setNegativeButton("取消", null)
+            .show();
+    }
+
+    private void showItemNameDialog(AccountModels.LibraryItem item) {
+        EditText input = components.textInput("1–160 个字符");
+        input.setSingleLine(true);
+        input.setText(item.title);
+        input.setSelection(input.length());
+        new AlertDialog.Builder(context)
+            .setTitle("重命名视频")
+            .setView(input)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("保存", (dialog, which) -> listener.onRenameItem(item, input.getText().toString()))
             .show();
     }
 
@@ -463,6 +589,98 @@ public final class LibraryScreen {
     public static final class State {
         private State() {}
 
+        public static final class BatchDraft {
+            public final String input;
+            public final boolean accepted;
+            public final String label;
+
+            BatchDraft(String input, boolean accepted, String label) {
+                this.input = input;
+                this.accepted = accepted;
+                this.label = label;
+            }
+        }
+
+        public static final class ItemGroup {
+            public final String label;
+            public final List<AccountModels.LibraryItem> items;
+
+            ItemGroup(String label, List<AccountModels.LibraryItem> items) {
+                this.label = label;
+                this.items = items;
+            }
+        }
+
+        public static List<BatchDraft> batchDrafts(String raw) {
+            List<String> inputs = splitBatchInput(raw);
+            List<BatchDraft> result = new ArrayList<>();
+            for (int index = 0; index < inputs.size(); index += 1) {
+                String input = inputs.get(index);
+                BilibiliMedia media = BilibiliMedia.parse(input);
+                if (index >= 20) result.add(new BatchDraft(input, false, "超过 20 条上限"));
+                else if (media == null) result.add(new BatchDraft(input, false, "无法识别"));
+                else if (media.unresolved) result.add(new BatchDraft(input, true, "短链待解析"));
+                else result.add(new BatchDraft(input, true, media.page > 1 ? "已识别 · P" + media.page : "已识别"));
+            }
+            return result;
+        }
+
+        public static boolean isBatchReady(List<BatchDraft> drafts) {
+            if (drafts == null || drafts.isEmpty() || drafts.size() > 20) return false;
+            for (BatchDraft draft : drafts) if (!draft.accepted) return false;
+            return true;
+        }
+
+        public static List<String> readyBatchInputs(String raw) {
+            List<BatchDraft> drafts = batchDrafts(raw);
+            if (!isBatchReady(drafts)) return Collections.emptyList();
+            List<String> result = new ArrayList<>();
+            for (BatchDraft draft : drafts) {
+                BilibiliMedia media = BilibiliMedia.parse(draft.input);
+                if (media != null) result.add(media.canonicalUrl);
+            }
+            return result;
+        }
+
+        public static boolean shouldGroupByCategory(String query, String status, String categoryId, boolean sorting) {
+            return !sorting && categoryId == null && (query == null || query.trim().isEmpty()) && (status == null || "all".equals(status));
+        }
+
+        public static List<ItemGroup> groupedItems(AccountModels.LibrarySnapshot snapshot, List<AccountModels.LibraryItem> visibleItems) {
+            if (snapshot == null || visibleItems == null || visibleItems.isEmpty()) return Collections.emptyList();
+            List<AccountModels.LibraryItem> remaining = new ArrayList<>(visibleItems);
+            List<ItemGroup> result = new ArrayList<>();
+            for (AccountModels.LibraryCategory category : snapshot.categories) {
+                List<AccountModels.LibraryItem> categoryItems = new ArrayList<>();
+                for (AccountModels.LibraryItem item : visibleItems) {
+                    if (category.id.equals(item.categoryId)) categoryItems.add(item);
+                }
+                if (!categoryItems.isEmpty()) {
+                    result.add(new ItemGroup(category.name, categoryItems));
+                    remaining.removeAll(categoryItems);
+                }
+            }
+            if (!remaining.isEmpty()) result.add(new ItemGroup("未分类", remaining));
+            return result;
+        }
+
+        public static String batchResultLabel(AccountModels.BatchItemResult result) {
+            if (result == null) return "未知结果";
+            if ("added".equals(result.status)) return "已添加";
+            if ("duplicate".equals(result.status)) return "片库中已存在";
+            if ("B23_RESOLUTION_FAILED".equals(result.error)) return "短链失效或视频不可用";
+            if ("INVALID_BILIBILI_URL".equals(result.error)) return "不是有效 B站链接";
+            if ("CATEGORY_NOT_FOUND".equals(result.error)) return "分类已不存在";
+            if ("LIBRARY_LIMIT_REACHED".equals(result.error)) return "片库已达上限";
+            return "未添加";
+        }
+
+        public static String compactInput(String value) {
+            if (value == null) return "";
+            String compact = value.trim().replaceAll("\\s+", " ");
+            return compact.length() <= 72 ? compact : compact.substring(0, 69) + "…";
+        }
+
         public static List<AccountModels.LibraryItem> filteredItems(
             AccountModels.LibrarySnapshot snapshot,
             String query,
@@ -485,12 +703,29 @@ public final class LibraryScreen {
         public static List<String> splitBatchInput(String raw) {
             if (raw == null || raw.trim().isEmpty()) return Collections.emptyList();
             String[] parts = raw.split("[\\r\\n]+", -1);
-            List<String> result = new ArrayList<>();
+            List<String> lines = new ArrayList<>();
             for (String part : parts) {
                 String value = part.trim();
-                if (!value.isEmpty()) result.add(value);
+                if (!value.isEmpty()) lines.add(value);
+            }
+            List<String> result = new ArrayList<>();
+            for (int index = 0; index < lines.size(); index += 1) {
+                String value = lines.get(index);
+                if (isShareCaption(value) && index + 1 < lines.size()) {
+                    String next = lines.get(index + 1);
+                    if (BilibiliMedia.parse(next) != null) {
+                        result.add(value + " " + next);
+                        index += 1;
+                        continue;
+                    }
+                }
+                result.add(value);
             }
             return result;
+        }
+
+        private static boolean isShareCaption(String value) {
+            return value.startsWith("【") && value.contains("】");
         }
 
         public static List<String> movedItemIds(List<AccountModels.LibraryItem> items, int index, int delta) {

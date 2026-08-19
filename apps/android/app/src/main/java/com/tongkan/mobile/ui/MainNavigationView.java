@@ -36,6 +36,8 @@ public final class MainNavigationView {
         void onEditProfile();
         void onRequestUnbind();
         void onChooseArchiveRetention(AccountModels.PairArchive archive);
+        void onUseAnonymous();
+        void onSwitchAccount();
         void onLogout();
     }
 
@@ -164,6 +166,14 @@ public final class MainNavigationView {
         editProfile.setEnabled(!loading);
         editProfile.setOnClickListener(view -> actions.onEditProfile());
         accountPanel.addView(editProfile, components.margin(components.matchHeight(48), 0, 14, 0, 0));
+        Button anonymous = components.button("进入匿名模式", false);
+        anonymous.setEnabled(!loading);
+        anonymous.setOnClickListener(view -> actions.onUseAnonymous());
+        accountPanel.addView(anonymous, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        Button switchAccount = components.button("切换登录账号", false);
+        switchAccount.setEnabled(!loading);
+        switchAccount.setOnClickListener(view -> actions.onSwitchAccount());
+        accountPanel.addView(switchAccount, components.margin(components.matchHeight(48), 0, 8, 0, 0));
         content.addView(accountPanel, components.margin(components.matchWrap(), 0, 24, 0, 0));
 
         if (pair == null) {
@@ -209,7 +219,7 @@ public final class MainNavigationView {
             pairPanel.addView(people, components.margin(components.matchWrap(), 0, 17, 0, 0));
             pairPanel.addView(components.title(nickname + " × " + pair.partner.nickname, 22), components.margin(components.matchWrap(), 0, 14, 0, 0));
             pairPanel.addView(components.body(pair.partner.email), components.margin(components.matchWrap(), 0, 5, 0, 0));
-            Button start = components.button("邀请一起看", true);
+            Button start = components.button("邀请 " + pair.partner.nickname + " 一起看", true);
             start.setEnabled(!loading);
             start.setOnClickListener(view -> actions.onInviteWatch());
             pairPanel.addView(start, components.margin(components.matchHeight(50), 0, 18, 0, 0));
@@ -244,7 +254,7 @@ public final class MainNavigationView {
         refresh.setEnabled(!loading);
         refresh.setOnClickListener(view -> actions.onRefresh());
         content.addView(refresh, components.margin(components.matchHeight(50), 0, 18, 0, 0));
-        Button logout = components.button("退出账号", false);
+        Button logout = components.button("退出当前账号", false);
         logout.setEnabled(!loading);
         logout.setOnClickListener(view -> actions.onLogout());
         content.addView(logout, components.margin(components.matchHeight(50), 0, 10, 0, 0));

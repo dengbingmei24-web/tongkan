@@ -104,12 +104,39 @@ pnpm --filter @tongkan/account exec wrangler deploy --env=""
 
 预览环境使用 `tongkan-account-preview` D1 和 `AUTH_TEST_MODE=true`，只用于开发验证，不能作为公开生产登录入口。`.dev.vars` 和所有 Secret 值均被 Git 忽略。
 
+### Alpha 10.2.4 生产状态（2026-08-19）
+
+- 生产 D1 `tongkan-account` 已在迁移前导出私密备份到仓库外临时目录。
+- `0004_pair_archives.sql`、`0005_shared_library.sql` 与 `0006_active_pair_rooms.sql` 已成功应用，远程迁移列表为空。
+- 生产 Account Worker 当前活动版本为 `519be06a-5d10-4f8e-ba69-a00e7216493e`，100% 流量，`AUTH_TEST_MODE=false`。
+- 正式 Pages 入口 `/account-api/health` 返回 200/`testMode=false`；`/account-api/api/library` 与 `/account-api/api/pair/active-room` 未登录均返回 401 `AUTH_REQUIRED`。
+- 日常 APK 使用 `https://tongkan-personal.pages.dev/account-api`、公开 FCM 客户端配置和空 Preview 令牌。
+- 当前 APK 仍为 Debug 签名；双设备片库、FCM 与完整 Beta 物理验收因没有第二位测试者延期。
+- Android 当前交付 APK 为 1.0.0-alpha10.2.4 / versionCode 40，SHA-256 `64D6530D50E127528CA0BD57E9F2F04C37E20EAB25E9F174BDB11C0581A09BA6`；生产 API、FCM 配置完整且 Preview 令牌为空。
+- Preview Account Worker 当前版本为 `5238a35c-09d7-478e-961f-5554e697af9b`；Preview 与生产 D1 均已应用 `0006_active_pair_rooms.sql`。
+
 ### 账号预览联调
 
 账号联调环境使用独立 Worker `tongkan-account-preview` 和独立 D1，通过 Pages Service Binding 暴露为同域 `/account-api/*`：
 
 - `apps/web/functions/_middleware.js` 将 `/account-api` 前缀移除后转发到 `ACCOUNT` binding。
+- 当前受保护 Preview 网关为 `https://tongkan-account-preview-gateway.pages.dev/account-api`；旧的 `account-preview.tongkan-personal.pages.dev` 不存在，QA allowlist 已同步到实际网关。
 - 预览 Worker 关闭 `workers.dev` 和 Preview URL，不提供独立公网入口。
 - 除 `/health` 外，预览 API 要求 `X-Tongkan-Test-Key`；令牌只存 Cloudflare Secret 和仓库外临时构建目录。
 - 预览模式返回 `debugCode`，不发送邮件，数据只写入 `tongkan-account-preview`。
 - 联调 APK 会包含可提取的临时测试令牌，因此只能用于小范围测试；完成真实 SMTP 后必须轮换/删除令牌并构建不含测试令牌的正式包。
+
+### Alpha 10.2.4 活跃房间迁移
+
+本版本新增 `apps/account/migrations/0006_active_pair_rooms.sql`。2026-08-19 已在用户明确授权后完成生产备份、migration 与 Worker 部署；以下命令保留为运维记录：
+
+```powershell
+pnpm --filter @tongkan/account db:preview
+pnpm --filter @tongkan/account deploy:preview
+
+# 生产执行记录（已于 2026-08-19 获得授权并完成）
+pnpm --filter @tongkan/account db:remote
+pnpm --filter @tongkan/account exec wrangler deploy --env=""
+```
+
+发布后验证：当前 pair 的房主可以 POST，房主 GET 返回 `room: null`，好友 GET 返回 guest URL，第三账号返回 `PAIR_REQUIRED`，DELETE/过期/解绑后好友 GET 返回 `room: null`。D1 的 `invite_url_ciphertext` 不得包含明文 invite key，任何响应不得出现 host key。

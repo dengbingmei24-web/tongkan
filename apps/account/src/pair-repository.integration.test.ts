@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPlatformProxy } from 'wrangler';
+import { ActiveRoomService } from './active-room-service';
 import type { Env } from './env';
 import type { UserRecord } from './models';
 import { PairService } from './pair-service';
@@ -10,6 +11,7 @@ const migrationUrls = [
   new URL('../migrations/0002_pairing.sql', import.meta.url),
   new URL('../migrations/0003_device_tokens.sql', import.meta.url),
   new URL('../migrations/0004_pair_archives.sql', import.meta.url),
+  new URL('../migrations/0006_active_pair_rooms.sql', import.meta.url),
 ];
 
 let database: D1Database;
@@ -113,6 +115,54 @@ afterAll(async () => {
 });
 
 describe('AccountRepository local D1 integration', () => {
+  it('publishes, replaces, reads and clears one active room per pair', async () => {
+    const repository = new AccountRepository(database);
+    const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
+    const { pairId, userA, userB } = await seedActivePair(111);
+    const firstNow = 1_900_000_011_000;
+    const firstRoomId = hexId(1_111);
+    const firstInviteKey = hexId(1_112);
+    const firstInviteUrl = `https://tongkan-personal.pages.dev/room/${firstRoomId}#join=${firstInviteKey}`;
+    const firstService = new ActiveRoomService(env, repository, () => firstNow);
+
+    await expect(firstService.publish(userA, firstInviteUrl, firstNow + 600_000)).resolves.toEqual({ room: null });
+    await expect(firstService.get(userA)).resolves.toEqual({ room: null });
+    await expect(firstService.get(userB)).resolves.toMatchObject({
+      room: {
+        roomId: firstRoomId,
+        url: firstInviteUrl,
+        host: { id: userA.id },
+      },
+    });
+    const firstStored = await database.prepare(
+      'SELECT host_user_id, invite_url_ciphertext FROM active_pair_rooms WHERE pair_id = ?',
+    ).bind(pairId).first<{ host_user_id: string; invite_url_ciphertext: string }>();
+    expect(firstStored?.host_user_id).toBe(userA.id);
+    expect(firstStored?.invite_url_ciphertext).not.toContain(firstInviteKey);
+
+    const secondNow = firstNow + 1_000;
+    const secondRoomId = hexId(1_113);
+    const secondInviteKey = hexId(1_114);
+    const secondInviteUrl = `https://tongkan-personal.pages.dev/room/${secondRoomId}#join=${secondInviteKey}`;
+    const secondService = new ActiveRoomService(env, repository, () => secondNow);
+    await expect(secondService.publish(userB, secondInviteUrl, secondNow + 600_000)).resolves.toEqual({ room: null });
+
+    expect(await countRows('SELECT COUNT(*) AS count FROM active_pair_rooms WHERE pair_id = ?', pairId)).toBe(1);
+    await expect(secondService.get(userA)).resolves.toMatchObject({
+      room: {
+        roomId: secondRoomId,
+        url: secondInviteUrl,
+        host: { id: userB.id },
+      },
+    });
+    await expect(secondService.get(userB)).resolves.toEqual({ room: null });
+
+    await secondService.clear(userA);
+    expect(await countRows('SELECT COUNT(*) AS count FROM active_pair_rooms WHERE pair_id = ?', pairId)).toBe(1);
+    await secondService.clear(userB);
+    expect(await countRows('SELECT COUNT(*) AS count FROM active_pair_rooms WHERE pair_id = ?', pairId)).toBe(0);
+  });
+
   it('completes twenty concurrent unbind rounds without split state or duplicate archives', async () => {
     const repository = new AccountRepository(database);
     const env = { DB: database, AUTH_SECRET: 'integration-secret' } as Env;
@@ -273,6 +323,20 @@ describe('AccountRepository local D1 integration', () => {
       pairDeleted: false,
     });
     expect(await countRows('SELECT COUNT(*) AS count FROM pairs WHERE id = ?', pairId)).toBe(0);
+  });
+
+  it('removes the active pair room in the same unbind batch', async () => {
+    const repository = new AccountRepository(database);
+    const { pairId, userA } = await seedActivePair(110);
+    await database.prepare(
+      `INSERT INTO active_pair_rooms (
+         pair_id, host_user_id, room_id, invite_url_ciphertext,
+         expires_at, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(pairId, userA.id, hexId(1101), 'encrypted-invite', 2_000_000_000_000, 1, 1).run();
+
+    await expect(repository.unbindPair(pairId, userA.id, 'keep', 1_900_000_010_000)).resolves.toBe(true);
+    expect(await countRows('SELECT COUNT(*) AS count FROM active_pair_rooms WHERE pair_id = ?', pairId)).toBe(0);
   });
 
   it('rolls the whole batch back when archive creation fails', async () => {

@@ -15,7 +15,7 @@
 
 ## 2. 安全规则
 
-- `run-preview.ps1` 只允许 `localhost`、`127.0.0.1` 或精确主机 `account-preview.tongkan-personal.pages.dev`。
+- `run-preview.ps1` 只允许 `localhost`、`127.0.0.1` 或精确主机 `tongkan-account-preview-gateway.pages.dev`。
 - Token 和 Preview 测试密钥只从进程环境变量或 `-SecureStdin` 读取；不得放入命令参数、JSON、文件、截图或日志。
 - runner 仅输出 case、请求名、HTTP 状态和错误码；失败时不输出请求体、响应体或夹具值。
 - 所有账号、pair、分类和视频必须是可丢弃 Preview 数据；不得请求生产 API。
@@ -90,7 +90,7 @@ qa/shared-library/run-preview.ps1 -Mode Live -SecureStdin
 | `zero-change-batches` | duplicate-only 与 rejected-only 均不改变 revision |
 | `metadata-partial` | 条目保存且 `metadataStatus=partial` |
 | `filter-status-sort-and-category-delete` | 组合筛选唯一命中；分类/条目顺序稳定；删分类后 `categoryId=null` |
-| `request-validation-and-not-found` | 400/404 错误码精确且所有失败后 revision 不变 |
+| `request-validation-and-not-found` | 400/404/415 错误码精确且所有失败后 revision 不变 |
 | `stale-revision-direct` | 409 `LIBRARY_VERSION_CONFLICT` 返回权威 `currentRevision` |
 | `stale-revision-race-20` | 每轮恰好一个 200、一个 409，冲突 revision 等于成功 revision |
 | `rebinding-old-item-isolation` | 旧条目写入 404，新活动 pairId/revision 不变 |
@@ -98,6 +98,12 @@ qa/shared-library/run-preview.ps1 -Mode Live -SecureStdin
 | `archive-forbidden-states` | pending/delete/第三方均为 403 `ARCHIVE_FORBIDDEN` |
 | `both-delete-not-found` | A/B/C 均为 404 `NOT_FOUND` |
 
+## 5.1 B23 Runtime 回归
+
+- 单测必须验证默认 fetch 使用 `globalThis` receiver，且 302 首跳、200 HTML 回退和不可信跳转边界均稳定。
+- 本地 Workers Runtime 必须用一个当前有效的真实 B23 链接完成完整 addBatch；验收记录只保存短链、解析后的公开 BV/page、状态和 revision，不保存账号 token。
+- Android 必须把 `【分享标题】` 与下一行 B23/BV/av 链接合并为单条，并向 API 提交规范化 URL。
+- Preview 可在不读取或输出 secret 的前提下上传；生产部署必须单独获得用户明确授权，且不涉及 D1 migration。
 ## 6. D1 级联检查
 
 仅审查任务在 Preview 上运行。命令、数据库 ID、完整 pairId 和完整输出不得提交；只保存脱敏计数证据。
@@ -122,13 +128,13 @@ WHERE pair_id = '<BOTH_DELETED_PAIR_ID>';
 
 | 检查 | 结果 | 脱敏证据编号 |
 | --- | --- | --- |
-| JSON / AST / ValidateOnly / diff-check |  |  |
-| BV/B23 去重与零变化 revision |  |  |
-| partial、分类、筛选、状态和排序 |  |  |
-| 20/20 revision race |  |  |
-| keep/pending/delete/第三方权限 |  |  |
-| 重绑后旧 pair 隔离 |  |  |
-| 三张 D1 表计数均为 0 |  |  |
+| JSON / AST / ValidateOnly / diff-check | PASS | TK003-PREVIEW-001 |
+| BV/B23 去重与零变化 revision | PASS | TK003-PREVIEW-002 |
+| partial、分类、筛选、状态和排序 | PASS | TK003-PREVIEW-003 |
+| 20/20 revision race | PASS | TK003-PREVIEW-004 |
+| keep/pending/delete/第三方权限 | PASS | TK003-PREVIEW-005 |
+| 重绑后旧 pair 隔离 | PASS | TK003-PREVIEW-006 |
+| 三张 D1 表计数均为 0 | PASS | TK003-PREVIEW-007 |
 
 ## 8. 阻断条件
 
@@ -137,3 +143,19 @@ WHERE pair_id = '<BOTH_DELETED_PAIR_ID>';
 - A/B/C 拓扑与第 3 节不一致，或活动片库不是空夹具。
 - 任一请求需要生产 URL、真实用户 token、真实邮箱或个人数据。
 - 并发用例不是 20/20，或冲突响应缺失 `currentRevision`。
+
+## 9. 生产发布记录
+
+- 2026-08-18：T041 全仓自动化门槛通过；Preview 证据仍作为 API、并发和 D1 行为的验收真源。
+- 生产 D1 已应用 `0004_pair_archives.sql` 与 `0005_shared_library.sql`，生产 Worker 已部署且正式入口健康检查通过。
+- Android 生产配置 APK 已验证不包含已知 Preview 测试令牌。
+- 本文件的 Preview 用例不得直接对生产真实账号执行；双设备 Android 验收由 `docs/quality/QA_CHECKLIST.md` 管理，目前按用户决定延期。
+## Alpha 10.2.1 单机 UI 验收
+
+- [ ] 打开共同片库，点击“添加视频”后显示贴底面板；键盘出现时标题、输入区、逐条预览和确认按钮可达。
+- [ ] 粘贴 BV、带 P 参数链接、B23 分享文本和无效 URL，逐条状态正确；存在无效行或超过 20 条时确认按钮不可用。
+- [ ] 添加完成后逐条显示已添加、片库中已存在或失败原因；失效 B23 显示“短链失效或视频不可用”。
+- [ ] 默认片库按分类和未分类分区显示真实封面；断网或封面失败时显示占位，不阻塞播放、管理和滚动。
+- [ ] 竖屏房间点击“换视频”打开底部抽屉，横屏/全屏点击“片库”打开右侧抽屉；两种状态下视频画面保持可见。
+- [ ] 抽屉内搜索、分类浏览、选择视频和“粘贴新链接”可用；选中后从 0 秒暂停准备，不自动播放。
+- [ ] 匿名房间与已登录未绑定状态点击“换视频”直接进入手动链接流程。

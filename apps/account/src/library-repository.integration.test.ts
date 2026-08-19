@@ -8,7 +8,8 @@ import type { UserRecord } from "./models";
 import { PairService } from "./pair-service";
 import { AccountRepository } from "./repository";
 
-const migrationUrls = [1, 2, 3, 4, 5].map((number) => new URL("../migrations/000" + number + "_" + ["auth", "pairing", "device_tokens", "pair_archives", "shared_library"][number - 1] + ".sql", import.meta.url));
+const migrationNames = ["0001_auth", "0002_pairing", "0003_device_tokens", "0004_pair_archives", "0005_shared_library", "0006_active_pair_rooms"];
+const migrationUrls = migrationNames.map((name) => new URL("../migrations/" + name + ".sql", import.meta.url));
 let database: D1Database;
 let disposePlatform: (() => Promise<void>) | undefined;
 

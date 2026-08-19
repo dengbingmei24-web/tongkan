@@ -14,6 +14,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.tongkan.mobile.R;
+import com.tongkan.mobile.account.AccountModels;
 
 public final class HomeScreen {
     public interface Listener {
@@ -22,6 +23,8 @@ public final class HomeScreen {
         void onJoinRoom();
         void onPasteInvite();
         void onRestoreRoom();
+        void onAccountAction();
+        void onJoinActiveRoom();
     }
 
     private final BreathTheme theme;
@@ -36,6 +39,11 @@ public final class HomeScreen {
     private final TextView connectionText;
     private final TextView modeText;
     private final TextView accountText;
+    private final Button accountButton;
+    private final LinearLayout activeRoomPanel;
+    private final TextView activeRoomTitle;
+    private final TextView activeRoomBody;
+    private final Button activeRoomButton;
     private final LinearLayout joinPanel;
 
     public HomeScreen(Context context, BreathTheme theme, String quote, String quoteSource, Listener listener) {
@@ -76,7 +84,22 @@ public final class HomeScreen {
         presence.addView(presenceCopy, components.margin(components.matchWrap(), 0, 12, 0, 0));
         accountText = components.text("房间功能无需登录即可使用", 11, BreathComponents.ROLE_MUTED_TEXT);
         presence.addView(accountText, components.margin(components.matchWrap(), 0, 7, 0, 0));
+        accountButton = components.button("登录账号", false);
+        accountButton.setOnClickListener(view -> listener.onAccountAction());
+        presence.addView(accountButton, components.margin(components.matchHeight(46), 0, 12, 0, 0));
         content.addView(presence, components.margin(components.matchWrap(), 0, 22, 0, 0));
+
+        activeRoomPanel = components.panel(18);
+        activeRoomPanel.setVisibility(View.GONE);
+        activeRoomPanel.addView(components.code("FRIEND / WAITING"), components.matchWrap());
+        activeRoomTitle = components.title("好友正在等你一起看", 22);
+        activeRoomPanel.addView(activeRoomTitle, components.margin(components.matchWrap(), 0, 12, 0, 0));
+        activeRoomBody = components.body("点击即可直接进入，无需复制或发送邀请链接。");
+        activeRoomPanel.addView(activeRoomBody, components.margin(components.matchWrap(), 0, 6, 0, 0));
+        activeRoomButton = components.button("进入好友房间", true);
+        activeRoomButton.setOnClickListener(view -> listener.onJoinActiveRoom());
+        activeRoomPanel.addView(activeRoomButton, components.margin(components.matchHeight(50), 0, 15, 0, 0));
+        content.addView(activeRoomPanel, components.margin(components.matchWrap(), 0, 12, 0, 0));
 
         LinearLayout roomCard = components.panel(18);
         LinearLayout roomTop = components.row();
@@ -187,12 +210,34 @@ public final class HomeScreen {
     public void setAccountState(String nickname, String email) {
         modeText.setText("● 已登录");
         accountText.setText(nickname + " · " + email);
+        accountButton.setText("管理账号与好友");
         nicknameInput.setText(nickname);
     }
 
     public void setAnonymousState() {
+        setAnonymousState(false, null);
+    }
+
+    public void setAnonymousState(boolean hasSavedAccount, String nickname) {
         modeText.setText("● 匿名模式");
-        accountText.setText("房间功能无需登录即可使用");
+        accountText.setText(hasSavedAccount ? "账号仍安全保留，可随时返回" : "房间功能无需登录即可使用");
+        accountButton.setText(hasSavedAccount ? "返回 " + nickname + " 的账号" : "登录账号");
+        setActiveRoom(null, false);
+    }
+
+    public void setActiveRoom(AccountModels.ActiveRoom room, boolean joining) {
+        if (room == null) {
+            activeRoomPanel.setVisibility(View.GONE);
+            activeRoomButton.setEnabled(false);
+            return;
+        }
+        long remainingMinutes = Math.max(1, (room.expiresAt - System.currentTimeMillis() + 59_999L) / 60_000L);
+        activeRoomTitle.setText(room.host.nickname + " 正在等你一起看");
+        activeRoomBody.setText("点击直接进入房间，无需复制链接 · 约 " + remainingMinutes + " 分钟内有效");
+        activeRoomButton.setText(joining ? "正在加入…" : "进入 " + room.host.nickname + " 的房间");
+        activeRoomButton.setEnabled(!joining);
+        activeRoomPanel.setVisibility(View.VISIBLE);
+        components.applyTheme(activeRoomPanel);
     }
 
     public void showJoinPanel() {

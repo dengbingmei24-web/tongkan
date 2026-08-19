@@ -50,7 +50,15 @@ export async function hmacHex(secret: string, value: string): Promise<string> {
 }
 
 export async function encryptToken(secret: string, value: string): Promise<string> {
-  const key = await tokenKey(secret);
+  return encryptSecret(secret, "push-token", value);
+}
+
+export async function decryptToken(secret: string, value: string): Promise<string> {
+  return decryptSecret(secret, "push-token", value);
+}
+
+export async function encryptSecret(secret: string, context: string, value: string): Promise<string> {
+  const key = await secretKey(secret, context);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(value));
   const combined = new Uint8Array(iv.length + encrypted.byteLength);
@@ -59,16 +67,16 @@ export async function encryptToken(secret: string, value: string): Promise<strin
   return bytesToBase64(combined);
 }
 
-export async function decryptToken(secret: string, value: string): Promise<string> {
+export async function decryptSecret(secret: string, context: string, value: string): Promise<string> {
   const combined = base64ToBytes(value);
   if (combined.length < 13) throw new Error("Invalid encrypted token");
-  const key = await tokenKey(secret);
+  const key = await secretKey(secret, context);
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: combined.slice(0, 12) }, key, combined.slice(12));
   return new TextDecoder().decode(decrypted);
 }
 
-async function tokenKey(secret: string): Promise<CryptoKey> {
-  const digest = await crypto.subtle.digest("SHA-256", encoder.encode("tongkan-push-token:" + secret));
+async function secretKey(secret: string, context: string): Promise<CryptoKey> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(`tongkan-${context}:${secret}`));
   return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 

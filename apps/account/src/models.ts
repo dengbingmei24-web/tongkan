@@ -59,6 +59,16 @@ export interface ActivePairRecord {
   partner: UserRecord;
 }
 
+export interface ActivePairRoomRecord {
+  pairId: string;
+  hostUserId: string;
+  roomId: string;
+  inviteUrlCiphertext: string;
+  expiresAt: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type PairRetentionDecision = 'keep' | 'delete';
 
 export type PairRetentionStatus = 'pending' | PairRetentionDecision;

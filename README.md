@@ -45,7 +45,7 @@
 
 | 使用方式 | B站双向同步 | 视频直链 | 聊天 | 屏幕共享 | 推荐场景 |
 | --- | --- | --- | --- | --- | --- |
-| Android App | 支持 | 暂不作为主要入口 | 暂未加入 | 暂未加入 | 两部手机一起看 B站 |
+| Android App | 支持 | 暂不作为主要入口 | 支持 | 暂未加入 | 账号双人空间、共同片库和两部手机一起看 B站 |
 | 电脑网页 + 扩展 | 支持 | 支持 | 支持 | 支持 | 电脑双人观看与共享屏幕 |
 | 电脑网页（无扩展） | 不支持 B站控制 | 支持 | 支持 | 支持 | 直链视频、聊天、屏幕共享 |
 | 手机网页 | B站仅本地观看 | 支持浏览器可播放直链 | 支持 | 只能观看电脑共享 | 临时加入房间或观看共享画面 |
@@ -71,16 +71,16 @@
 - 直链视频同步：将浏览器可直接播放的 HTTP/HTTPS 视频地址载入房间，双方在内置播放器中播放、暂停、拖动和双击切换状态。
 - 断线自动恢复：网页刷新、短暂掉线或网络切换后自动重新认证，并按服务端保存的视频、播放状态和当前进度重新对齐。
 - 桌面屏幕共享基础链路：Chrome / Edge 使用 `getDisplayMedia` 捕获标签页、窗口或屏幕，WebRTC 双人点对点传输画面与可用的共享声音。
-- Android 1.0 Alpha：两部 Android 手机加入同一 Cloudflare 房间，在 App 内载入 B站播放器，双方均可播放、暂停、拖动，显示真实时长，并在断线后恢复服务端最新状态。
+- Android 1.0 Alpha：支持 QQ 邮箱账号、唯一好友、共同片库、聊天、横屏亮度/音量、FCM 邀请和 B站双向同步；匿名临时房间继续保留。
 - 共享协议包：B站链接解析、时钟锚点、漂移校准策略。
 
 语音和 Android 屏幕共享位于后续开发阶段；Android 1.0 已进入可安装 Alpha 阶段（见 `apps/android/`），不会阻塞 B站双人同步与桌面屏幕共享链路。
 
 ### Android 1.0 Alpha
 
-Android 工程位于 [`apps/android`](./apps/android)，使用原生 Java、受控 WebView 和 JavaScript Bridge，直接复用现有 Cloudflare Durable Objects 房间服务与播放协议。Android 1.0 不包含手机屏幕共享、语音、聊天和桌面扩展互通验收。
+Android 工程位于 [`apps/android`](./apps/android)，使用原生 Java、受控 WebView 和 JavaScript Bridge，直接复用现有 Cloudflare Durable Objects 房间服务与播放协议。Android 1.0 不包含手机屏幕共享、语音和桌面扩展互通验收。
 
-当前通过真机测试的版本是 **Android `1.0.0-alpha.9.2`（versionCode 11）**。
+当前本地交付版本是 **Android `1.0.0-alpha10.2.2`（versionCode 38）**，匹配的 B23 修复已部署到生产 Account Worker；等待用截图中的同一分享文本完成真机确认。APK 使用 Debug 证书，最新公开 GitHub Release 仍为 Alpha 9.2，双设备物理验收延期。
 
 - [下载 Alpha 9.2 APK](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
 - [查看全部 GitHub Releases](https://github.com/dengbingmei24-web/tongkan/releases)

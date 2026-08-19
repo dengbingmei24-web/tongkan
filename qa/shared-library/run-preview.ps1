@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [Uri]$ApiOrigin = "https://account-preview.tongkan-personal.pages.dev/account-api",
+  [Uri]$ApiOrigin = "https://tongkan-account-preview-gateway.pages.dev/account-api",
   [string]$CasesPath = "",
   [ValidateSet("ValidateOnly", "Live")]
   [string]$Mode = "ValidateOnly",
@@ -14,10 +14,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Net.Http
 
-$AllowedRemotePreviewHosts = @("account-preview.tongkan-personal.pages.dev")
+$AllowedRemotePreviewHosts = @("tongkan-account-preview-gateway.pages.dev")
 $ExpectedErrorContract = [ordered]@{
-  "400" = @("INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED")
-  "401" = @("UNAUTHORIZED")
+  "400" = @("INVALID_REQUEST", "INVALID_JSON")
+  "415" = @("JSON_REQUIRED")
+  "401" = @("AUTH_REQUIRED")
   "403" = @("ARCHIVE_FORBIDDEN")
   "404" = @("NOT_FOUND")
   "409" = @("PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED")
@@ -123,7 +124,7 @@ function Resolve-TemplateValue {
     return $result
   }
   if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string] -and $Value -isnot [pscustomobject]) {
-    return @($Value | ForEach-Object { Resolve-TemplateValue -Value $_ -State $State -Iteration $Iteration })
+    return ,@($Value | ForEach-Object { Resolve-TemplateValue -Value $_ -State $State -Iteration $Iteration })
   }
   if ($Value -is [pscustomobject]) {
     $result = [ordered]@{}
@@ -374,7 +375,7 @@ function Assert-RequestResult {
   param([pscustomobject]$Definition, [pscustomobject]$Result, [hashtable]$State, [int]$Iteration)
   $expectation = Get-OptionalValue -Object $Definition -Name "expect"
   if ($null -eq $expectation) { return }
-  if (@($expectation.statuses) -notcontains $Result.Status) { throw "$($Definition.name): unexpected HTTP status." }
+  if (@($expectation.statuses) -notcontains $Result.Status) { throw "$($Definition.name): unexpected HTTP status $($Result.Status) error $($Result.ErrorCode)." }
   $expectedError = Get-OptionalValue -Object $expectation -Name "errorCode"
   if ($null -ne $expectedError -and [string]$expectedError -cne [string]$Result.ErrorCode) { throw "$($Definition.name): unexpected error code." }
 
@@ -407,22 +408,23 @@ function Assert-RequestResult {
   $arrayContains = Get-OptionalValue -Object $expectation -Name "arrayContains"
   if ($null -ne $arrayContains) { Assert-ArrayContains -Body $Result.Body -Definitions @($arrayContains) -State $State -Iteration $Iteration }
 
-  foreach ($definition in @(Get-OptionalValue -Object $expectation -Name "arrayOrder" -Default @())) {
-    $arrayInfo = Get-BodyPathInfo -Body $Result.Body -Path ([string]$definition.path)
+  foreach ($arrayOrderDefinition in @(Get-OptionalValue -Object $expectation -Name "arrayOrder" -Default @())) {
+    $arrayInfo = Get-BodyPathInfo -Body $Result.Body -Path ([string]$arrayOrderDefinition.path)
     if (-not $arrayInfo.Exists) { throw "$($Definition.name): ordered array missing." }
-    $actual = @($arrayInfo.Value | ForEach-Object { (Get-BodyPathInfo -Body $_ -Path ([string]$definition.property)).Value })
-    $expected = @(Resolve-TemplateValue -Value $definition.expected -State $State -Iteration $Iteration)
-    if (-not (Test-EqualValue -Actual $actual -Expected $expected)) { throw "$($Definition.name): array order mismatch at $($definition.path)." }
+    $actual = @($arrayInfo.Value | ForEach-Object { (Get-BodyPathInfo -Body $_ -Path ([string]$arrayOrderDefinition.property)).Value })
+    $expected = @(Resolve-TemplateValue -Value $arrayOrderDefinition.expected -State $State -Iteration $Iteration)
+    if ($expected.Count -eq 1 -and $expected[0] -is [System.Array]) { $expected = @($expected[0]) }
+    if (-not (Test-EqualValue -Actual $actual -Expected $expected)) { throw "$($Definition.name): array order mismatch at $($arrayOrderDefinition.path)." }
   }
-  foreach ($definition in @(Get-OptionalValue -Object $expectation -Name "uniqueBy" -Default @())) {
-    $arrayInfo = Get-BodyPathInfo -Body $Result.Body -Path ([string]$definition.path)
+  foreach ($uniqueDefinition in @(Get-OptionalValue -Object $expectation -Name "uniqueBy" -Default @())) {
+    $arrayInfo = Get-BodyPathInfo -Body $Result.Body -Path ([string]$uniqueDefinition.path)
     if (-not $arrayInfo.Exists) { throw "$($Definition.name): unique array missing." }
     $seen = @{}
     foreach ($item in @($arrayInfo.Value)) {
-      $valueInfo = Get-BodyPathInfo -Body $item -Path ([string]$definition.property)
+      $valueInfo = Get-BodyPathInfo -Body $item -Path ([string]$uniqueDefinition.property)
       if (-not $valueInfo.Exists) { throw "$($Definition.name): unique property missing." }
       $key = ConvertTo-Json $valueInfo.Value -Compress -Depth 10
-      if ($seen.ContainsKey($key)) { throw "$($Definition.name): duplicate value in $($definition.path)." }
+      if ($seen.ContainsKey($key)) { throw "$($Definition.name): duplicate value in $($uniqueDefinition.path)." }
       $seen[$key] = $true
     }
   }
@@ -436,7 +438,7 @@ function Assert-RequestResult {
   if ($null -ne $batchErrors) {
     $resultsInfo = Get-BodyPathInfo -Body $Result.Body -Path "results"
     if (-not $resultsInfo.Exists) { throw "$($Definition.name): batch results missing." }
-    Assert-CountMap -Values @($resultsInfo.Value | ForEach-Object { $_.error }) -Expected $batchErrors -Label "$($Definition.name) batch error"
+    Assert-CountMap -Values @($resultsInfo.Value | ForEach-Object { $info = Get-BodyPathInfo -Body $_ -Path "error"; if ($info.Exists) { $info.Value } }) -Expected $batchErrors -Label "$($Definition.name) batch error"
   }
   $revisionDelta = Get-OptionalValue -Object $expectation -Name "revisionDelta"
   if ($null -ne $revisionDelta) {

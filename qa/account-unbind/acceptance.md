@@ -4,7 +4,7 @@
 
 ## 1. 安全与环境门槛
 
-- 远程 API 只允许精确主机 `account-preview.tongkan-personal.pages.dev` 且必须使用 HTTPS；本机只允许 `localhost/127.0.0.1`。类似 `preview.attacker.example` 的主机必须被拒绝，脚本没有生产覆盖开关。
+- 远程 API 只允许精确主机 `tongkan-account-preview-gateway.pages.dev` 且必须使用 HTTPS；本机只允许 `localhost/127.0.0.1`。类似 `preview.attacker.example` 的主机必须被拒绝，脚本没有生产覆盖开关。
 - Session Token 只通过进程环境变量 `TONGKAN_QA_TOKEN_A/B/C` 或 `-SecureStdin` 输入。
 - 预览测试密钥只通过 `TONGKAN_QA_TEST_KEY` 或 `-SecureStdin` 输入。
 - 禁止把 token、测试邮箱、邀请码、响应正文、数据库导出或私人资料写入仓库、Issue、PR、截图和日志。

@@ -43,6 +43,39 @@ public class AccountModelsTest {
     }
 
     @Test
+    public void parsesActivePairRoomResponses() throws Exception {
+        String roomId = "dddddddddddddddddddddddddddddddd";
+        JSONObject response = new JSONObject()
+            .put("room", new JSONObject()
+                .put("roomId", roomId)
+                .put("url", "https://tongkan-personal.pages.dev/room/" + roomId + "#join=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+                .put("expiresAt", 1_800_000_600_000L)
+                .put("createdAt", 1_800_000_000_000L)
+                .put("host", user("user-2", "Partner")));
+        AccountModels.ActiveRoom room = AccountModels.ActiveRoom.fromResponse(response);
+        assertEquals(roomId, room.roomId);
+        assertEquals("Partner", room.host.nickname);
+        assertNull(AccountModels.ActiveRoom.fromResponse(new JSONObject().put("room", JSONObject.NULL)));
+    }
+
+    @Test
+    public void rejectsActiveRoomUrlsOutsideTongkan() throws Exception {
+        JSONObject response = new JSONObject()
+            .put("room", new JSONObject()
+                .put("roomId", "dddddddddddddddddddddddddddddddd")
+                .put("url", "https://evil.example/room/dddddddddddddddddddddddddddddddd#join=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+                .put("expiresAt", 1_800_000_600_000L)
+                .put("createdAt", 1_800_000_000_000L)
+                .put("host", user("user-2", "Partner")));
+        try {
+            AccountModels.ActiveRoom.fromResponse(response);
+            fail("Expected invalid active room URL");
+        } catch (org.json.JSONException expected) {
+            assertFalse(expected.getMessage().isEmpty());
+        }
+    }
+
+    @Test
     public void parsesLegacyAndExtendedPairStateResponses() throws Exception {
         AccountModels.PairState legacy = AccountModels.PairState.fromJson(new JSONObject()
             .put("pair", pair("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1_800_000_000_000L, "user-2", "partner")));

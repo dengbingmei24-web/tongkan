@@ -157,6 +157,14 @@ public final class AuthScreen {
         requestCodeButton.setText("获取验证码");
     }
 
+    public void prepareFreshLogin(String message) {
+        setRequestLoading(false);
+        setVerifyLoading(false);
+        resetCodeStep();
+        emailInput.setText("");
+        showMessage(message);
+    }
+
     public void setRequestLoading(boolean loading) {
         String idleLabel = codeInput.getVisibility() == View.VISIBLE ? "重新获取验证码" : "获取验证码";
         components.setButtonLoading(requestCodeButton, loading, idleLabel, "正在发送验证码…");

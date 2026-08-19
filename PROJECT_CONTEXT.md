@@ -27,6 +27,7 @@
 | `CONTEXT.md` | 精简的当前开发快照和跨对话交接 | 每次对话结束前必须更新；历史记录归档到 `docs/archive/context/` |
 | `docs/README.md` | 专题文档总索引 | 文档目录或真源路径变化时 |
 | `docs/decisions/DECISIONS.md` | 已确认的长期产品与技术决策 | 用户确认重要选择或旧决策被替代时 |
+| `docs/product/ROADMAP.md` | Now / Next / Later 产品阶段、优先级和候选范围 | 用户证据、阶段优先级或候选方向变化时 |
 | `docs/product/PRD.md` | 同看整体产品需求和 1.0 范围 | 整体产品范围改变时 |
 | `docs/product/ANDROID_FOLLOWUP_PRD.md` | Android 后续版本、体验反馈和 Alpha 9+ 讨论 | Android 产品决定或界面范围改变时 |
 | `docs/product/ACCOUNT_PAIR_SPACE_PRD.md` | Alpha 10 账号、唯一好友、双人片库、日历、历史和统计真源 | 账号与双人空间范围、数据或交互变化时 |
@@ -111,7 +112,7 @@
 │  └─ web/             Web 跨页面统一设计规范
 ├─ docs/
 │  ├─ README.md        专题文档总索引
-│  ├─ product/         总体、Android 与双人空间 PRD
+│  ├─ product/         产品路线图及总体、Android 与双人空间 PRD
 │  ├─ decisions/       长期产品与技术决策
 │  ├─ quality/         QA、安全、兼容性与可访问性
 │  ├─ operations/      部署与发布指南
@@ -156,7 +157,8 @@ flowchart LR
 | 任务 | 首先阅读 | 主要代码或目录 |
 |---|---|---|
 | Android UI、主题、全屏、片单 | `docs/product/ANDROID_FOLLOWUP_PRD.md`、`design/alpha9-ui/SELECTED_DESIGN.md` | `apps/android/app/src/main/java/com/tongkan/mobile/MainActivity.java` |
-| 同看账号、唯一好友、片库、日历和历史 | `docs/product/ACCOUNT_PAIR_SPACE_PRD.md`、`docs/decisions/DECISIONS.md`、`design/alpha10-ui/OPTIONS.md` | 计划新增账号 Worker/D1；Android 账号与主导航模块 |
+| 产品阶段、优先级和候选范围 | `docs/product/ROADMAP.md`、`docs/decisions/DECISIONS.md` | 对应阶段的 PRD、Spec Kit 与实现目录 |
+| 同看账号、唯一好友、片库、日历和历史 | `docs/product/ACCOUNT_PAIR_SPACE_PRD.md`、`docs/decisions/DECISIONS.md`、`design/alpha10-ui/OPTIONS.md` | Account Worker/D1；Android 账号与主导航模块 |
 | Android 房间连接和重连 | `CONTEXT.md`、Android README | `RoomClient.java` |
 | B站链接解析和播放器 URL | `CONTEXT.md` 已知问题 | `BilibiliMedia.java`、`bilibili-player-bridge.js` |
 | 播放协议 | `docs/decisions/DECISIONS.md`、`packages/protocol/src/types.ts` | `RoomProtocol.java`、`room-session.ts` |
@@ -292,6 +294,7 @@ Android 临时构建环境和完整复制命令以 `AGENTS.md`、`apps/android/R
 - 文档总索引：`docs/README.md`
 - 当前开发状态：`CONTEXT.md`
 - 已确认决策：`docs/decisions/DECISIONS.md`
+- 产品阶段与优先级：`docs/product/ROADMAP.md`
 - Android 后续 PRD：`docs/product/ANDROID_FOLLOWUP_PRD.md`
 - 账号与双人空间 PRD：`docs/product/ACCOUNT_PAIR_SPACE_PRD.md`
 - Alpha 9 已选设计：`design/alpha9-ui/SELECTED_DESIGN.md`

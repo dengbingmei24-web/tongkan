@@ -250,6 +250,31 @@ public final class AccountClient {
         execute(post("/api/pair/watch-invites", body, token), value -> AccountModels.WatchInviteResult.fromJson(new JSONObject(value)), callback);
     }
 
+    public void publishActiveRoom(String token, String url, long expiresAt, ResultCallback<Void> callback) {
+        if (!requireConfigured(callback)) return;
+        JSONObject body = new JSONObject();
+        try {
+            body.put("url", url);
+            body.put("expiresAt", expiresAt);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成好友房间发布请求。", 0, false));
+            return;
+        }
+        execute(post("/api/pair/active-room", body, token), value -> null, callback);
+    }
+
+    public void getActiveRoom(String token, ResultCallback<AccountModels.ActiveRoom> callback) {
+        if (!requireConfigured(callback)) return;
+        Request request = requestBuilder("/api/pair/active-room", token).get().build();
+        execute(request, value -> AccountModels.ActiveRoom.fromResponse(new JSONObject(value)), callback);
+    }
+
+    public void clearActiveRoom(String token, ResultCallback<Void> callback) {
+        if (!requireConfigured(callback)) return;
+        Request request = requestBuilder("/api/pair/active-room", token).delete().build();
+        execute(request, value -> null, callback);
+    }
+
     public void getLibrary(
         String token,
         String query,
@@ -360,6 +385,24 @@ public final class AccountClient {
             body.put("expectedRevision", expectedRevision);
         } catch (JSONException error) {
             callback.onFailure(new Failure("INVALID_REQUEST", "无法生成片库更新请求。", 0, false));
+            return;
+        }
+        execute(patch("/api/library/items/" + itemId, body, token), AccountClient::parseLibrarySnapshot, callback);
+    }
+
+    public void renameLibraryItem(String token, String itemId, String title, long expectedRevision, ResultCallback<AccountModels.LibrarySnapshot> callback) {
+        if (!requireConfigured(callback) || !requireId(itemId, "片库条目无效。", callback) || !requireRevision(expectedRevision, callback)) return;
+        String normalizedTitle = title == null ? "" : title.trim();
+        if (normalizedTitle.isEmpty() || normalizedTitle.codePointCount(0, normalizedTitle.length()) > 160) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "视频名称需为 1 到 160 个字符。", 0, false));
+            return;
+        }
+        JSONObject body = new JSONObject();
+        try {
+            body.put("title", normalizedTitle);
+            body.put("expectedRevision", expectedRevision);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成视频重命名请求。", 0, false));
             return;
         }
         execute(patch("/api/library/items/" + itemId, body, token), AccountClient::parseLibrarySnapshot, callback);

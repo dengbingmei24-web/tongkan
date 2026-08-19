@@ -25,6 +25,59 @@
 - [ ] `pnpm test:integration` 通过，包括 WebSocket smoke test 和七项双端验收。
 - [ ] `apps/extension/dist.pem`、`.crx`、`.env` 与部署密钥未进入 Git。
 
+### Alpha 10.2 生产发布证据（2026-08-18）
+
+- [x] T041：全仓 typecheck、测试、集成测试、构建和依赖清单检查通过。
+- [x] Account 48/48、Signaling 33/33、Web 16/16、Protocol 11/11、Extension 21/21 测试通过。
+- [x] 共享片库 Preview 15/15、revision race 20/20、D1 级联清理通过。
+- [x] 生产 D1 已应用 `0004_pair_archives.sql` 与 `0005_shared_library.sql`，迁移列表为空。
+- [x] 生产 Account Worker 版本 `1dc75739-52bf-4db1-828e-6b11e70906c0` 已激活；健康检查 `testMode=false`，未登录片库请求返回 401。
+- [x] Android 39/39、Lint 0 错误/19 警告、生产配置 Debug APK 构建通过；生产 API 与 FCM 已注入，Preview 测试令牌为空且已验证不在 APK 中。
+- [ ] 双设备共享片库、FCM 通知、房间同步与长时间观看物理验收：用户当前没有第二位测试者，明确延期，不得标记通过。
+- [ ] 长期 Release 签名：当前仍为 Debug 证书，仅供个人日常安装。
+
+### Alpha 10.2.1 片库 UX 验收
+
+- [x] Android JVM 测试覆盖直链、B23、无效输入、20 条上限、默认分类分组和 B23 失败文案。
+- [x] Android 41/41 单元测试、Lint 0 错误/23 警告、生产配置 Debug APK 与 versionCode 37/versionName 1.0.0-alpha10.2.1 校验通过；未增加第三方图片或 UI 依赖。
+
+### Alpha 10.2.2 B23 热修复验收
+
+- [x] 单测验证默认 fetch 以 `globalThis` 为 receiver 调用，防止 Cloudflare `Illegal invocation` 回归。
+- [x] 单测覆盖首个安全 302 直接收敛、200 HTML 中安全视频 URL 提取、原有不可信/过多跳转拒绝。
+- [x] 本地 Workers Runtime 使用截图短链 `https://b23.tv/XM569Iw`，成功添加 `BV1SBbS6hEHa` page 1 且元数据 ready。
+- [x] Android 合并分行分享标题和下一行链接，并提交规范化 URL；Android 42/42、Lint 0 错误/23 警告通过。
+- [x] Account 51/51、全仓 132 项测试、typecheck、build、diff check 和 Preview Worker 上传通过。
+- [x] versionCode 38 / versionName 1.0.0-alpha10.2.2 生产配置候选 APK 校验通过，Preview token 为空，SHA-256 已记录。
+- [x] 经用户明确授权部署生产 Account Worker 版本 `1198e7ba-ff25-4aca-8369-105e2e1efa19`；100% 活动，健康检查 200/`testMode=false`，未登录片库 401 `AUTH_REQUIRED`。
+- [ ] 安装 Alpha 10.2.2 后，用同一截图短链完成真机添加复验并确认标题/封面元数据。
+- [ ] 添加面板贴底显示，输入每行实时出现“已识别 / 短链待解析 / 无法识别 / 超过上限”，存在无效行时不能提交。
+- [ ] 服务端返回后逐条显示已添加、已存在或失败原因；失效/不可用 B23 不再只提示稍后重试。
+- [ ] 默认片库按分类和未分类展示 16:9 封面；封面失败显示主题占位，不阻塞滚动和操作。
+- [ ] 竖屏房间点击“换视频”后底部抽屉覆盖部分屏幕且视频仍可见；搜索、按分类浏览和手动粘贴入口可用。
+- [ ] 横屏/全屏控制层提供“片库”，右侧抽屉打开时视频仍可见；选中条目后从 0 秒暂停准备，不自动播放。
+- [ ] 匿名房间或未绑定用户仍可通过“换视频”进入手动链接流程，不因片库入口回归失效。
+### Alpha 10.2.3 账号与片库修复验收
+
+- [x] Account 53/53、Android 44/44、全仓 134 项测试、typecheck、build、真实信令集成与 Lint 0 错误/23 警告通过；片库 title PATCH、名称边界、自定义名称刷新保留和 JPEG 缩略图 URL 有回归覆盖。
+- [x] Preview Worker `093b89a5-2bcd-42fe-b7a6-9e8c04c0bd8c` 与生产 Worker `62bc7034-2599-4519-bf3b-dd119e68dd67` 已部署；生产健康检查 200/`testMode=false`，未登录片库 401，远程 D1 无待应用 migration。
+- [x] versionCode 39 / versionName 1.0.0-alpha10.2.3 生产配置 APK 已构建，生产 API 与 FCM 有效、Preview token 为空、源/交付 hash 一致，SHA-256 `C081BC427C8E1650374E48C711C937D2F620883EEA9F0E4E492A3A8BE89EE681`。
+- [ ] 登录后点击“进入匿名模式”，首页显示匿名状态且账号会话仍保留；点击“返回账号”无需验证码即可恢复共同片库和好友页。
+- [ ] 点击“切换登录账号”或“退出当前账号”后，邮箱和验证码表单恢复可用，可使用同一或其他邮箱重新登录。
+- [ ] 解绑弹窗一次选择后服务端活动 pair 立即为空；keep 显示只读旧空间，delete 不显示本人归档访问。
+- [ ] 从片库选择视频时创建房间、准备该视频并优先通知唯一好友；无设备 token 时显示复制链接/系统分享面板。
+- [ ] 视频可重命名为 1–160 字符；刷新视频信息后自定义名称不被覆盖，封面显示 JPEG 缩略图或主题占位。
+
+### Alpha 10.2.4 好友房间直达
+
+- [ ] 解绑弹窗同时显示“解除并保留旧空间”“解除并删除旧空间”和“取消”，三项在当前真机主题下均可点击。
+- [ ] 好友 A 登录并创建房间后，Account D1 只保存加密 invite URL，不出现 host key 或明文 invite key。
+- [ ] 好友 B 停留首页时最多 10 秒看到“A 正在等你一起看”，点击后以 guest 身份进入同一房间，无需通知或粘贴链接。
+- [ ] 创建者 A 的首页不显示加入自己的房间；第三账号、旧 pair 和已解绑双方均不可读取该记录。
+- [ ] 新建房间覆盖同 pair 旧记录；房主离开后卡片消失；未显式离开时记录 10 分钟后过期并在读取时清理。
+- [ ] 拒绝通知权限、无 FCM token 或推送失败时不弹出强制分享面板，好友 B 仍可从 App 首页进入。
+- [ ] 活跃房间发布失败时房主收到复制链接/系统分享兜底，不影响已创建的临时房间。
+
 ## 2. 房间与邀请
 
 - [ ] 房主创建房间后能复制访客邀请链接。

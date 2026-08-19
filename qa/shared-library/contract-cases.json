@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "feature": "TK-003-shared-library",
   "openApiContract": "specs/TK-003-shared-library/contracts/openapi.yaml",
-  "defaultPreviewOrigin": "https://account-preview.tongkan-personal.pages.dev/account-api",
+  "defaultPreviewOrigin": "https://tongkan-account-preview-gateway.pages.dev/account-api",
   "notes": [
     "仅用于本地或精确 Preview 主机；禁止指向生产环境。",
     "Token 与 Preview 测试密钥只允许来自进程环境变量或安全 stdin。",
@@ -10,11 +10,12 @@
     "{{NAME}} 可引用非 secret 环境变量或前序 capture，runner 不输出解析值。"
   ],
   "errorContract": {
-    "400": ["INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED"],
-    "401": ["UNAUTHORIZED"],
+    "400": ["INVALID_REQUEST", "INVALID_JSON"],
+    "401": ["AUTH_REQUIRED"],
     "403": ["ARCHIVE_FORBIDDEN"],
     "404": ["NOT_FOUND"],
-    "409": ["PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED"]
+    "409": ["PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED"],
+    "415": ["JSON_REQUIRED"]
   },
   "batchErrorCodes": ["INVALID_BILIBILI_URL", "B23_RESOLUTION_FAILED", "CATEGORY_NOT_FOUND", "LIBRARY_LIMIT_REACHED"],
   "environmentVariables": [
@@ -42,7 +43,7 @@
       "category": "error-contract",
       "mode": "sequential",
       "requests": [
-        { "name": "read-without-token", "actor": "none", "method": "GET", "path": "/api/library", "expect": { "statuses": [401], "errorCode": "UNAUTHORIZED", "bodyAbsent": ["currentRevision"] } }
+        { "name": "read-without-token", "actor": "none", "method": "GET", "path": "/api/library", "expect": { "statuses": [401], "errorCode": "AUTH_REQUIRED", "bodyAbsent": ["currentRevision"] } }
       ]
     },
     {
@@ -246,7 +247,7 @@
         {
           "name": "json-required", "actor": "A", "method": "POST", "path": "/api/library/items/batch",
           "rawBody": "{}", "contentType": "text/plain",
-          "expect": { "statuses": [400], "errorCode": "JSON_REQUIRED" }
+          "expect": { "statuses": [415], "errorCode": "JSON_REQUIRED" }
         },
         {
           "name": "invalid-request", "actor": "A", "method": "POST", "path": "/api/library/items/batch",

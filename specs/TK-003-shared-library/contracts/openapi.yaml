@@ -7,6 +7,53 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/pair/active-room:
+    get:
+      summary: Read the bound partner's current short-lived room
+      responses:
+        '200':
+          description: Active partner room or null for no room, expiry, or creator self-view
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveRoomResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/PairConflict' }
+    post:
+      summary: Publish or replace the current pair room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, expiresAt]
+              properties:
+                url:
+                  type: string
+                  pattern: '^https://tongkan-personal\.pages\.dev/room/[a-f0-9]{32}#join=[a-f0-9]{32}$'
+                expiresAt: { type: integer, minimum: 1 }
+      responses:
+        '201':
+          description: Room stored; creator does not receive a guest join payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveRoomResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/PairConflict' }
+    delete:
+      summary: Clear rooms hosted by the current user
+      responses:
+        '200':
+          description: Idempotent clear
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean, const: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/library:
     get:
       summary: Read the current active pair library snapshot
@@ -139,6 +186,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/LibraryConflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
   /api/library/items/{itemId}:
     patch:
       summary: Update category or watched state
@@ -157,6 +205,7 @@ paths:
                   pattern: '^[a-f0-9]{32}$'
                 watchStatus: { type: string, enum: [unwatched, watched] }
                 refreshMetadata: { type: boolean, default: false }
+                title: { type: string, minLength: 1, maxLength: 160 }
                 expectedRevision: { type: integer, minimum: 0 }
       responses:
         '200': { $ref: '#/components/responses/LibrarySnapshotResponse' }
@@ -234,6 +283,33 @@ components:
       required: true
       schema: { type: string, pattern: '^[a-f0-9]{32}$' }
   schemas:
+    ActiveRoomUser:
+      type: object
+      required: [id, email, nickname, avatarId]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        nickname: { type: string }
+        avatarId: { type: string }
+    ActiveRoom:
+      type: object
+      required: [roomId, url, expiresAt, createdAt, host]
+      properties:
+        roomId: { type: string, pattern: '^[a-f0-9]{32}$' }
+        url:
+          type: string
+          pattern: '^https://tongkan-personal\.pages\.dev/room/[a-f0-9]{32}#join=[a-f0-9]{32}$'
+        expiresAt: { type: integer, minimum: 1 }
+        createdAt: { type: integer, minimum: 1 }
+        host: { $ref: '#/components/schemas/ActiveRoomUser' }
+    ActiveRoomResult:
+      type: object
+      required: [room]
+      properties:
+        room:
+          oneOf:
+            - { $ref: '#/components/schemas/ActiveRoom' }
+            - { type: 'null' }
     PublicActor:
       type: object
       required: [id, nickname]
@@ -299,7 +375,7 @@ components:
       enum: [INVALID_BILIBILI_URL, B23_RESOLUTION_FAILED, CATEGORY_NOT_FOUND, LIBRARY_LIMIT_REACHED]
     ErrorCode:
       type: string
-      enum: [UNAUTHORIZED, INVALID_REQUEST, INVALID_JSON, JSON_REQUIRED, ARCHIVE_FORBIDDEN, NOT_FOUND, PAIR_REQUIRED, LIBRARY_VERSION_CONFLICT, CATEGORY_NAME_CONFLICT, LIBRARY_LIMIT_REACHED]
+      enum: [AUTH_REQUIRED, INVALID_REQUEST, INVALID_JSON, JSON_REQUIRED, ARCHIVE_FORBIDDEN, NOT_FOUND, PAIR_REQUIRED, ACTIVE_ROOM_INVALID, LIBRARY_VERSION_CONFLICT, CATEGORY_NAME_CONFLICT, LIBRARY_LIMIT_REACHED]
     Error:
       type: object
       required: [error, message]
@@ -317,7 +393,12 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/LibrarySnapshot' }
     BadRequest:
-      description: Invalid JSON, content type or request fields
+      description: Invalid JSON or request fields
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UnsupportedMediaType:
+      description: JSON content type is required
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -333,6 +414,11 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     LibraryConflict:
       description: No active pair, stale revision, duplicate category name or library limit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PairConflict:
+      description: No active pair or the pair/room state changed
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

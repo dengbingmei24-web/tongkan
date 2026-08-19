@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.content.Intent;
@@ -58,6 +59,7 @@ import com.tongkan.mobile.ui.ImmersiveMediaGestureController;
 import com.tongkan.mobile.ui.PortraitComposerPositioner;
 import com.tongkan.mobile.ui.RoomChatOverlay;
 import com.tongkan.mobile.ui.RoomChatView;
+import com.tongkan.mobile.ui.RoomLibraryPickerDialog;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -79,12 +81,14 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity implements RoomClient.Listener, PlayerJavascriptBridge.Listener {
     private static final String PREFS = "tongkan_android";
     private static final String PUBLIC_ORIGIN = "https://tongkan-personal.pages.dev";
+    private static final long ACTIVE_ROOM_POLL_INTERVAL_MS = 10_000L;
 
     private final ExecutorService background = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
     private AccountClient accountClient;
     private SessionStore sessionStore;
     private AccountModels.Session accountSession;
+    private boolean anonymousMode;
     private AccountModels.Pair currentPair;
     private AccountModels.PairState currentPairState = AccountModels.PairState.empty();
     private AccountModels.PairInvite currentPairInvite;
@@ -94,6 +98,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean libraryLoading;
     private boolean libraryError;
     private List<String> libraryRetryInputs = new ArrayList<>();
+    private List<AccountModels.BatchItemResult> libraryBatchResults = new ArrayList<>();
     private String pairMessage = "";
     private boolean pairLoading;
     private boolean pairLoaded;
@@ -174,6 +179,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean awaitingMediaConfirmation;
     private boolean pendingAutoShare;
     private boolean pendingPairWatchInvite;
+    private boolean pendingActiveRoomPublish;
+    private AccountModels.ActiveRoom activePairRoom;
+    private boolean activeRoomLoading;
+    private boolean activeRoomJoining;
+    private final Runnable activeRoomPoll = this::refreshActiveRoom;
     private BilibiliMedia pendingLibraryMedia;
     private boolean darkMode;
     private boolean danmakuVisible;
@@ -193,6 +203,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private ImageButton immersiveCenterPlayButton;
     private Button immersiveDanmakuButton;
     private Button immersiveSpeedButton;
+    private Button immersiveLibraryButton;
     private SeekBar immersiveSeekBar;
     private TextView immersiveTimeText;
     private ImageButton immersiveChatButton;
@@ -235,6 +246,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         accountClient = new AccountClient(BuildConfig.ACCOUNT_API_BASE_URL, BuildConfig.ACCOUNT_TEST_ACCESS_TOKEN);
         sessionStore = new SessionStore(this);
         accountSession = sessionStore.load();
+        anonymousMode = accountSession != null && preferences.getBoolean("anonymousMode", false);
         breathTheme = new BreathTheme(this, preferences);
         darkMode = breathTheme.isDark();
         danmakuVisible = preferences.getBoolean("danmakuVisible", true);
@@ -267,6 +279,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             && !pairLoading) {
             mainHandler.post(() -> refreshPairState(false));
         }
+        if (canPollActiveRoom()) startActiveRoomPolling();
+    }
+
+    @Override
+    protected void onPause() {
+        stopActiveRoomPolling();
+        super.onPause();
     }
 
     private void requestNotificationPermissionIfNeeded() {
@@ -355,7 +374,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
             @Override
             public void onUseAnonymousRoom() {
-                showEntryScreen();
+                enterAnonymousMode();
             }
         });
         homeScreen = new HomeScreen(this, breathTheme, quote[0], quote[1], new HomeScreen.Listener() {
@@ -383,6 +402,16 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             public void onRestoreRoom() {
                 restoreLastRoom();
             }
+
+            @Override
+            public void onAccountAction() {
+                openAccountMode();
+            }
+
+            @Override
+            public void onJoinActiveRoom() {
+                joinActiveRoom();
+            }
         });
         mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTabFromNavigation);
         libraryScreen = new LibraryScreen(this, breathTheme, new LibraryScreen.Listener() {
@@ -395,6 +424,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             @Override public void onUpdateItem(AccountModels.LibraryItem item, String categoryId, String watchStatus, boolean refreshMetadata) {
                 updateLibraryItem(item, categoryId, watchStatus, refreshMetadata);
             }
+            @Override public void onRenameItem(AccountModels.LibraryItem item, String title) { renameLibraryItem(item, title); }
             @Override public void onClearItemCategory(AccountModels.LibraryItem item) { clearLibraryItemCategory(item); }
             @Override public void onDeleteItem(AccountModels.LibraryItem item) { deleteLibraryItem(item); }
             @Override public void onReorderItems(List<String> orderedIds) { reorderLibraryItems(orderedIds); }
@@ -521,7 +551,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         LinearLayout quickActions = horizontal();
         changeVideoButton = button("换视频", false);
         setButtonIcon(changeVideoButton, R.drawable.ic_video);
-        changeVideoButton.setOnClickListener(view -> showPreparationPanel());
+        changeVideoButton.setOnClickListener(view -> showRoomVideoSwitcher());
         quickActions.addView(changeVideoButton, weight(1));
         videoThemeButton = button(darkMode ? "浅色" : "深色", false);
         setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
@@ -727,6 +757,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         immersiveSpeedButton.setTag("immersiveButton");
         immersiveSpeedButton.setOnClickListener(view -> showSpeedDialog());
         actions.addView(immersiveSpeedButton, margin(new LinearLayout.LayoutParams(dp(78), dp(48)), 8, 0, 0, 0));
+        immersiveLibraryButton = button("片库", false);
+        immersiveLibraryButton.setTag("immersiveButton");
+        immersiveLibraryButton.setOnClickListener(view -> showRoomLibraryPicker());
+        actions.addView(immersiveLibraryButton, margin(new LinearLayout.LayoutParams(dp(70), dp(48)), 8, 0, 0, 0));
         FrameLayout immersiveChatButtonHost = new FrameLayout(this);
         immersiveChatButton = iconButton(R.drawable.ic_chat, "消息");
         immersiveChatButton.setTag("immersiveIconButton");
@@ -967,7 +1001,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     createButton.setText("正在连接…");
                     setConnectionStatus("房间已创建，正在建立连接…");
                     pendingPairWatchInvite = inviteBoundFriend;
-                    pendingAutoShare = !inviteBoundFriend;
+                    pendingActiveRoomPublish = isAccountModeActive();
+                    pendingAutoShare = !inviteBoundFriend && !pendingActiveRoomPublish;
                     connectIdentity(result.roomId, result.hostKey, "host", result.inviteKey, nickname);
                 });
             } catch (Exception error) {
@@ -975,6 +1010,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     createButton.setEnabled(true);
                     createButton.setText("创建房间");
                     pendingPairWatchInvite = false;
+                    pendingActiveRoomPublish = false;
                     pendingLibraryMedia = null;
                     showError("创建房间失败，请检查网络后重试");
                 });
@@ -1028,14 +1064,28 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         connectIdentity(roomId, key, role, inviteKey.isEmpty() ? null : inviteKey, normalizedNickname());
     }
 
+    private String currentInviteUrl() {
+        if (currentRoomId == null || currentInviteKey == null) return null;
+        return PUBLIC_ORIGIN + "/room/" + currentRoomId + "#join=" + currentInviteKey;
+    }
+
     private void shareInvite() {
-        if (currentRoomId == null || currentInviteKey == null) return;
-        String url = PUBLIC_ORIGIN + "/room/" + currentRoomId + "#join=" + currentInviteKey;
+        String url = currentInviteUrl();
+        if (url == null) return;
         Intent share = new Intent(Intent.ACTION_SEND)
             .setType("text/plain")
             .putExtra(Intent.EXTRA_SUBJECT, "加入我的同看房间")
             .putExtra(Intent.EXTRA_TEXT, "打开同看 App，一起看 B站视频：\n" + url);
         startActivity(Intent.createChooser(share, "分享房间邀请"));
+    }
+
+    private void copyInviteLink() {
+        String url = currentInviteUrl();
+        if (url == null) return;
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("同看房间邀请", url));
+        Toast.makeText(this, "邀请链接已复制", Toast.LENGTH_SHORT).show();
     }
 
     private void loadVideoFromInput() {
@@ -1230,6 +1280,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 createButton.setText("创建房间");
                 joinButton.setEnabled(true);
                 joinButton.setText("加入房间");
+                activeRoomJoining = false;
+                homeScreen.setActiveRoom(activePairRoom, false);
             }
             setChatEnabled(authenticated);
         });
@@ -1253,13 +1305,20 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 pendingLibraryMedia = null;
                 mainHandler.postDelayed(() -> prepareLibraryMedia(media), 250);
             }
-            if (pendingPairWatchInvite) {
-                pendingPairWatchInvite = false;
-                mainHandler.postDelayed(this::sendPairWatchInvite, 350);
+            boolean notifyFriend = pendingPairWatchInvite;
+            boolean publishRoom = pendingActiveRoomPublish;
+            pendingPairWatchInvite = false;
+            pendingActiveRoomPublish = false;
+            if (publishRoom) {
+                mainHandler.postDelayed(() -> publishActiveRoom(true), 250);
+            }
+            if (notifyFriend) {
+                mainHandler.postDelayed(this::sendPairWatchInvite, 450);
             } else if (pendingAutoShare) {
                 pendingAutoShare = false;
                 mainHandler.postDelayed(this::shareInvite, 350);
             }
+            activeRoomJoining = false;
         });
     }
 
@@ -1303,6 +1362,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void setChatEnabled(boolean enabled) {
         if (portraitChatView != null) portraitChatView.setSendEnabled(enabled);
         if (immersiveChatOverlay != null) immersiveChatOverlay.getChatView().setSendEnabled(enabled);
+        if (immersiveLibraryButton != null) immersiveLibraryButton.setEnabled(enabled);
         if (immersiveChatButton != null) immersiveChatButton.setEnabled(enabled);
     }
 
@@ -1649,6 +1709,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                         });
                         return;
                     }
+                    setAnonymousMode(false);
                     Toast.makeText(MainActivity.this, "登录成功", Toast.LENGTH_SHORT).show();
                     registerDeviceTokenIfAvailable();
                     showEntryScreen();
@@ -1725,8 +1786,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void clearAccountSession() {
+        stopActiveRoomPolling();
         accountSession = null;
+        anonymousMode = false;
+        preferences.edit().remove("anonymousMode").apply();
         registeredPushToken = null;
+        activePairRoom = null;
+        activeRoomLoading = false;
+        activeRoomJoining = false;
         resetPairState();
         sessionStore.clear();
         homeScreen.setAnonymousState();
@@ -1749,6 +1816,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         libraryLoading = false;
         libraryError = false;
         libraryRetryInputs = new ArrayList<>();
+        libraryBatchResults = new ArrayList<>();
     }
 
     private View pairPage() {
@@ -1769,6 +1837,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 @Override public void onEditProfile() { showEditProfileDialog(); }
                 @Override public void onRequestUnbind() { showUnbindRetentionChoice(); }
                 @Override public void onChooseArchiveRetention(AccountModels.PairArchive archive) { showArchiveRetentionChoice(archive); }
+                @Override public void onUseAnonymous() { enterAnonymousMode(); }
+                @Override public void onSwitchAccount() { confirmSwitchAccount(); }
                 @Override public void onLogout() { confirmAccountLogout(); }
             }
         );
@@ -1776,7 +1846,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private View libraryPage() {
         LibraryScreen.PageState state;
-        if (accountSession == null) {
+        if (!isAccountModeActive()) {
             state = LibraryScreen.PageState.UNAUTHENTICATED;
         } else if (currentLibrary != null) {
             state = LibraryScreen.PageState.CONTENT;
@@ -1794,6 +1864,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             currentLibrary,
             currentPairState == null ? new ArrayList<>() : currentPairState.archives,
             libraryRetryInputs,
+            libraryBatchResults,
             roomClient != null && authenticated,
             libraryLoading,
             libraryMessage
@@ -1909,8 +1980,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             return;
         }
         libraryLoading = true;
-        libraryMessage = "正在添加视频…";
+        libraryMessage = "正在逐条解析并添加视频…";
         libraryRetryInputs = new ArrayList<>(inputs);
+        libraryBatchResults = new ArrayList<>();
         showMainTab("library", false);
         accountClient.addLibraryItems(session.token, inputs, categoryId, currentLibrary.revision,
             new AccountClient.ResultCallback<AccountModels.BatchAddResult>() {
@@ -1932,8 +2004,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                             }
                         }
                         libraryRetryInputs = retryable;
+                        libraryBatchResults = new ArrayList<>(result.results);
                         libraryMessage = "添加 " + added + " 条 · 重复 " + duplicate + " 条 · 未添加 " + rejected + " 条"
-                            + (retryable.isEmpty() ? "" : "；短链已保留，可稍后重试");
+                            + (rejected == 0 ? "" : "；失败原因已逐条标注");
                         showMainTab("library", false);
                     });
                 }
@@ -1978,6 +2051,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         startLibraryMutation(refreshMetadata ? "正在刷新视频信息…" : "正在更新视频…");
         accountClient.updateLibraryItem(session.token, item.id, categoryId, watchStatus, refreshMetadata,
             currentLibrary.revision, mutationCallback(refreshMetadata ? "视频信息已刷新。" : "视频已更新。"));
+    }
+
+    private void renameLibraryItem(AccountModels.LibraryItem item, String title) {
+        AccountModels.Session session = accountSession;
+        if (!canMutateLibrary(session) || item == null) return;
+        startLibraryMutation("正在保存视频名称…");
+        accountClient.renameLibraryItem(session.token, item.id, title, currentLibrary.revision, mutationCallback("视频名称已更新。"));
     }
 
     private void clearLibraryItemCategory(AccountModels.LibraryItem item) {
@@ -2065,8 +2145,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             return;
         }
         pendingLibraryMedia = media;
-        pendingAutoShare = true;
-        createRoom(false);
+        createRoom(isAccountModeActive() && currentPair != null);
     }
 
     private void prepareLibraryMedia(BilibiliMedia media) {
@@ -2076,7 +2155,19 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         loadVideoFromInput();
     }
 
+    private void showRoomVideoSwitcher() {
+        if (accountSession == null || (pairLoaded && currentPair == null)) {
+            showPreparationPanel();
+            return;
+        }
+        showRoomLibraryPicker(true);
+    }
+
     private void showRoomLibraryPicker() {
+        showRoomLibraryPicker(false);
+    }
+
+    private void showRoomLibraryPicker(boolean fallbackToManualLink) {
         AccountModels.Session session = accountSession;
         if (session == null) {
             Toast.makeText(this, "登录后可使用共同片库", Toast.LENGTH_SHORT).show();
@@ -2094,7 +2185,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                         pairLoading = false;
                         if (currentPair == null) {
                             restoreLibraryPickerButton();
-                            Toast.makeText(MainActivity.this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
+                            if (fallbackToManualLink) showPreparationPanel();
+                            else Toast.makeText(MainActivity.this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
                         } else {
                             fetchRoomLibrary(session);
                         }
@@ -2112,7 +2204,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             return;
         }
         if (currentPair == null) {
-            Toast.makeText(this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
+            if (fallbackToManualLink) showPreparationPanel();
+            else Toast.makeText(this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
             return;
         }
         if (currentLibrary != null && !currentLibrary.readOnly && currentPair.pairId.equals(currentLibrary.pairId)) {
@@ -2145,6 +2238,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void restoreLibraryPickerButton() {
+        if (libraryPickerButton == null) return;
         libraryPickerButton.setEnabled(true);
         libraryPickerButton.setText("从共同片库选择");
     }
@@ -2154,13 +2248,20 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             Toast.makeText(this, "共同片库还是空的，请先添加视频", Toast.LENGTH_SHORT).show();
             return;
         }
-        String[] labels = new String[snapshot.items.size()];
-        for (int index = 0; index < labels.length; index += 1) labels[index] = snapshot.items.get(index).title;
-        new AlertDialog.Builder(this)
-            .setTitle("选择要切换的视频")
-            .setItems(labels, (dialog, index) -> prepareLibraryMedia(BilibiliMedia.parse(snapshot.items.get(index).canonicalUrl)))
-            .setNegativeButton("取消", null)
-            .show();
+        boolean landscape = appFullscreen || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+        if (landscape) setImmersiveControlsVisible(true, false);
+        Dialog picker = RoomLibraryPickerDialog.show(this, breathTheme, snapshot, landscape, new RoomLibraryPickerDialog.Listener() {
+            @Override public void onSelect(AccountModels.LibraryItem item) {
+                playLibraryItem(item);
+            }
+
+            @Override public void onManualLink() {
+                showPreparationPanel();
+            }
+        });
+        picker.setOnDismissListener(dialog -> {
+            if (landscape) scheduleImmersiveControlsHide();
+        });
     }
 
     private void showEditProfileDialog() {
@@ -2324,10 +2425,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         AccountModels.Pair pair = currentPair;
         if (accountSession == null || pair == null || pairLoading) return;
         new AlertDialog.Builder(this)
-            .setTitle("解除好友绑定？")
-            .setMessage("解除后会立即释放唯一好友名额，也不会退出账号或影响匿名房间。下一步需要选择是否保留与 " + pair.partner.nickname + " 的旧空间。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("继续选择", (dialog, which) -> showRetentionChoice(pair.pairId, pair.partner.nickname, true))
+            .setTitle("解除与 " + pair.partner.nickname + " 的好友绑定？")
+            .setMessage("选择后会立即解除好友关系并释放名额。旧空间处理选择确认后不能修改。")
+            .setNeutralButton("取消", null)
+            .setNegativeButton("解除并删除旧空间", (dialog, which) -> submitPairRetention(pair.pairId, "delete", true))
+            .setPositiveButton("解除并保留旧空间", (dialog, which) -> submitPairRetention(pair.pairId, "keep", true))
             .show();
     }
 
@@ -2337,15 +2439,15 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void showRetentionChoice(String pairId, String partnerNickname, boolean unbind) {
-        String[] labels = {"保留只读旧空间", "删除我的旧空间访问权"};
         String message = unbind
             ? "请选择解除绑定后如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。"
             : "请选择如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。";
         new AlertDialog.Builder(this)
             .setTitle("选择旧空间处理方式")
             .setMessage(message)
-            .setItems(labels, (dialog, index) -> confirmRetentionChoice(pairId, partnerNickname, unbind, index == 0 ? "keep" : "delete"))
-            .setNegativeButton("取消", null)
+            .setNeutralButton("取消", null)
+            .setNegativeButton("删除访问权", (dialog, which) -> confirmRetentionChoice(pairId, partnerNickname, unbind, "delete"))
+            .setPositiveButton("保留只读空间", (dialog, which) -> confirmRetentionChoice(pairId, partnerNickname, unbind, "keep"))
             .show();
     }
 
@@ -2461,7 +2563,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             showMainTab("pair");
             return;
         }
-        createRoom(true);
+        String partnerName = currentPair.partner.nickname;
+        new AlertDialog.Builder(this)
+            .setTitle("邀请 " + partnerName + " 一起看")
+            .setMessage("创建后，房间会自动出现在对方 App 首页。通知只是额外提醒，即使未送达，对方仍可直接进入。")
+            .setNegativeButton("取消", null)
+            .setNeutralButton("只创建房间", (dialog, which) -> createRoom(false))
+            .setPositiveButton("创建并通知", (dialog, which) -> createRoom(true))
+            .show();
     }
 
     private void sendPairWatchInvite() {
@@ -2477,31 +2586,213 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 @Override public void onSuccess(AccountModels.WatchInviteResult result) {
                     runOnUiThread(() -> {
                         if (result.fallbackRequired || result.delivered <= 0) {
-                            Toast.makeText(MainActivity.this, "好友暂时收不到通知，已打开系统分享", Toast.LENGTH_LONG).show();
-                            shareInvite();
+                            Toast.makeText(MainActivity.this, "通知未送达，但好友仍可在 App 首页进入房间", Toast.LENGTH_LONG).show();
                             return;
                         }
-                        Toast.makeText(MainActivity.this, "已向好友发送一起看邀请", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, "已通知好友；对方也可从 App 首页直接进入", Toast.LENGTH_SHORT).show();
                     });
                 }
 
                 @Override public void onFailure(AccountClient.Failure failure) {
                     runOnUiThread(() -> {
-                        Toast.makeText(MainActivity.this, "推送未送达，已打开系统分享", Toast.LENGTH_LONG).show();
-                        if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
-                        shareInvite();
+                        if (failure.isAuthenticationFailure()) {
+                            handleAccountRestoreFailure(failure);
+                            return;
+                        }
+                        Toast.makeText(MainActivity.this, "通知未送达，但好友仍可在 App 首页进入房间", Toast.LENGTH_LONG).show();
                     });
                 }
             });
     }
 
+    private void showInviteFallback(String message) {
+        new AlertDialog.Builder(this)
+            .setTitle("改用邀请链接")
+            .setMessage(message)
+            .setNegativeButton("稍后", null)
+            .setNeutralButton("复制链接", (dialog, which) -> copyInviteLink())
+            .setPositiveButton("系统分享", (dialog, which) -> shareInvite())
+            .show();
+    }
+
+    private void publishActiveRoom(boolean showFallbackOnFailure) {
+        AccountModels.Session session = accountSession;
+        String url = currentInviteUrl();
+        String publishedRoomId = currentRoomId;
+        if (session == null || url == null || publishedRoomId == null || !"host".equals(currentRole) || !isAccountModeActive()) return;
+        long expiresAt = System.currentTimeMillis() + 10L * 60L * 1000L;
+        accountClient.publishActiveRoom(session.token, url, expiresAt, new AccountClient.ResultCallback<Void>() {
+            @Override public void onSuccess(Void ignored) {
+                runOnUiThread(() -> {
+                    if (!publishedRoomId.equals(currentRoomId) || !"host".equals(currentRole)) {
+                        accountClient.clearActiveRoom(session.token, new AccountClient.ResultCallback<Void>() {
+                            @Override public void onSuccess(Void cleared) {}
+                            @Override public void onFailure(AccountClient.Failure failure) {}
+                        });
+                        return;
+                    }
+                    Toast.makeText(
+                        MainActivity.this,
+                        "好友现在可以在 App 首页直接进入房间",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (failure.isAuthenticationFailure()) {
+                        handleAccountRestoreFailure(failure);
+                        return;
+                    }
+                    if (showFallbackOnFailure) {
+                        showInviteFallback("好友房间状态发布失败，房间仍可通过邀请链接加入。");
+                    }
+                });
+            }
+        });
+    }
+
+    private void startActiveRoomPolling() {
+        stopActiveRoomPolling();
+        if (!canPollActiveRoom()) {
+            activePairRoom = null;
+            homeScreen.setActiveRoom(null, false);
+            return;
+        }
+        mainHandler.post(activeRoomPoll);
+    }
+
+    private void stopActiveRoomPolling() {
+        mainHandler.removeCallbacks(activeRoomPoll);
+    }
+
+    private boolean canPollActiveRoom() {
+        return isAccountModeActive()
+            && mainNavigationView != null
+            && entryHost != null
+            && entryHost.getVisibility() == View.VISIBLE
+            && mainNavigationView.getView().getParent() == entryHost
+            && "home".equals(mainNavigationView.getCurrentPage())
+            && videoSection != null
+            && videoSection.getVisibility() != View.VISIBLE;
+    }
+
+    private void refreshActiveRoom() {
+        stopActiveRoomPolling();
+        AccountModels.Session session = accountSession;
+        if (session == null || !canPollActiveRoom()) return;
+        if (activeRoomLoading) {
+            mainHandler.postDelayed(activeRoomPoll, ACTIVE_ROOM_POLL_INTERVAL_MS);
+            return;
+        }
+        activeRoomLoading = true;
+        accountClient.getActiveRoom(session.token, new AccountClient.ResultCallback<AccountModels.ActiveRoom>() {
+            @Override public void onSuccess(AccountModels.ActiveRoom room) {
+                runOnUiThread(() -> {
+                    activeRoomLoading = false;
+                    activePairRoom = room;
+                    activeRoomJoining = false;
+                    homeScreen.setActiveRoom(room, false);
+                    scheduleActiveRoomPoll();
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    activeRoomLoading = false;
+                    activeRoomJoining = false;
+                    activePairRoom = null;
+                    homeScreen.setActiveRoom(null, false);
+                    if (failure.isAuthenticationFailure()) {
+                        handleAccountRestoreFailure(failure);
+                        return;
+                    }
+                    if ("PAIR_REQUIRED".equals(failure.code)) return;
+                    scheduleActiveRoomPoll();
+                });
+            }
+        });
+    }
+
+    private void scheduleActiveRoomPoll() {
+        stopActiveRoomPolling();
+        if (canPollActiveRoom()) mainHandler.postDelayed(activeRoomPoll, ACTIVE_ROOM_POLL_INTERVAL_MS);
+    }
+
+    private void joinActiveRoom() {
+        AccountModels.ActiveRoom room = activePairRoom;
+        if (room == null || activeRoomJoining) return;
+        if (room.expiresAt <= System.currentTimeMillis()) {
+            activePairRoom = null;
+            homeScreen.setActiveRoom(null, false);
+            refreshActiveRoom();
+            return;
+        }
+        activeRoomJoining = true;
+        stopActiveRoomPolling();
+        homeScreen.setActiveRoom(room, true);
+        joinInvite(room.url);
+    }
+
+    private void clearPublishedActiveRoom() {
+        AccountModels.Session session = accountSession;
+        if (session == null || !isAccountModeActive() || !"host".equals(currentRole)) return;
+        accountClient.clearActiveRoom(session.token, new AccountClient.ResultCallback<Void>() {
+            @Override public void onSuccess(Void ignored) {}
+            @Override public void onFailure(AccountClient.Failure failure) {
+                if (failure.isAuthenticationFailure()) runOnUiThread(() -> handleAccountRestoreFailure(failure));
+            }
+        });
+    }
+
     private void applyAccountStateToHome() {
-        if (accountSession == null) {
-            homeScreen.setAnonymousState();
+        if (!isAccountModeActive()) {
+            homeScreen.setAnonymousState(accountSession != null, accountSession == null ? null : accountSession.user.nickname);
             return;
         }
         homeScreen.setAccountState(accountSession.user.nickname, accountSession.user.email);
         nicknameInput.setText(accountSession.user.nickname);
+    }
+
+    private boolean isAccountModeActive() {
+        return accountSession != null && !anonymousMode;
+    }
+
+    private void setAnonymousMode(boolean enabled) {
+        anonymousMode = accountSession != null && enabled;
+        preferences.edit().putBoolean("anonymousMode", anonymousMode).apply();
+        if (anonymousMode) {
+            stopActiveRoomPolling();
+            activePairRoom = null;
+            homeScreen.setActiveRoom(null, false);
+        }
+    }
+
+    private void enterAnonymousMode() {
+        setAnonymousMode(true);
+        showEntryScreen();
+        Toast.makeText(this, accountSession == null ? "已进入匿名模式" : "已切换到匿名模式，账号仍安全保留", Toast.LENGTH_SHORT).show();
+    }
+
+    private void openAccountMode() {
+        if (accountSession == null) {
+            authScreen.prepareFreshLogin("登录后可使用共同片库和好友邀请");
+            showAuthScreen();
+            return;
+        }
+        setAnonymousMode(false);
+        showEntryScreen();
+        showMainTab("pair", true);
+    }
+
+    private void confirmSwitchAccount() {
+        new AlertDialog.Builder(this)
+            .setTitle("切换登录账号？")
+            .setMessage("本机将退出当前账号，然后可以使用其他邮箱重新登录。匿名房间不受影响。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("退出并切换", (dialog, which) -> logoutAccount())
+            .show();
     }
 
     private void confirmAccountLogout() {
@@ -2523,8 +2814,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             });
         }
         clearAccountSession();
-        authScreen.resetCodeStep();
-        authScreen.showMessage("已退出账号");
+        authScreen.prepareFreshLogin("已退出账号，请重新输入邮箱登录");
         showAuthScreen();
         if (session == null || !accountClient.isConfigured()) return;
         accountClient.logout(session.token, new AccountClient.ResultCallback<Void>() {
@@ -2540,6 +2830,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void showAuthScreen() {
+        stopActiveRoomPolling();
+        activePairRoom = null;
+        homeScreen.setActiveRoom(null, false);
         appFullscreen = false;
         setImmersiveControlsVisible(false, false);
         if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(View.GONE);
@@ -2595,7 +2888,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 content = mainNavigationView.placeholder("03 / CALENDAR", "观看日历", "日期计划、当天片单和观看安排将在日历阶段接入。");
                 break;
             case "pair":
-                if (accountSession == null) {
+                if (!isAccountModeActive()) {
                     content = mainNavigationView.placeholder("04 / US", "我们的空间", "登录后可进入唯一好友绑定、共同历史和观看统计。匿名房间仍然可以继续使用。");
                 } else {
                     content = pairPage();
@@ -2614,15 +2907,18 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         mainNavigationView.select(target);
         mainNavigationView.showContent(content);
         mainNavigationView.applyTheme();
-        if (refreshPairOnEntry && "pair".equals(target) && accountSession != null && !pairLoading) {
+        if (refreshPairOnEntry && "pair".equals(target) && isAccountModeActive() && !pairLoading) {
             mainHandler.post(() -> refreshPairState(false));
         }
-        if (refreshPairOnEntry && "library".equals(target) && accountSession != null && !libraryLoading) {
+        if (refreshPairOnEntry && "library".equals(target) && isAccountModeActive() && !libraryLoading) {
             mainHandler.post(() -> ensureLibraryLoaded(false));
         }
+        if ("home".equals(target)) startActiveRoomPolling();
+        else stopActiveRoomPolling();
     }
 
     private void showVideoScreen() {
+        stopActiveRoomPolling();
         entryHost.setVisibility(View.GONE);
         videoSection.setVisibility(View.VISIBLE);
         if (roomMedia == null && loadedMedia == null) showPreparationPanel();
@@ -2879,6 +3175,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             if (!"home".equals(mainNavigationView.getCurrentPage())) {
                 showMainTab("home");
             } else if (accountSession == null) {
+                authScreen.prepareFreshLogin("登录后可使用共同片库和好友邀请");
                 showAuthScreen();
             } else {
                 super.onBackPressed();
@@ -2898,6 +3195,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void leaveRoom() {
+        clearPublishedActiveRoom();
         if (roomClient != null) roomClient.close();
         roomClient = null;
         authenticated = false;

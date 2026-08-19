@@ -1,4 +1,4 @@
-import type { ActivePairRecord, ChallengeRecord, DeviceTokenRecord, PairInviteRecord, SessionRecord, UserRecord } from "./models";
+import type { ActivePairRecord, ActivePairRoomRecord, ChallengeRecord, DeviceTokenRecord, PairInviteRecord, SessionRecord, UserRecord } from "./models";
 
 import type { PairArchiveRecord, PairRetentionDecision } from './models';
 
@@ -81,6 +81,18 @@ function pairArchiveFromRow(row: Record<string, unknown>): PairArchiveRecord {
     partnerEmailSnapshot: String(row.partner_email_snapshot),
     partnerNicknameSnapshot: String(row.partner_nickname_snapshot),
     partnerAvatarSnapshot: String(row.partner_avatar_snapshot),
+  };
+}
+
+function activePairRoomFromRow(row: Record<string, unknown>): ActivePairRoomRecord {
+  return {
+    pairId: String(row.pair_id),
+    hostUserId: String(row.host_user_id),
+    roomId: String(row.room_id),
+    inviteUrlCiphertext: String(row.invite_url_ciphertext),
+    expiresAt: Number(row.expires_at),
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
   };
 }
 
@@ -248,6 +260,55 @@ export class AccountRepository {
     };
   }
 
+  async activePairRoomByPair(pairId: string): Promise<ActivePairRoomRecord | null> {
+    const row = await this.db.prepare(
+      `SELECT apr.*
+       FROM active_pair_rooms apr
+       JOIN pairs p ON p.id = apr.pair_id AND p.status = 'active'
+       WHERE apr.pair_id = ?
+       LIMIT 1`,
+    ).bind(pairId).first<Record<string, unknown>>();
+    return row ? activePairRoomFromRow(row) : null;
+  }
+
+  async upsertActivePairRoom(room: ActivePairRoomRecord): Promise<boolean> {
+    const result = await this.db.prepare(
+      `INSERT INTO active_pair_rooms (
+         pair_id, host_user_id, room_id, invite_url_ciphertext,
+         expires_at, created_at, updated_at
+       )
+       SELECT p.id, ?, ?, ?, ?, ?, ?
+       FROM pairs p
+       WHERE p.id = ? AND p.status = 'active' AND (p.user_a_id = ? OR p.user_b_id = ?)
+       ON CONFLICT (pair_id) DO UPDATE SET
+         host_user_id = excluded.host_user_id,
+         room_id = excluded.room_id,
+         invite_url_ciphertext = excluded.invite_url_ciphertext,
+         expires_at = excluded.expires_at,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at`,
+    ).bind(
+      room.hostUserId,
+      room.roomId,
+      room.inviteUrlCiphertext,
+      room.expiresAt,
+      room.createdAt,
+      room.updatedAt,
+      room.pairId,
+      room.hostUserId,
+      room.hostUserId,
+    ).run();
+    return result.meta.changes === 1;
+  }
+
+  async clearActivePairRoomByHost(hostUserId: string): Promise<void> {
+    await this.db.prepare("DELETE FROM active_pair_rooms WHERE host_user_id = ?").bind(hostUserId).run();
+  }
+
+  async clearActivePairRoom(pairId: string): Promise<void> {
+    await this.db.prepare("DELETE FROM active_pair_rooms WHERE pair_id = ?").bind(pairId).run();
+  }
+
   async pairArchiveByUser(pairId: string, userId: string): Promise<PairArchiveRecord | null> {
     const row = await this.db.prepare(
       `SELECT pam.*, p.bound_at, p.unbound_at
@@ -331,6 +392,14 @@ export class AccountRepository {
            WHERE id = ? AND status = 'unbound' AND unbound_by_user_id = ? AND unbound_at = ?
          ) AND EXISTS (SELECT 1 FROM active_pair_members ap WHERE ap.pair_id = ?)`,
       ).bind(now, pairId, userId, now, pairId, userId, now, pairId),
+      this.db.prepare(
+        `DELETE FROM active_pair_rooms
+         WHERE pair_id = ? AND EXISTS (
+           SELECT 1 FROM pairs p
+           WHERE p.id = ? AND p.status = 'unbound'
+             AND p.unbound_by_user_id = ? AND p.unbound_at = ?
+         )`,
+      ).bind(pairId, pairId, userId, now),
       this.db.prepare(
         `DELETE FROM active_pair_members
          WHERE pair_id = ? AND EXISTS (

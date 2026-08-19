@@ -131,6 +131,41 @@ public final class AccountModels {
         }
     }
 
+    public static final class ActiveRoom {
+        public final String roomId;
+        public final String url;
+        public final long expiresAt;
+        public final long createdAt;
+        public final User host;
+
+        public ActiveRoom(String roomId, String url, long expiresAt, long createdAt, User host) {
+            this.roomId = roomId;
+            this.url = url;
+            this.expiresAt = expiresAt;
+            this.createdAt = createdAt;
+            this.host = host;
+        }
+
+        public static ActiveRoom fromJson(JSONObject json) throws JSONException {
+            String roomId = requiredId(json, "roomId");
+            String url = requiredHttpsUrl(json, "url");
+            long expiresAt = positiveLong(json, "expiresAt");
+            long createdAt = positiveLong(json, "createdAt");
+            if (expiresAt <= createdAt || !url.matches("https://tongkan-personal\\.pages\\.dev/room/" + roomId + "#join=[a-f0-9]{32}")) {
+                throw new JSONException("Invalid active room response");
+            }
+            return new ActiveRoom(roomId, url, expiresAt, createdAt, User.fromJson(json.getJSONObject("host")));
+        }
+
+        public static ActiveRoom fromResponse(JSONObject json) throws JSONException {
+            if (!json.has("room")) throw new JSONException("Missing active room response");
+            Object value = json.get("room");
+            if (value == JSONObject.NULL) return null;
+            if (!(value instanceof JSONObject)) throw new JSONException("Invalid active room response");
+            return fromJson((JSONObject) value);
+        }
+    }
+
     public static final class PublicActor {
         public final String id;
         public final String nickname;

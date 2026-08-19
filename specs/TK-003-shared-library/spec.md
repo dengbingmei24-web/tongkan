@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-17
 
-**Status**: Accepted
+**Status**: Implemented and deployed to production; physical dual-device acceptance deferred
 
 **Input**: 用户确认现在完成 Alpha 10.2 共享片库，并采用一个审查任务加三个隔离执行智能体并行开发。
 
@@ -93,7 +93,12 @@
 - **FR-018**: 双方都删除归档并触发 pair 物理删除时，片库状态、分类和条目 MUST 级联删除。
 - **FR-019**: Android MUST 提供 Loading、Empty、Content、Error、Unauthenticated、Unbound、Conflict 和 ArchiveReadOnly 状态。
 - **FR-020**: Android MUST 支持批量粘贴、搜索/筛选、分类、标记看完、删除和显式排序模式。
-- **FR-021**: Android MUST 使用 Breath Tech 黑白主题，片库列表以信息密度适中的线性行展示，封面不得占满页面。
+- **FR-021**: Android MUST 使用 Breath Tech 黑白主题；默认片库按分类展示信息密度适中的封面媒体行，搜索、筛选或排序时使用单一结果流，封面不得占满页面。
+- **FR-026**: Android 添加面板 MUST 在提交前逐条标记可识别直链、待服务端解析短链、无效输入和超过上限，并在提交后逐条展示 added/duplicate/rejected 的中文结果。
+- **FR-027**: Android 房间竖屏 MUST 提供保留视频画面的底部片库抽屉，横屏/全屏 MUST 提供右侧片库抽屉，并保留手动粘贴链接入口。
+- **FR-028**: 登录且已绑定好友的房主完成房间鉴权后 MUST 将严格校验的访客邀请 URL 加密发布为当前 pair 的短期活跃房间，默认 10 分钟且最长 30 分钟。
+- **FR-029**: Android 首页 MUST 自动刷新并仅向非创建方展示好友活跃房间的一键进入卡片；创建者、第三方、旧 pair、过期或已解绑状态 MUST 不可见。
+- **FR-030**: FCM MUST 仅作为可选提醒；通知失败不得阻塞 App 内发现，只有活跃房间发布失败时才要求链接兜底。
 - **FR-022**: Android 从片库播放 MUST 复用现有 BilibiliMedia 和房间流程，不改变房间协议。
 - **FR-023**: 房间内切换视频 MUST 显示更换状态，并遵守准备完成后 0 秒暂停、手动播放、无自动连播规则。
 - **FR-024**: Alpha 10.2 MUST NOT 创建日历计划、提醒、重复计划、个人私密片库、B站账号登录或自动连播。
@@ -107,10 +112,11 @@
 - **SD-004**: 网络不确定、重复提交和 App 重启后以服务端 revision 和完整快照为权威恢复。
 - **SD-005**: 服务端对批量数量、字符串长度、URL 域名、响应大小和元数据字段长度设置上限。
 - **SD-006**: B23 与元数据网络请求 MUST 禁止客户端控制任意目标地址，只允许 HTTPS 受信 B站主机、限制重定向次数/响应大小/超时，并且不得记录响应正文。
+- **SD-007**: 活跃房间只保存加密访客邀请 URL，不得保存或返回 host key；解绑事务、房主离开和 TTL 到期 MUST 使记录失效。
 
 ### Error Contract
 
-- HTTP 401: `UNAUTHORIZED`。
+- HTTP 401: `AUTH_REQUIRED`（沿用现有账号服务鉴权错误码）。
 - HTTP 400/415: `INVALID_REQUEST`、`INVALID_JSON` 或 `JSON_REQUIRED`。
 - HTTP 403: `ARCHIVE_FORBIDDEN`。
 - HTTP 404: `NOT_FOUND`。
@@ -124,6 +130,7 @@
 - **Library Item**: pair 下唯一媒体身份、元数据快照、分类、状态、位置、添加/修改者和时间。
 - **Library Snapshot**: 一次权威读取返回的 pair、revision、只读标识、分类和条目集合。
 - **Batch Add Result**: 每个输入的 added/duplicate/rejected 结果与可选条目或错误码。
+- **Active Pair Room**: 每个活动 pair 最多一条短期房间记录，包含 host、roomId、加密访客邀请 URL、有效期和时间戳。
 
 ## Success Criteria
 

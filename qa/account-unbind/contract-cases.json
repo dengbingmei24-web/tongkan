@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "feature": "TK-001-unilateral-unbind",
   "openApiContract": "specs/TK-001-unilateral-unbind/contracts/account-unbind.openapi.yaml",
-  "defaultPreviewOrigin": "https://account-preview.tongkan-personal.pages.dev/account-api",
+  "defaultPreviewOrigin": "https://tongkan-account-preview-gateway.pages.dev/account-api",
   "notes": [
     "每个状态变更用例使用独立 pair，禁止跨用例复用。",
     "Token 和测试密钥只由脚本从环境变量或安全 stdin 读取。",
