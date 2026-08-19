@@ -52,6 +52,7 @@ import com.tongkan.mobile.account.PushTokenProvider;
 import com.tongkan.mobile.account.SessionStore;
 import com.tongkan.mobile.ui.AuthScreen;
 import com.tongkan.mobile.ui.BreathTheme;
+import com.tongkan.mobile.ui.CalendarScreen;
 import com.tongkan.mobile.ui.HomeScreen;
 import com.tongkan.mobile.ui.LibraryScreen;
 import com.tongkan.mobile.ui.MainNavigationView;
@@ -72,6 +73,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.lang.Thread;
@@ -99,6 +101,21 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean libraryError;
     private List<String> libraryRetryInputs = new ArrayList<>();
     private List<AccountModels.BatchItemResult> libraryBatchResults = new ArrayList<>();
+    private AccountModels.CalendarSnapshot currentCalendar;
+    private AccountModels.CalendarSnapshot currentTodayCalendar;
+    private String currentArchiveCalendarPairId;
+    private String calendarMonth = LocalDate.now().toString().substring(0, 7);
+    private String calendarSelectedDate = LocalDate.now().toString();
+    private String todayCalendarDate = LocalDate.now().toString();
+    private String calendarMessage = "";
+    private String todayCalendarError = "";
+    private boolean calendarLoading;
+    private boolean calendarError;
+    private boolean todayCalendarLoading;
+    private long calendarRequestGeneration;
+    private long todayCalendarRequestGeneration;
+    private AccountModels.LibraryItem pendingCalendarItem;
+    private String pendingCalendarDate;
     private String pairMessage = "";
     private boolean pairLoading;
     private boolean pairLoaded;
@@ -153,6 +170,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private HomeScreen homeScreen;
     private MainNavigationView mainNavigationView;
     private LibraryScreen libraryScreen;
+    private CalendarScreen calendarScreen;
     private BreathTheme breathTheme;
     private LinearLayout videoSection;
     private LinearLayout preparationPanel;
@@ -278,6 +296,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             && "pair".equals(mainNavigationView.getCurrentPage())
             && !pairLoading) {
             mainHandler.post(() -> refreshPairState(false));
+        }
+        if (mainNavigationView != null && entryHost != null && entryHost.getVisibility() == View.VISIBLE) {
+            if ("calendar".equals(mainNavigationView.getCurrentPage())) mainHandler.post(() -> ensureCalendarLoaded(true));
+            if ("home".equals(mainNavigationView.getCurrentPage())) mainHandler.post(() -> ensureTodayCalendarLoaded(true));
         }
         if (canPollActiveRoom()) startActiveRoomPolling();
     }
@@ -412,8 +434,44 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             public void onJoinActiveRoom() {
                 joinActiveRoom();
             }
+
+            @Override
+            public void onOpenCalendar() {
+                openCalendarDate(LocalDate.now().toString());
+            }
+
+            @Override
+            public void onPlayTodayPlan(AccountModels.CalendarPlan plan) {
+                playCalendarPlan(plan);
+            }
+
+            @Override
+            public void onRefreshTodayPlans() {
+                ensureTodayCalendarLoaded(true);
+            }
         });
         mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTabFromNavigation);
+        calendarScreen = new CalendarScreen(this, breathTheme, new CalendarScreen.Listener() {
+            @Override public void onRefresh() { ensureCalendarLoaded(true); }
+            @Override public void onMonthChanged(String month) { changeCalendarMonth(month); }
+            @Override public void onDateSelected(String date) {
+                calendarSelectedDate = date;
+                showMainTab("calendar", false);
+            }
+            @Override public void onRequestCreate(String date) { openCalendarCreateFlow(null, date); }
+            @Override public void onCreatePlan(AccountModels.LibraryItem item, String date, String startTime, String note) {
+                createCalendarPlan(item, date, startTime, note);
+            }
+            @Override public void onUpdatePlan(AccountModels.CalendarPlan plan, String date, String startTime, String note) {
+                updateCalendarPlan(plan, date, startTime, note);
+            }
+            @Override public void onTogglePlan(AccountModels.CalendarPlan plan) { toggleCalendarPlan(plan); }
+            @Override public void onCancelPlan(AccountModels.CalendarPlan plan) { cancelCalendarPlan(plan); }
+            @Override public void onPlayPlan(AccountModels.CalendarPlan plan) { playCalendarPlan(plan); }
+            @Override public void onOpenArchive(AccountModels.PairArchive archive) { openArchiveCalendar(archive); }
+            @Override public void onCloseArchive() { closeArchiveCalendar(); }
+            @Override public void onOpenAccount() { showMainTab("pair", true); }
+        });
         libraryScreen = new LibraryScreen(this, breathTheme, new LibraryScreen.Listener() {
             @Override public void onRefresh() { refreshLibrary(); }
             @Override public void onBatchAdd(List<String> inputs, String categoryId) { addLibraryItems(inputs, categoryId); }
@@ -429,6 +487,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             @Override public void onDeleteItem(AccountModels.LibraryItem item) { deleteLibraryItem(item); }
             @Override public void onReorderItems(List<String> orderedIds) { reorderLibraryItems(orderedIds); }
             @Override public void onPlay(AccountModels.LibraryItem item) { playLibraryItem(item); }
+            @Override public void onSchedule(AccountModels.LibraryItem item) { openCalendarCreateFlow(item, LocalDate.now().toString()); }
             @Override public void onOpenArchive(AccountModels.PairArchive archive) { openArchiveLibrary(archive); }
             @Override public void onCloseArchive() { closeArchiveLibrary(); }
             @Override public void onOpenAccount() { showMainTab("pair", true); }
@@ -1806,7 +1865,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         pairMessage = "";
         pairLoading = false;
         pairLoaded = false;
+        resetSharedSpaceState();
+    }
+
+    private void resetSharedSpaceState() {
         resetLibraryState();
+        resetCalendarState();
     }
 
     private void resetLibraryState() {
@@ -1819,6 +1883,24 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         libraryBatchResults = new ArrayList<>();
     }
 
+    private void resetCalendarState() {
+        calendarRequestGeneration += 1;
+        todayCalendarRequestGeneration += 1;
+        currentCalendar = null;
+        currentTodayCalendar = null;
+        currentArchiveCalendarPairId = null;
+        calendarMonth = LocalDate.now().toString().substring(0, 7);
+        calendarSelectedDate = LocalDate.now().toString();
+        todayCalendarDate = LocalDate.now().toString();
+        calendarMessage = "";
+        todayCalendarError = "";
+        calendarLoading = false;
+        calendarError = false;
+        todayCalendarLoading = false;
+        pendingCalendarItem = null;
+        pendingCalendarDate = null;
+        if (homeScreen != null) homeScreen.clearTodayState();
+    }
     private View pairPage() {
         return mainNavigationView.pairPage(
             accountSession.user.nickname,
@@ -1881,14 +1963,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             accountClient.getPair(session.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
                 @Override public void onSuccess(AccountModels.PairState pairState) {
                     runOnUiThread(() -> {
-                        String previousPairId = currentPair == null ? null : currentPair.pairId;
-                        currentPairState = pairState;
-                        currentPair = pairState.pair;
-                        pairLoaded = true;
-                        pairLoading = false;
                         libraryLoading = false;
-                        String nextPairId = currentPair == null ? null : currentPair.pairId;
-                        if (previousPairId == null || !previousPairId.equals(nextPairId)) resetLibraryState();
+                        applyPairSnapshot(pairState);
                         if (currentPair == null) showMainTab("library", false);
                         else loadActiveLibrary(true);
                     });
@@ -2133,6 +2209,593 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         showMainTab("library", false);
     }
 
+    private View calendarPage() {
+        CalendarScreen.PageState state;
+        if (!isAccountModeActive()) {
+            state = CalendarScreen.PageState.UNAUTHENTICATED;
+        } else if (currentCalendar != null) {
+            state = CalendarScreen.PageState.CONTENT;
+        } else if (calendarLoading || !pairLoaded) {
+            state = CalendarScreen.PageState.LOADING;
+        } else if (calendarError) {
+            state = CalendarScreen.PageState.ERROR;
+        } else if (currentArchiveCalendarPairId == null && currentPair == null) {
+            state = CalendarScreen.PageState.UNBOUND;
+        } else {
+            state = CalendarScreen.PageState.LOADING;
+        }
+        return calendarScreen.render(
+            state,
+            currentCalendar,
+            currentPairState == null ? new ArrayList<>() : currentPairState.archives,
+            calendarMonth,
+            calendarSelectedDate,
+            calendarLoading,
+            calendarMessage
+        );
+    }
+
+    private void ensureCalendarLoaded(boolean force) {
+        AccountModels.Session session = accountSession;
+        if (!isAccountModeActive() || session == null || calendarLoading) return;
+        if (!pairLoaded) {
+            calendarLoading = true;
+            calendarError = false;
+            calendarMessage = "正在读取好友和旧空间状态…";
+            showMainTab("calendar", false);
+            String token = session.token;
+            long generation = ++calendarRequestGeneration;
+            accountClient.getPair(token, new AccountClient.ResultCallback<AccountModels.PairState>() {
+                @Override public void onSuccess(AccountModels.PairState pairState) {
+                    runOnUiThread(() -> {
+                        if (generation != calendarRequestGeneration || !isCurrentSession(token)) return;
+                        calendarLoading = false;
+                        applyPairSnapshot(pairState);
+                        if (currentPair == null) showMainTab("calendar", false);
+                        else loadActiveCalendar(calendarMonth, true);
+                    });
+                }
+
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> handleCalendarFailure(failure, generation));
+                }
+            });
+            return;
+        }
+        if (currentArchiveCalendarPairId != null) {
+            if (force || !calendarMatches(currentCalendar, currentArchiveCalendarPairId, calendarMonth, true)) {
+                loadArchiveCalendar(currentArchiveCalendarPairId, calendarMonth);
+            }
+            return;
+        }
+        if (currentPair == null) {
+            currentCalendar = null;
+            calendarLoading = false;
+            calendarError = false;
+            showMainTab("calendar", false);
+            return;
+        }
+        if (force || !calendarMatches(currentCalendar, currentPair.pairId, calendarMonth, false)) {
+            loadActiveCalendar(calendarMonth, true);
+        }
+    }
+
+    private void loadActiveCalendar(String month, boolean showLoadingMessage) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (!isAccountModeActive() || session == null || pair == null || calendarLoading || !AccountModels.isCalendarMonth(month)) return;
+        currentArchiveCalendarPairId = null;
+        calendarMonth = month;
+        calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, calendarSelectedDate, LocalDate.now().toString());
+        calendarLoading = true;
+        calendarError = false;
+        if (showLoadingMessage) calendarMessage = "正在同步 " + month + " 的共同计划…";
+        showMainTab("calendar", false);
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = ++calendarRequestGeneration;
+        accountClient.getCalendarMonth(token, month, new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
+            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
+                runOnUiThread(() -> {
+                    if (!isCurrentCalendarRequest(generation, token, pairId, null)) return;
+                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
+                        failCalendarResponse("日历返回了不匹配的双人空间，请重新加载。");
+                        return;
+                    }
+                    currentCalendar = snapshot;
+                    calendarLoading = false;
+                    calendarError = false;
+                    if (calendarMessage.startsWith("正在")) calendarMessage = "日历已更新。";
+                    showMainTab("calendar", false);
+                    showPendingCalendarEditor();
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleCalendarFailure(failure, generation));
+            }
+        });
+    }
+
+    private void loadArchiveCalendar(String pairId, String month) {
+        AccountModels.Session session = accountSession;
+        if (!isAccountModeActive() || session == null || calendarLoading
+            || pairId == null || !pairId.matches("[a-f0-9]{32}") || !AccountModels.isCalendarMonth(month)) return;
+        currentArchiveCalendarPairId = pairId;
+        calendarMonth = month;
+        calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, calendarSelectedDate, LocalDate.now().toString());
+        currentCalendar = null;
+        calendarLoading = true;
+        calendarError = false;
+        calendarMessage = "正在读取只读旧日历…";
+        showMainTab("calendar", false);
+        String token = session.token;
+        long generation = ++calendarRequestGeneration;
+        accountClient.getArchiveCalendar(token, pairId, month, new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
+            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
+                runOnUiThread(() -> {
+                    if (!isCurrentCalendarRequest(generation, token, null, pairId)) return;
+                    if (!snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
+                        failCalendarResponse("旧空间日历响应无效，请重新加载。");
+                        return;
+                    }
+                    currentCalendar = snapshot;
+                    calendarLoading = false;
+                    calendarError = false;
+                    calendarMessage = "旧日历为只读状态。";
+                    showMainTab("calendar", false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleCalendarFailure(failure, generation));
+            }
+        });
+    }
+
+    private void changeCalendarMonth(String month) {
+        if (!AccountModels.isCalendarMonth(month)) return;
+        calendarRequestGeneration += 1;
+        calendarLoading = false;
+        calendarMonth = month;
+        calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, null, LocalDate.now().toString());
+        currentCalendar = null;
+        ensureCalendarLoaded(true);
+    }
+
+    private void openCalendarDate(String date) {
+        if (!AccountModels.isCalendarDate(date)) return;
+        currentArchiveCalendarPairId = null;
+        calendarMonth = CalendarScreen.State.monthOf(date);
+        calendarSelectedDate = date;
+        if (!calendarMatches(currentCalendar, currentPair == null ? null : currentPair.pairId, calendarMonth, false)) {
+            currentCalendar = null;
+        }
+        showMainTab("calendar", false);
+        mainHandler.post(() -> ensureCalendarLoaded(false));
+    }
+
+    private void openArchiveCalendar(AccountModels.PairArchive archive) {
+        if (archive == null || calendarLoading) return;
+        currentCalendar = null;
+        currentArchiveCalendarPairId = archive.pairId;
+        loadArchiveCalendar(archive.pairId, calendarMonth);
+    }
+
+    private void closeArchiveCalendar() {
+        calendarRequestGeneration += 1;
+        calendarLoading = false;
+        currentArchiveCalendarPairId = null;
+        currentCalendar = null;
+        calendarMessage = "已返回当前空间。";
+        if (currentPair == null) showMainTab("calendar", false);
+        else loadActiveCalendar(calendarMonth, true);
+    }
+
+    private void openCalendarCreateFlow(AccountModels.LibraryItem item, String date) {
+        if (!isAccountModeActive()) {
+            Toast.makeText(this, "登录并绑定好友后可安排观看日期", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String normalizedDate = AccountModels.isCalendarDate(date) ? date : LocalDate.now().toString();
+        pendingCalendarItem = item;
+        pendingCalendarDate = normalizedDate;
+        currentArchiveCalendarPairId = null;
+        calendarMonth = CalendarScreen.State.monthOf(normalizedDate);
+        calendarSelectedDate = normalizedDate;
+        if (!calendarMatches(currentCalendar, currentPair == null ? null : currentPair.pairId, calendarMonth, false)) {
+            currentCalendar = null;
+        }
+        showMainTab("calendar", false);
+        if (currentCalendar == null || currentPair == null || currentCalendar.readOnly) {
+            ensureCalendarLoaded(false);
+        } else {
+            showPendingCalendarEditor();
+        }
+    }
+
+    private void showPendingCalendarEditor() {
+        if (pendingCalendarDate == null || currentCalendar == null || currentCalendar.readOnly || currentPair == null) return;
+        if (!currentPair.pairId.equals(currentCalendar.pairId)) return;
+        if (pendingCalendarItem != null) {
+            AccountModels.LibraryItem item = pendingCalendarItem;
+            String date = pendingCalendarDate;
+            pendingCalendarItem = null;
+            pendingCalendarDate = null;
+            calendarScreen.showCreateDialog(Collections.singletonList(item), date);
+            return;
+        }
+        if (currentLibrary != null && !currentLibrary.readOnly && currentPair.pairId.equals(currentLibrary.pairId)) {
+            String date = pendingCalendarDate;
+            pendingCalendarDate = null;
+            calendarScreen.showCreateDialog(currentLibrary.items, date);
+            return;
+        }
+        loadLibraryForCalendarEditor();
+    }
+
+    private void loadLibraryForCalendarEditor() {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (session == null || pair == null || calendarLoading) return;
+        calendarLoading = true;
+        calendarMessage = "正在读取共同片库…";
+        showMainTab("calendar", false);
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = ++calendarRequestGeneration;
+        accountClient.getLibrary(token, "", "all", null, new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
+            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
+                runOnUiThread(() -> {
+                    if (!isCurrentCalendarRequest(generation, token, pairId, null)) return;
+                    calendarLoading = false;
+                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
+                        failCalendarResponse("共同片库响应无效，请重新加载。");
+                        return;
+                    }
+                    currentArchivePairId = null;
+                    currentLibrary = snapshot;
+                    calendarMessage = snapshot.items.isEmpty() ? "共同片库还是空的，请先添加视频。" : "请选择要安排的视频。";
+                    showMainTab("calendar", false);
+                    showPendingCalendarEditor();
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleCalendarFailure(failure, generation));
+            }
+        });
+    }
+
+    private void createCalendarPlan(AccountModels.LibraryItem item, String date, String startTime, String note) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (!canMutateCalendar(session) || item == null || pair == null) return;
+        calendarMonth = CalendarScreen.State.monthOf(date);
+        calendarSelectedDate = date;
+        startCalendarMutation("正在保存观看计划…");
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = calendarRequestGeneration;
+        accountClient.createCalendarPlan(token, item.id, date, startTime, note, currentCalendar.revision,
+            calendarMutationCallback("计划已添加。", date, token, pairId, generation));
+    }
+
+    private void updateCalendarPlan(AccountModels.CalendarPlan plan, String date, String startTime, String note) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (!canMutateCalendar(session) || plan == null || pair == null) return;
+        calendarMonth = CalendarScreen.State.monthOf(date);
+        calendarSelectedDate = date;
+        startCalendarMutation("正在更新观看计划…");
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = calendarRequestGeneration;
+        accountClient.updateCalendarPlanDetails(token, plan.id, date, startTime, note, currentCalendar.revision,
+            calendarMutationCallback("计划已更新。", date, token, pairId, generation));
+    }
+
+    private void toggleCalendarPlan(AccountModels.CalendarPlan plan) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (!canMutateCalendar(session) || plan == null || pair == null) return;
+        String status = "completed".equals(plan.status) ? "planned" : "completed";
+        startCalendarMutation("completed".equals(status) ? "正在标记完成…" : "正在恢复待看…");
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = calendarRequestGeneration;
+        accountClient.setCalendarPlanStatus(token, plan.id, status, currentCalendar.revision,
+            calendarMutationCallback("completed".equals(status) ? "计划已完成。" : "计划已恢复为待看。",
+                plan.date, token, pairId, generation));
+    }
+
+    private void cancelCalendarPlan(AccountModels.CalendarPlan plan) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (!canMutateCalendar(session) || plan == null || pair == null) return;
+        startCalendarMutation("正在取消观看计划…");
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = calendarRequestGeneration;
+        accountClient.deleteCalendarPlan(token, plan.id, currentCalendar.revision,
+            calendarMutationCallback("计划已取消。", plan.date, token, pairId, generation));
+    }
+
+    private boolean canMutateCalendar(AccountModels.Session session) {
+        return session != null
+            && currentPair != null
+            && currentCalendar != null
+            && !currentCalendar.readOnly
+            && currentArchiveCalendarPairId == null
+            && !calendarLoading;
+    }
+
+    private void startCalendarMutation(String message) {
+        calendarLoading = true;
+        calendarError = false;
+        calendarMessage = message;
+        calendarRequestGeneration += 1;
+        showMainTab("calendar", false);
+    }
+
+    private AccountClient.ResultCallback<AccountModels.CalendarSnapshot> calendarMutationCallback(
+        String successMessage,
+        String targetDate,
+        String token,
+        String pairId,
+        long generation
+    ) {
+        return new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
+            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
+                runOnUiThread(() -> {
+                    if (!isCurrentCalendarRequest(generation, token, pairId, null)) return;
+                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
+                        failCalendarResponse("日历更新响应无效，请重新加载。");
+                        return;
+                    }
+                    calendarLoading = false;
+                    calendarError = false;
+                    calendarMessage = successMessage;
+                    currentCalendar = null;
+                    currentArchiveCalendarPairId = null;
+                    calendarMonth = CalendarScreen.State.monthOf(targetDate);
+                    calendarSelectedDate = targetDate;
+                    invalidateTodayCalendar();
+                    showMainTab("calendar", false);
+                    loadActiveCalendar(calendarMonth, false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleCalendarFailure(failure, generation));
+            }
+        };
+    }
+
+    private void handleCalendarFailure(AccountClient.Failure failure, long generation) {
+        if (generation != calendarRequestGeneration) return;
+        calendarLoading = false;
+        if (failure.isAuthenticationFailure()) {
+            handleAccountRestoreFailure(failure);
+            return;
+        }
+        if ("PAIR_REQUIRED".equals(failure.code)
+            || (currentArchiveCalendarPairId != null
+                && ("ARCHIVE_FORBIDDEN".equals(failure.code) || failure.status == 404))) {
+            pairLoaded = false;
+            calendarRequestGeneration += 1;
+            currentCalendar = null;
+            currentArchiveCalendarPairId = null;
+            calendarLoading = false;
+            calendarError = false;
+            pendingCalendarItem = null;
+            pendingCalendarDate = null;
+            calendarMessage = "好友或旧空间状态已变化，正在刷新…";
+            invalidateTodayCalendar();
+            showMainTab("calendar", false);
+            mainHandler.post(() -> ensureCalendarLoaded(true));
+            return;
+        }
+        if ("CALENDAR_VERSION_CONFLICT".equals(failure.code)) {
+            currentCalendar = null;
+            calendarError = false;
+            calendarMessage = "日历已被对方更新，正在获取最新版本…";
+            showMainTab("calendar", false);
+            Toast.makeText(this, "检测到同时修改，已刷新日历，请确认后重试", Toast.LENGTH_LONG).show();
+            mainHandler.post(() -> {
+                if (currentArchiveCalendarPairId != null) loadArchiveCalendar(currentArchiveCalendarPairId, calendarMonth);
+                else loadActiveCalendar(calendarMonth, false);
+            });
+            return;
+        }
+        calendarError = currentCalendar == null;
+        calendarMessage = failure.getMessage();
+        showMainTab("calendar", false);
+    }
+
+    private void failCalendarResponse(String message) {
+        calendarLoading = false;
+        calendarError = true;
+        currentCalendar = null;
+        calendarMessage = message;
+        showMainTab("calendar", false);
+    }
+
+    private void ensureTodayCalendarLoaded(boolean force) {
+        AccountModels.Session session = accountSession;
+        if (!isAccountModeActive() || session == null) {
+            invalidateTodayCalendar();
+            applyTodayStateToHome();
+            return;
+        }
+        String date = LocalDate.now().toString();
+        if (!date.equals(todayCalendarDate)) {
+            todayCalendarDate = date;
+            currentTodayCalendar = null;
+        }
+        if (!force && currentTodayCalendar != null && currentTodayCalendar.range.contains(date)
+            && currentPair != null && currentPair.pairId.equals(currentTodayCalendar.pairId)) {
+            applyTodayStateToHome();
+            return;
+        }
+        if (todayCalendarLoading) return;
+        if (!pairLoaded) {
+            todayCalendarLoading = true;
+            todayCalendarError = "";
+            applyTodayStateToHome();
+            String token = session.token;
+            long generation = ++todayCalendarRequestGeneration;
+            accountClient.getPair(token, new AccountClient.ResultCallback<AccountModels.PairState>() {
+                @Override public void onSuccess(AccountModels.PairState pairState) {
+                    runOnUiThread(() -> {
+                        if (generation != todayCalendarRequestGeneration || !isCurrentSession(token)) return;
+                        todayCalendarLoading = false;
+                        applyPairSnapshot(pairState);
+                        if (currentPair == null) applyTodayStateToHome();
+                        else loadTodayCalendar(date);
+                    });
+                }
+
+                @Override public void onFailure(AccountClient.Failure failure) {
+                    runOnUiThread(() -> handleTodayCalendarFailure(failure, generation));
+                }
+            });
+            return;
+        }
+        if (currentPair == null) {
+            invalidateTodayCalendar();
+            applyTodayStateToHome();
+            return;
+        }
+        loadTodayCalendar(date);
+    }
+
+    private void loadTodayCalendar(String date) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        if (!isAccountModeActive() || session == null || pair == null || todayCalendarLoading) return;
+        todayCalendarDate = date;
+        todayCalendarLoading = true;
+        todayCalendarError = "";
+        applyTodayStateToHome();
+        String token = session.token;
+        String pairId = pair.pairId;
+        long generation = ++todayCalendarRequestGeneration;
+        accountClient.getTodayCalendar(token, date, new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
+            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
+                runOnUiThread(() -> {
+                    if (generation != todayCalendarRequestGeneration || !isCurrentSession(token)
+                        || currentPair == null || !pairId.equals(currentPair.pairId)) return;
+                    todayCalendarLoading = false;
+                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
+                        currentTodayCalendar = null;
+                        todayCalendarError = "今天计划响应无效，请重新加载。";
+                    } else {
+                        currentTodayCalendar = snapshot;
+                        todayCalendarError = "";
+                    }
+                    applyTodayStateToHome();
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> handleTodayCalendarFailure(failure, generation));
+            }
+        });
+    }
+
+    private void handleTodayCalendarFailure(AccountClient.Failure failure, long generation) {
+        if (generation != todayCalendarRequestGeneration) return;
+        todayCalendarLoading = false;
+        if (failure.isAuthenticationFailure()) {
+            handleAccountRestoreFailure(failure);
+            return;
+        }
+        if ("PAIR_REQUIRED".equals(failure.code)) {
+            pairLoaded = false;
+            currentTodayCalendar = null;
+            todayCalendarError = "";
+            applyTodayStateToHome();
+            mainHandler.post(() -> ensureTodayCalendarLoaded(true));
+            return;
+        }
+        currentTodayCalendar = null;
+        todayCalendarError = failure.getMessage();
+        applyTodayStateToHome();
+    }
+
+    private void applyTodayStateToHome() {
+        if (homeScreen == null) return;
+        if (!isAccountModeActive() || currentPair == null) {
+            homeScreen.clearTodayState();
+            return;
+        }
+        homeScreen.setTodayState(currentTodayCalendar, todayCalendarDate, todayCalendarLoading, todayCalendarError);
+    }
+
+    private void invalidateTodayCalendar() {
+        todayCalendarRequestGeneration += 1;
+        currentTodayCalendar = null;
+        todayCalendarLoading = false;
+        todayCalendarError = "";
+        if (homeScreen != null) homeScreen.clearTodayState();
+    }
+
+    private void playCalendarPlan(AccountModels.CalendarPlan plan) {
+        if (plan == null) return;
+        BilibiliMedia media = BilibiliMedia.parse(plan.media.canonicalUrl);
+        if (media == null || media.embedUrl() == null) {
+            Toast.makeText(this, "这个计划的视频暂时无法播放", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (roomClient != null && authenticated) {
+            prepareLibraryMedia(media);
+            return;
+        }
+        pendingLibraryMedia = media;
+        createRoom(isAccountModeActive() && currentPair != null);
+    }
+
+    private boolean calendarMatches(
+        AccountModels.CalendarSnapshot value,
+        String pairId,
+        String month,
+        boolean readOnly
+    ) {
+        if (value == null || pairId == null || !pairId.equals(value.pairId) || value.readOnly != readOnly) return false;
+        return value.range.contains(month + "-01");
+    }
+
+    private boolean isCurrentCalendarRequest(long generation, String token, String pairId, String archivePairId) {
+        if (generation != calendarRequestGeneration || !isCurrentSession(token)) return false;
+        if (pairId != null) return currentPair != null && pairId.equals(currentPair.pairId) && currentArchiveCalendarPairId == null;
+        return archivePairId != null && archivePairId.equals(currentArchiveCalendarPairId);
+    }
+
+    private boolean isCurrentSession(String token) {
+        return accountSession != null && accountSession.token.equals(token) && isAccountModeActive();
+    }
+
+    private void applyPairSnapshot(AccountModels.PairState pairState) {
+        String previousPairId = currentPair == null ? null : currentPair.pairId;
+        String nextPairId = pairState.pair == null ? null : pairState.pair.pairId;
+        boolean changed = previousPairId == null ? nextPairId != null : !previousPairId.equals(nextPairId);
+        currentPairState = pairState;
+        currentPair = pairState.pair;
+        pairLoaded = true;
+        pairLoading = false;
+        if (changed) resetSharedSpaceState();
+        if (currentArchivePairId != null && !hasArchive(pairState.archives, currentArchivePairId)) resetLibraryState();
+        if (currentArchiveCalendarPairId != null && !hasArchive(pairState.archives, currentArchiveCalendarPairId)) resetCalendarState();
+    }
+
+    private static boolean hasArchive(List<AccountModels.PairArchive> archives, String pairId) {
+        if (pairId == null) return false;
+        for (AccountModels.PairArchive archive : archives) {
+            if (pairId.equals(archive.pairId)) return true;
+        }
+        return false;
+    }
     private void playLibraryItem(AccountModels.LibraryItem item) {
         if (item == null) return;
         BilibiliMedia media = BilibiliMedia.parse(item.canonicalUrl);
@@ -2179,10 +2842,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             accountClient.getPair(session.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
                 @Override public void onSuccess(AccountModels.PairState pairState) {
                     runOnUiThread(() -> {
-                        currentPairState = pairState;
-                        currentPair = pairState.pair;
-                        pairLoaded = true;
-                        pairLoading = false;
+                        applyPairSnapshot(pairState);
                         if (currentPair == null) {
                             restoreLibraryPickerButton();
                             if (fallbackToManualLink) showPreparationPanel();
@@ -2371,7 +3031,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 runOnUiThread(() -> {
                     currentPair = pair;
                     currentPairState = new AccountModels.PairState(pair, currentPairState.pendingArchives, currentPairState.archives);
-                    resetLibraryState();
+                    resetSharedSpaceState();
                     currentPairInvite = null;
                     pairLoading = false;
                     pairLoaded = true;
@@ -2402,12 +3062,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         accountClient.getPair(accountSession.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
             @Override public void onSuccess(AccountModels.PairState pairState) {
                 runOnUiThread(() -> {
-                    currentPairState = pairState;
-                    currentPair = pairState.pair;
-                    if (currentLibrary != null && (currentPair == null || !currentPair.pairId.equals(currentLibrary.pairId))) resetLibraryState();
+                    applyPairSnapshot(pairState);
                     if (currentPair != null) currentPairInvite = null;
-                    pairLoading = false;
-                    pairLoaded = true;
                     pairMessage = successMessage != null
                         ? successMessage
                         : (userInitiated ? (currentPair == null ? "好友和旧空间状态已更新。" : "绑定状态已更新。") : "");
@@ -2516,7 +3172,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         AccountModels.Pair activePair = unbind ? null : currentPair;
         currentPair = activePair;
         currentPairState = new AccountModels.PairState(activePair, pendingArchives, archives);
-        resetLibraryState();
+        resetSharedSpaceState();
         if (unbind) currentPairInvite = null;
     }
 
@@ -2753,6 +3409,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         }
         homeScreen.setAccountState(accountSession.user.nickname, accountSession.user.email);
         nicknameInput.setText(accountSession.user.nickname);
+        applyTodayStateToHome();
     }
 
     private boolean isAccountModeActive() {
@@ -2766,6 +3423,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             stopActiveRoomPolling();
             activePairRoom = null;
             homeScreen.setActiveRoom(null, false);
+            resetCalendarState();
         }
     }
 
@@ -2874,6 +3532,17 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void showMainTabFromNavigation(String page) {
+        if (mainNavigationView != null
+            && "calendar".equals(mainNavigationView.getCurrentPage())
+            && !"calendar".equals(page)
+            && calendarLoading) {
+            calendarRequestGeneration += 1;
+            calendarLoading = false;
+            calendarError = false;
+            currentCalendar = null;
+            pendingCalendarItem = null;
+            pendingCalendarDate = null;
+        }
         showMainTab(page, true);
     }
 
@@ -2885,7 +3554,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 content = libraryPage();
                 break;
             case "calendar":
-                content = mainNavigationView.placeholder("03 / CALENDAR", "观看日历", "日期计划、当天片单和观看安排将在日历阶段接入。");
+                content = calendarPage();
                 break;
             case "pair":
                 if (!isAccountModeActive()) {
@@ -2902,6 +3571,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     && preferences.getString("key", null) != null
                     && preferences.getString("role", null) != null;
                 continueButton.setVisibility(hasLastRoom ? View.VISIBLE : View.GONE);
+                applyTodayStateToHome();
                 break;
         }
         mainNavigationView.select(target);
@@ -2913,8 +3583,15 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (refreshPairOnEntry && "library".equals(target) && isAccountModeActive() && !libraryLoading) {
             mainHandler.post(() -> ensureLibraryLoaded(false));
         }
-        if ("home".equals(target)) startActiveRoomPolling();
-        else stopActiveRoomPolling();
+        if (refreshPairOnEntry && "calendar".equals(target) && isAccountModeActive() && !calendarLoading) {
+            mainHandler.post(() -> ensureCalendarLoaded(false));
+        }
+        if ("home".equals(target)) {
+            startActiveRoomPolling();
+            if (isAccountModeActive()) mainHandler.post(() -> ensureTodayCalendarLoaded(false));
+        } else {
+            stopActiveRoomPolling();
+        }
     }
 
     private void showVideoScreen() {
@@ -3235,7 +3912,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         applyThemeRecursive(rootContainer, background, surface, primaryText, secondaryText, border);
         authScreen.applyTheme();
         homeScreen.applyTheme();
+        libraryScreen.applyTheme();
+        calendarScreen.applyTheme();
         mainNavigationView.applyTheme();
+        if (entryHost.getVisibility() == View.VISIBLE && "calendar".equals(mainNavigationView.getCurrentPage())) {
+            showMainTab("calendar", false);
+        }
         if (portraitChatView != null) portraitChatView.setDarkMode(darkMode);
         if (immersiveChatOverlay != null) immersiveChatOverlay.setDarkMode(true);
         if (videoThemeButton != null) {

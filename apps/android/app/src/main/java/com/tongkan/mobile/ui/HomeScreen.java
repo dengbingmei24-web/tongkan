@@ -16,6 +16,11 @@ import android.widget.TextView;
 import com.tongkan.mobile.R;
 import com.tongkan.mobile.account.AccountModels;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+
 public final class HomeScreen {
     public interface Listener {
         void onToggleTheme();
@@ -25,10 +30,14 @@ public final class HomeScreen {
         void onRestoreRoom();
         void onAccountAction();
         void onJoinActiveRoom();
+        void onOpenCalendar();
+        void onPlayTodayPlan(AccountModels.CalendarPlan plan);
+        void onRefreshTodayPlans();
     }
 
     private final BreathTheme theme;
     private final BreathComponents components;
+    private final Listener listener;
     private final ScrollView root;
     private final EditText nicknameInput;
     private final EditText inviteInput;
@@ -44,11 +53,16 @@ public final class HomeScreen {
     private final TextView activeRoomTitle;
     private final TextView activeRoomBody;
     private final Button activeRoomButton;
+    private final LinearLayout todayPanel;
+    private final LinearLayout todayList;
+    private final TextView todayStateText;
+    private final Button todayRetryButton;
     private final LinearLayout joinPanel;
 
     public HomeScreen(Context context, BreathTheme theme, String quote, String quoteSource, Listener listener) {
         this.theme = theme;
         this.components = new BreathComponents(context, theme);
+        this.listener = listener;
         root = components.screen();
         LinearLayout content = components.column(21, 22, 26);
         root.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -133,7 +147,25 @@ public final class HomeScreen {
         roomCard.addView(actions, components.margin(components.matchWrap(), 0, 18, 0, 0));
         content.addView(roomCard, components.margin(components.matchWrap(), 0, 12, 0, 0));
 
+        todayPanel = components.panel(16);
+        todayPanel.setVisibility(View.GONE);
+        LinearLayout todayHeader = components.row();
+        todayHeader.addView(components.section("今天想看"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        Button openCalendar = components.button("查看日历", false);
+        openCalendar.setOnClickListener(view -> listener.onOpenCalendar());
+        todayHeader.addView(openCalendar, new LinearLayout.LayoutParams(components.dp(104), components.dp(44)));
+        todayPanel.addView(todayHeader, components.matchWrap());
+        todayStateText = components.body("");
+        todayPanel.addView(todayStateText, components.margin(components.matchWrap(), 0, 10, 0, 0));
+        todayList = components.column(0, 0, 0);
+        todayPanel.addView(todayList, components.margin(components.matchWrap(), 0, 8, 0, 0));
+        todayRetryButton = components.button("重新加载", false);
+        todayRetryButton.setVisibility(View.GONE);
+        todayRetryButton.setOnClickListener(view -> listener.onRefreshTodayPlans());
+        todayPanel.addView(todayRetryButton, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        content.addView(todayPanel, components.margin(components.matchWrap(), 0, 12, 0, 0));
         joinPanel = components.panel(16);
+
         joinPanel.setVisibility(View.GONE);
         joinPanel.addView(components.section("加入朋友的房间"), components.matchWrap());
         joinPanel.addView(components.body("粘贴朋友发来的邀请链接，再确认加入。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
@@ -223,9 +255,60 @@ public final class HomeScreen {
         accountText.setText(hasSavedAccount ? "账号仍安全保留，可随时返回" : "房间功能无需登录即可使用");
         accountButton.setText(hasSavedAccount ? "返回 " + nickname + " 的账号" : "登录账号");
         setActiveRoom(null, false);
+        clearTodayState();
     }
 
+    public void setTodayState(
+        AccountModels.CalendarSnapshot snapshot,
+        String date,
+        boolean loading,
+        String errorMessage
+    ) {
+        todayList.removeAllViews();
+        todayRetryButton.setVisibility(View.GONE);
+        List<AccountModels.CalendarPlan> plans = State.plannedForDate(snapshot, date);
+        if (loading && plans.isEmpty()) {
+            todayStateText.setText("正在同步今天的共同计划…");
+            todayPanel.setVisibility(View.VISIBLE);
+            components.applyTheme(todayPanel);
+            return;
+        }
+        if (errorMessage != null && !errorMessage.trim().isEmpty() && plans.isEmpty()) {
+            todayStateText.setText(errorMessage.trim());
+            todayRetryButton.setVisibility(View.VISIBLE);
+            todayPanel.setVisibility(View.VISIBLE);
+            components.applyTheme(todayPanel);
+            return;
+        }
+        if (plans.isEmpty()) {
+            todayStateText.setText("");
+            todayPanel.setVisibility(View.GONE);
+            return;
+        }
+        todayStateText.setText(String.format(Locale.ROOT, "%s · %d 项待看", date, plans.size()));
+        for (AccountModels.CalendarPlan plan : plans) {
+            LinearLayout row = components.row();
+            LinearLayout copy = components.column(0, 0, 0);
+            copy.addView(components.section(State.timeLabel(plan.startTime) + " · " + plan.media.title), components.matchWrap());
+            copy.addView(components.body(plan.note == null ? "还没有备注" : plan.note), components.margin(components.matchWrap(), 0, 4, 0, 0));
+            row.addView(copy, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            Button play = components.button("开始", true);
+            play.setOnClickListener(view -> listener.onPlayTodayPlan(plan));
+            row.addView(play, components.margin(new LinearLayout.LayoutParams(components.dp(82), components.dp(46)), 10, 0, 0, 0));
+            todayList.addView(row, components.margin(components.matchWrap(), 0, 10, 0, 0));
+        }
+        todayPanel.setVisibility(View.VISIBLE);
+        components.applyTheme(todayPanel);
+    }
+
+    public void clearTodayState() {
+        todayList.removeAllViews();
+        todayStateText.setText("");
+        todayRetryButton.setVisibility(View.GONE);
+        todayPanel.setVisibility(View.GONE);
+    }
     public void setActiveRoom(AccountModels.ActiveRoom room, boolean joining) {
+
         if (room == null) {
             activeRoomPanel.setVisibility(View.GONE);
             activeRoomButton.setEnabled(false);
@@ -245,6 +328,20 @@ public final class HomeScreen {
         inviteInput.requestFocus();
     }
 
+    public static final class State {
+        private State() {}
+
+        public static List<AccountModels.CalendarPlan> plannedForDate(AccountModels.CalendarSnapshot snapshot, String date) {
+            if (snapshot == null || !AccountModels.isCalendarDate(date)) return Collections.emptyList();
+            List<AccountModels.CalendarPlan> plans = new ArrayList<>(snapshot.plansForDate(date, true));
+            plans.sort(AccountModels.CalendarPlan.DISPLAY_ORDER);
+            return plans;
+        }
+
+        public static String timeLabel(String startTime) {
+            return startTime == null || startTime.trim().isEmpty() ? "当天" : startTime;
+        }
+    }
     public void applyTheme() {
         components.applyTheme(root);
         themeButton.setImageResource(theme.isDark() ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);

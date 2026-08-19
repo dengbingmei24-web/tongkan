@@ -42,6 +42,7 @@ public final class LibraryScreen {
         void onDeleteItem(AccountModels.LibraryItem item);
         void onReorderItems(List<String> orderedIds);
         void onPlay(AccountModels.LibraryItem item);
+        void onSchedule(AccountModels.LibraryItem item);
         void onOpenArchive(AccountModels.PairArchive archive);
         void onCloseArchive();
         void onOpenAccount();
@@ -312,6 +313,10 @@ public final class LibraryScreen {
             play.setOnClickListener(view -> listener.onPlay(item));
             actions.addView(play, components.weight(1));
             if (!snapshot.readOnly) {
+                Button schedule = components.button("安排日期", false);
+                schedule.setEnabled(!loading);
+                schedule.setOnClickListener(view -> listener.onSchedule(item));
+                actions.addView(schedule, components.margin(components.weight(1), 8, 0, 0, 0));
                 Button more = components.button("管理", false);
                 more.setEnabled(!loading);
                 more.setOnClickListener(view -> showItemActions(item));

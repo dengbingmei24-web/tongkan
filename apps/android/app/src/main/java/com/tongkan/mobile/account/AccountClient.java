@@ -60,9 +60,13 @@ public final class AccountClient {
     }
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
-    private static final Set<String> LIBRARY_ERROR_CODES = new HashSet<>(Arrays.asList(
-        "UNAUTHORIZED", "INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED", "ARCHIVE_FORBIDDEN",
-        "NOT_FOUND", "PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED"
+    private static final Set<String> VERSIONED_ERROR_CODES = new HashSet<>(Arrays.asList(
+        "UNAUTHORIZED", "AUTH_REQUIRED", "INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED", "ARCHIVE_FORBIDDEN",
+        "NOT_FOUND", "PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED",
+        "LIBRARY_ITEM_NOT_FOUND", "PLAN_NOT_FOUND", "PLAN_ALREADY_EXISTS", "CALENDAR_VERSION_CONFLICT"
+    ));
+    private static final Set<String> REVISION_CONFLICT_CODES = new HashSet<>(Arrays.asList(
+        "LIBRARY_VERSION_CONFLICT", "CALENDAR_VERSION_CONFLICT"
     ));
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -275,6 +279,100 @@ public final class AccountClient {
         execute(request, value -> null, callback);
     }
 
+    public void getCalendarMonth(String token, String month, ResultCallback<AccountModels.CalendarSnapshot> callback) {
+        if (!requireConfigured(callback) || !requireCalendarMonth(month, callback)) return;
+        execute(requestBuilder("/api/calendar?month=" + encode(month), token).get().build(), AccountClient::parseCalendarSnapshot, callback);
+    }
+
+    public void getCalendarDate(String token, String date, ResultCallback<AccountModels.CalendarSnapshot> callback) {
+        if (!requireConfigured(callback) || !requireCalendarDate(date, callback)) return;
+        execute(requestBuilder("/api/calendar?date=" + encode(date), token).get().build(), AccountClient::parseCalendarSnapshot, callback);
+    }
+
+    public void getTodayCalendar(String token, String date, ResultCallback<AccountModels.CalendarSnapshot> callback) {
+        if (!requireConfigured(callback) || !requireCalendarDate(date, callback)) return;
+        execute(requestBuilder("/api/calendar/today?date=" + encode(date), token).get().build(), AccountClient::parseCalendarSnapshot, callback);
+    }
+
+    public void getArchiveCalendar(String token, String pairId, String month, ResultCallback<AccountModels.CalendarSnapshot> callback) {
+        if (!requireConfigured(callback)
+            || !requireId(pairId, "旧空间无效。", callback)
+            || !requireCalendarMonth(month, callback)) return;
+        String path = "/api/pair/archives/" + pairId + "/calendar?month=" + encode(month);
+        execute(requestBuilder(path, token).get().build(), AccountClient::parseCalendarSnapshot, callback);
+    }
+
+    public void createCalendarPlan(
+        String token,
+        String libraryItemId,
+        String date,
+        String startTime,
+        String note,
+        long expectedRevision,
+        ResultCallback<AccountModels.CalendarSnapshot> callback
+    ) {
+        if (!requireConfigured(callback)) return;
+        try {
+            execute(post("/api/calendar/plans", createCalendarPlanBody(libraryItemId, date, startTime, note, expectedRevision), token),
+                AccountClient::parseCalendarSnapshot, callback);
+        } catch (IllegalArgumentException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", error.getMessage(), 0, false));
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成日历计划请求。", 0, false));
+        }
+    }
+
+    public void updateCalendarPlanDetails(
+        String token,
+        String planId,
+        String date,
+        String startTime,
+        String note,
+        long expectedRevision,
+        ResultCallback<AccountModels.CalendarSnapshot> callback
+    ) {
+        if (!requireConfigured(callback) || !requireId(planId, "日历计划无效。", callback)) return;
+        try {
+            execute(patch("/api/calendar/plans/" + planId,
+                updateCalendarPlanDetailsBody(date, startTime, note, expectedRevision), token),
+                AccountClient::parseCalendarSnapshot, callback);
+        } catch (IllegalArgumentException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", error.getMessage(), 0, false));
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成日历计划更新请求。", 0, false));
+        }
+    }
+
+    public void setCalendarPlanStatus(
+        String token,
+        String planId,
+        String status,
+        long expectedRevision,
+        ResultCallback<AccountModels.CalendarSnapshot> callback
+    ) {
+        if (!requireConfigured(callback) || !requireId(planId, "日历计划无效。", callback)) return;
+        try {
+            execute(patch("/api/calendar/plans/" + planId, calendarPlanStatusBody(status, expectedRevision), token),
+                AccountClient::parseCalendarSnapshot, callback);
+        } catch (IllegalArgumentException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", error.getMessage(), 0, false));
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成日历计划状态请求。", 0, false));
+        }
+    }
+
+    public void deleteCalendarPlan(
+        String token,
+        String planId,
+        long expectedRevision,
+        ResultCallback<AccountModels.CalendarSnapshot> callback
+    ) {
+        if (!requireConfigured(callback)
+            || !requireId(planId, "日历计划无效。", callback)
+            || !requireCalendarRevision(expectedRevision, callback)) return;
+        Request request = requestBuilder("/api/calendar/plans/" + planId + "?expectedRevision=" + expectedRevision, token).delete().build();
+        execute(request, AccountClient::parseCalendarSnapshot, callback);
+    }
     public void getLibrary(
         String token,
         String query,
@@ -514,12 +612,13 @@ public final class AccountClient {
             String message = json.getString("message").trim();
             if (code.isEmpty() || message.isEmpty()) return new Failure("INVALID_RESPONSE", "账号服务返回了无法识别的错误。", status, false);
             long revision = -1;
-            if ("LIBRARY_VERSION_CONFLICT".equals(code)) {
+            if (REVISION_CONFLICT_CODES.contains(code)) {
                 if (!json.has("currentRevision") || json.getLong("currentRevision") < 0) {
-                    return new Failure("INVALID_RESPONSE", "片库版本冲突响应无效，请刷新重试。", status, false);
+                    String label = "CALENDAR_VERSION_CONFLICT".equals(code) ? "日历" : "片库";
+                    return new Failure("INVALID_RESPONSE", label + "版本冲突响应无效，请刷新重试。", status, false);
                 }
                 revision = json.getLong("currentRevision");
-            } else if (LIBRARY_ERROR_CODES.contains(code) && json.has("currentRevision")) {
+            } else if (VERSIONED_ERROR_CODES.contains(code) && json.has("currentRevision")) {
                 return new Failure("INVALID_RESPONSE", "账号服务返回了无法识别的错误。", status, false);
             }
             return new Failure(code, message, status, false, revision);
@@ -532,6 +631,101 @@ public final class AccountClient {
         return AccountModels.LibrarySnapshot.fromJson(new JSONObject(body));
     }
 
+    static AccountModels.CalendarSnapshot parseCalendarSnapshot(String body) throws Exception {
+        return AccountModels.CalendarSnapshot.fromJson(new JSONObject(body));
+    }
+
+    static JSONObject createCalendarPlanBody(
+        String libraryItemId,
+        String date,
+        String startTime,
+        String note,
+        long expectedRevision
+    ) throws JSONException {
+        if (libraryItemId == null || !libraryItemId.matches("[a-f0-9]{32}")) {
+            throw new IllegalArgumentException("请选择共同片库中的视频。");
+        }
+        JSONObject body = calendarDetailsBody(date, startTime, note, expectedRevision);
+        body.put("libraryItemId", libraryItemId);
+        return body;
+    }
+
+    static JSONObject updateCalendarPlanDetailsBody(
+        String date,
+        String startTime,
+        String note,
+        long expectedRevision
+    ) throws JSONException {
+        return calendarDetailsBody(date, startTime, note, expectedRevision);
+    }
+
+    static JSONObject calendarPlanStatusBody(String status, long expectedRevision) throws JSONException {
+        requireCalendarRevisionValue(expectedRevision);
+        if (!"planned".equals(status) && !"completed".equals(status)) {
+            throw new IllegalArgumentException("日历计划状态无效。");
+        }
+        return new JSONObject().put("status", status).put("expectedRevision", expectedRevision);
+    }
+
+    private static JSONObject calendarDetailsBody(
+        String date,
+        String startTime,
+        String note,
+        long expectedRevision
+    ) throws JSONException {
+        requireCalendarRevisionValue(expectedRevision);
+        String normalizedDate = date == null ? "" : date.trim();
+        if (!AccountModels.isCalendarDate(normalizedDate)) {
+            throw new IllegalArgumentException("日期需要使用有效的 YYYY-MM-DD 格式。");
+        }
+        String normalizedTime = normalizeOptionalStartTime(startTime);
+        String normalizedNote = normalizeOptionalNote(note);
+        return new JSONObject()
+            .put("date", normalizedDate)
+            .put("startTime", normalizedTime == null ? JSONObject.NULL : normalizedTime)
+            .put("note", normalizedNote == null ? JSONObject.NULL : normalizedNote)
+            .put("expectedRevision", expectedRevision);
+    }
+
+    static String normalizeOptionalStartTime(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) return null;
+        if (!AccountModels.isStartTime(normalized)) {
+            throw new IllegalArgumentException("开始时间需要使用 24 小时 HH:mm 格式。");
+        }
+        return normalized;
+    }
+
+    static String normalizeOptionalNote(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) return null;
+        if (normalized.codePointCount(0, normalized.length()) > 200) {
+            throw new IllegalArgumentException("备注最多 200 个字符。");
+        }
+        return normalized;
+    }
+
+    private static void requireCalendarRevisionValue(long revision) {
+        if (revision < 0) throw new IllegalArgumentException("日历版本无效，请刷新后重试。");
+    }
+
+    private static <T> boolean requireCalendarMonth(String month, ResultCallback<T> callback) {
+        if (AccountModels.isCalendarMonth(month)) return true;
+        callback.onFailure(new Failure("INVALID_REQUEST", "月份需要使用有效的 YYYY-MM 格式。", 0, false));
+        return false;
+    }
+
+    private static <T> boolean requireCalendarDate(String date, ResultCallback<T> callback) {
+        if (AccountModels.isCalendarDate(date)) return true;
+        callback.onFailure(new Failure("INVALID_REQUEST", "日期需要使用有效的 YYYY-MM-DD 格式。", 0, false));
+        return false;
+    }
+
+    private static <T> boolean requireCalendarRevision(long revision, ResultCallback<T> callback) {
+        if (revision >= 0) return true;
+        callback.onFailure(new Failure("INVALID_REQUEST", "日历版本无效，请刷新后重试。", 0, false));
+        return false;
+    }
     private void mutateWithName(
         String token,
         String path,
