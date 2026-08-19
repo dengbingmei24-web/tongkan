@@ -4,6 +4,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -177,7 +180,7 @@ public final class AccountModels {
 
         public static PublicActor fromJson(JSONObject json) throws JSONException {
             String id = requiredText(json, "id", 128);
-            String nickname = requiredText(json, "nickname", 24);
+            String nickname = requiredText(json, "nickname", 40);
             return new PublicActor(id, nickname);
         }
     }
@@ -340,6 +343,182 @@ public final class AccountModels {
         }
     }
 
+    public static final class CalendarRange {
+        public final String from;
+        public final String to;
+
+        public CalendarRange(String from, String to) {
+            this.from = from;
+            this.to = to;
+        }
+
+        public static CalendarRange fromJson(JSONObject json) throws JSONException {
+            String from = requiredCalendarDate(json, "from");
+            String to = requiredCalendarDate(json, "to");
+            if (from.compareTo(to) > 0) throw new JSONException("Invalid calendar range");
+            return new CalendarRange(from, to);
+        }
+
+        public boolean contains(String date) {
+            return isCalendarDate(date) && from.compareTo(date) <= 0 && to.compareTo(date) >= 0;
+        }
+    }
+
+    public static final class CalendarMedia {
+        public final String bvid;
+        public final int page;
+        public final String canonicalUrl;
+        public final String title;
+        public final String coverUrl;
+
+        public CalendarMedia(String bvid, int page, String canonicalUrl, String title, String coverUrl) {
+            this.bvid = bvid;
+            this.page = page;
+            this.canonicalUrl = canonicalUrl;
+            this.title = title;
+            this.coverUrl = coverUrl;
+        }
+
+        public static CalendarMedia fromJson(JSONObject json) throws JSONException {
+            String bvid = requiredText(json, "bvid", 32);
+            if (!bvid.matches("(?:BV[0-9A-Za-z]{10}|av[1-9][0-9]*)")) throw new JSONException("Invalid calendar media identity");
+            return new CalendarMedia(
+                bvid,
+                positiveInt(json, "page"),
+                requiredHttpsUrl(json, "canonicalUrl", 1000),
+                requiredText(json, "title", 160),
+                nullableHttpsUrl(json, "coverUrl", 1000)
+            );
+        }
+    }
+
+    public static final class CalendarPlan {
+        public static final Comparator<CalendarPlan> DISPLAY_ORDER = (left, right) -> {
+            int dateOrder = left.date.compareTo(right.date);
+            if (dateOrder != 0) return dateOrder;
+            if (left.startTime == null && right.startTime != null) return 1;
+            if (left.startTime != null && right.startTime == null) return -1;
+            if (left.startTime != null) {
+                int timeOrder = left.startTime.compareTo(right.startTime);
+                if (timeOrder != 0) return timeOrder;
+            }
+            int createdOrder = Long.compare(left.createdAt, right.createdAt);
+            return createdOrder != 0 ? createdOrder : left.id.compareTo(right.id);
+        };
+
+        public final String id;
+        public final String libraryItemId;
+        public final String date;
+        public final String startTime;
+        public final String note;
+        public final String status;
+        public final CalendarMedia media;
+        public final PublicActor createdBy;
+        public final PublicActor updatedBy;
+        public final long createdAt;
+        public final long updatedAt;
+        public final Long completedAt;
+
+        public CalendarPlan(
+            String id,
+            String libraryItemId,
+            String date,
+            String startTime,
+            String note,
+            String status,
+            CalendarMedia media,
+            PublicActor createdBy,
+            PublicActor updatedBy,
+            long createdAt,
+            long updatedAt,
+            Long completedAt
+        ) {
+            this.id = id;
+            this.libraryItemId = libraryItemId;
+            this.date = date;
+            this.startTime = startTime;
+            this.note = note;
+            this.status = status;
+            this.media = media;
+            this.createdBy = createdBy;
+            this.updatedBy = updatedBy;
+            this.createdAt = createdAt;
+            this.updatedAt = updatedAt;
+            this.completedAt = completedAt;
+        }
+
+        public static CalendarPlan fromJson(JSONObject json) throws JSONException {
+            String status = requiredEnum(json, "status", "planned", "completed");
+            long createdAt = positiveLong(json, "createdAt");
+            long updatedAt = positiveLong(json, "updatedAt");
+            Long completedAt = nullablePositiveLong(json, "completedAt");
+            if (updatedAt < createdAt || (completedAt != null && completedAt < createdAt)) {
+                throw new JSONException("Invalid calendar plan timestamps");
+            }
+            if (("completed".equals(status)) != (completedAt != null)) {
+                throw new JSONException("Invalid calendar completion state");
+            }
+            return new CalendarPlan(
+                requiredId(json, "id"),
+                nullableId(json, "libraryItemId"),
+                requiredCalendarDate(json, "date"),
+                nullableStartTime(json, "startTime"),
+                nullableText(json, "note", 200),
+                status,
+                CalendarMedia.fromJson(json.getJSONObject("media")),
+                PublicActor.fromJson(json.getJSONObject("createdBy")),
+                PublicActor.fromJson(json.getJSONObject("updatedBy")),
+                createdAt,
+                updatedAt,
+                completedAt
+            );
+        }
+    }
+
+    public static final class CalendarSnapshot {
+        public final String pairId;
+        public final long revision;
+        public final boolean readOnly;
+        public final CalendarRange range;
+        public final List<CalendarPlan> plans;
+
+        public CalendarSnapshot(String pairId, long revision, boolean readOnly, CalendarRange range, List<CalendarPlan> plans) {
+            this.pairId = pairId;
+            this.revision = revision;
+            this.readOnly = readOnly;
+            this.range = range;
+            List<CalendarPlan> ordered = new ArrayList<>(plans);
+            ordered.sort(CalendarPlan.DISPLAY_ORDER);
+            this.plans = Collections.unmodifiableList(ordered);
+        }
+
+        public static CalendarSnapshot fromJson(JSONObject json) throws JSONException {
+            String pairId = requiredId(json, "pairId");
+            long revision = nonNegativeLong(json, "revision");
+            if (!(json.opt("readOnly") instanceof Boolean)) throw new JSONException("Invalid calendar read-only state");
+            CalendarRange range = CalendarRange.fromJson(json.getJSONObject("range"));
+            JSONArray planJson = json.getJSONArray("plans");
+            List<CalendarPlan> plans = new ArrayList<>(planJson.length());
+            Set<String> planIds = new HashSet<>();
+            for (int index = 0; index < planJson.length(); index += 1) {
+                CalendarPlan plan = CalendarPlan.fromJson(planJson.getJSONObject(index));
+                if (!planIds.add(plan.id)) throw new JSONException("Duplicate calendar plan response");
+                if (!range.contains(plan.date)) throw new JSONException("Calendar plan is outside response range");
+                plans.add(plan);
+            }
+            return new CalendarSnapshot(pairId, revision, json.getBoolean("readOnly"), range, plans);
+        }
+
+        public List<CalendarPlan> plansForDate(String date, boolean plannedOnly) {
+            if (!isCalendarDate(date)) return Collections.emptyList();
+            List<CalendarPlan> result = new ArrayList<>();
+            for (CalendarPlan plan : plans) {
+                if (date.equals(plan.date) && (!plannedOnly || "planned".equals(plan.status))) result.add(plan);
+            }
+            result.sort(CalendarPlan.DISPLAY_ORDER);
+            return result;
+        }
+    }
     public static final class BatchItemResult {
         public final String input;
         public final String status;
@@ -526,6 +705,29 @@ public final class AccountModels {
         }
     }
 
+    public static boolean isCalendarMonth(String value) {
+        if (value == null || !value.matches("(?!0000)\\d{4}-(0[1-9]|1[0-2])")) return false;
+        try {
+            YearMonth.parse(value);
+            return true;
+        } catch (DateTimeParseException ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isCalendarDate(String value) {
+        if (value == null || !value.matches("(?!0000)\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])")) return false;
+        try {
+            LocalDate.parse(value);
+            return true;
+        } catch (DateTimeParseException ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isStartTime(String value) {
+        return value != null && value.matches("([01]\\d|2[0-3]):[0-5]\\d");
+    }
     private static String requiredId(JSONObject json, String name) throws JSONException {
         String value = requiredText(json, name, 32);
         if (!value.matches("[a-f0-9]{32}")) throw new JSONException("Invalid " + name);
@@ -549,6 +751,18 @@ public final class AccountModels {
         return requiredText(json, name, maxLength);
     }
 
+    private static String requiredCalendarDate(JSONObject json, String name) throws JSONException {
+        String value = requiredText(json, name, 10);
+        if (!isCalendarDate(value)) throw new JSONException("Invalid " + name);
+        return value;
+    }
+
+    private static String nullableStartTime(JSONObject json, String name) throws JSONException {
+        if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
+        String value = requiredText(json, name, 5);
+        if (!isStartTime(value)) throw new JSONException("Invalid " + name);
+        return value;
+    }
     private static String requiredEnum(JSONObject json, String name, String... allowed) throws JSONException {
         String value = requiredText(json, name, 64);
         for (String option : allowed) if (option.equals(value)) return value;
@@ -595,13 +809,21 @@ public final class AccountModels {
     }
 
     private static String requiredHttpsUrl(JSONObject json, String name) throws JSONException {
-        String value = requiredText(json, name, 2048);
+        return requiredHttpsUrl(json, name, 2048);
+    }
+
+    private static String requiredHttpsUrl(JSONObject json, String name, int maxLength) throws JSONException {
+        String value = requiredText(json, name, maxLength);
         if (!value.matches("https://[^\\s]+")) throw new JSONException("Invalid " + name);
         return value;
     }
 
     private static String nullableHttpsUrl(JSONObject json, String name) throws JSONException {
+        return nullableHttpsUrl(json, name, 2048);
+    }
+
+    private static String nullableHttpsUrl(JSONObject json, String name, int maxLength) throws JSONException {
         if (!json.has(name) || json.get(name) == JSONObject.NULL) return null;
-        return requiredHttpsUrl(json, name);
+        return requiredHttpsUrl(json, name, maxLength);
     }
 }

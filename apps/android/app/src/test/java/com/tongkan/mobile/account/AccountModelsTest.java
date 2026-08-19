@@ -182,6 +182,49 @@ public class AccountModelsTest {
         assertEquals("INVALID_RESPONSE", invalid.code);
     }
 
+    @Test
+    public void parsesCalendarSnapshotAndSortsByDateThenTime() throws Exception {
+        JSONObject snapshotJson = calendarSnapshot();
+        snapshotJson.getJSONArray("plans")
+            .put(calendarPlan("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "2026-08-21", "08:00", "planned", 4))
+            .put(calendarPlan("cccccccccccccccccccccccccccccccc", "2026-08-20", null, "planned", 3))
+            .put(calendarPlan("dddddddddddddddddddddddddddddddd", "2026-08-20", "20:00", "planned", 2))
+            .put(calendarPlan("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "2026-08-20", "18:30", "completed", 1));
+
+        AccountModels.CalendarSnapshot snapshot = AccountModels.CalendarSnapshot.fromJson(snapshotJson);
+        assertEquals(4, snapshot.plans.size());
+        assertEquals("2026-08-20", snapshot.plans.get(0).date);
+        assertEquals("18:30", snapshot.plans.get(0).startTime);
+        assertEquals("20:00", snapshot.plans.get(1).startTime);
+        assertNull(snapshot.plans.get(2).startTime);
+        assertEquals("2026-08-21", snapshot.plans.get(3).date);
+        assertEquals(2, snapshot.plansForDate("2026-08-20", true).size());
+        assertTrue(AccountModels.isCalendarMonth("2026-08"));
+        assertFalse(AccountModels.isCalendarMonth("2026-13"));
+        assertTrue(AccountModels.isCalendarDate("2028-02-29"));
+        assertFalse(AccountModels.isCalendarDate("2026-02-29"));
+        assertTrue(AccountModels.isStartTime("23:59"));
+        assertFalse(AccountModels.isStartTime("24:00"));
+    }
+
+    @Test
+    public void rejectsMalformedCalendarSnapshots() throws Exception {
+        JSONObject emptyTime = calendarSnapshot();
+        emptyTime.getJSONArray("plans").put(
+            calendarPlan("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "2026-08-20", "", "planned", 1));
+        assertCalendarFailure(emptyTime);
+
+        JSONObject outsideRange = calendarSnapshot();
+        outsideRange.getJSONArray("plans").put(
+            calendarPlan("cccccccccccccccccccccccccccccccc", "2026-09-01", null, "planned", 1));
+        assertCalendarFailure(outsideRange);
+
+        JSONObject duplicate = calendarSnapshot();
+        JSONObject plan = calendarPlan("dddddddddddddddddddddddddddddddd", "2026-08-20", null, "planned", 1);
+        duplicate.getJSONArray("plans").put(plan).put(new JSONObject(plan.toString()));
+        assertCalendarFailure(duplicate);
+    }
+
     private static JSONObject pair(String pairId, long boundAt, String userId, String nickname) throws Exception {
         return new JSONObject()
             .put("pairId", pairId)
@@ -242,6 +285,53 @@ public class AccountModelsTest {
             .put("readOnly", readOnly)
             .put("categories", new JSONArray().put(category))
             .put("items", new JSONArray().put(item));
+    }
+
+    private static JSONObject calendarSnapshot() throws Exception {
+        return new JSONObject()
+            .put("pairId", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .put("revision", 4)
+            .put("readOnly", false)
+            .put("range", new JSONObject().put("from", "2026-08-01").put("to", "2026-08-31"))
+            .put("plans", new JSONArray());
+    }
+
+    private static JSONObject calendarPlan(
+        String id,
+        String date,
+        String startTime,
+        String status,
+        long createdAt
+    ) throws Exception {
+        JSONObject actor = new JSONObject().put("id", "user-a").put("nickname", "Alice");
+        JSONObject media = new JSONObject()
+            .put("bvid", "BV1Qxuc62E1y")
+            .put("page", 1)
+            .put("canonicalUrl", "https://www.bilibili.com/video/BV1Qxuc62E1y")
+            .put("title", "测试视频")
+            .put("coverUrl", JSONObject.NULL);
+        JSONObject result = new JSONObject()
+            .put("id", id)
+            .put("libraryItemId", "ffffffffffffffffffffffffffffffff")
+            .put("date", date)
+            .put("startTime", startTime == null ? JSONObject.NULL : startTime)
+            .put("note", JSONObject.NULL)
+            .put("status", status)
+            .put("media", media)
+            .put("createdBy", actor)
+            .put("updatedBy", actor)
+            .put("createdAt", createdAt)
+            .put("updatedAt", createdAt + 1);
+        return result.put("completedAt", "completed".equals(status) ? createdAt + 1 : JSONObject.NULL);
+    }
+
+    private static void assertCalendarFailure(JSONObject value) throws Exception {
+        try {
+            AccountModels.CalendarSnapshot.fromJson(value);
+            fail("Expected invalid calendar response");
+        } catch (org.json.JSONException expected) {
+            assertFalse(expected.getMessage().isEmpty());
+        }
     }
 
     private static void assertPairStateFailure(JSONObject value) throws Exception {
