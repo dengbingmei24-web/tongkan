@@ -1,7 +1,8 @@
 # Handoff: TK-004-W1 Account Calendar
 
 **Status**: READY_FOR_REVIEW
-**Commit**: `9d1fe51453eae24c153ff1a227e63695dc665446`
+**Implementation Commit**: `9d1fe51453eae24c153ff1a227e63695dc665446`
+**Review Fix Commit**: `76229b0d87b51700cdc2fdd6515839d4a7628183`
 **Branch**: `codex/TK-004-W1-account`
 **Baseline**: `a5324c5e5b15eb4798e0e3af159175477fd15647`
 
@@ -32,6 +33,12 @@
 - Account full test suite: 68/68 — PASS.
 - Wrangler dry-run: PASS, no deployment performed.
 - `git diff --check`: PASS before commit.
+
+## Review Amendment
+
+- Empty or whitespace-only `startTime` now returns `400 INVALID_REQUEST` at both the HTTP parser and service boundary; `null` remains the explicit all-day value.
+- Re-ran Calendar 5/5, Account 68/68, Account typecheck, protocol build, Wrangler dry-run and `git diff --check`; all pass.
+- Also split the adjacent Calendar DELETE and device-register route formatting without changing behavior.
 
 ## Migration and Compatibility
 
