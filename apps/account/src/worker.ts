@@ -264,7 +264,7 @@ export default {
           authenticated.user,
           stringField(body, "libraryItemId") ?? "",
           stringField(body, "date") ?? "",
-          optionalNullableStringField(body, "startTime", 5),
+          optionalNullableStartTimeField(body, "startTime"),
           optionalNullableStringField(body, "note", 200),
           integerField(body, "expectedRevision"),
         ), 201, origin);
@@ -275,7 +275,7 @@ export default {
         const body = await readObject(request);
         const patch: { date?: string; startTime?: string | null; note?: string | null; status?: "planned" | "completed" } = {};
         if (Object.prototype.hasOwnProperty.call(body, "date")) patch.date = stringField(body, "date") ?? "";
-        if (Object.prototype.hasOwnProperty.call(body, "startTime")) patch.startTime = optionalNullableStringField(body, "startTime", 5) ?? null;
+        if (Object.prototype.hasOwnProperty.call(body, "startTime")) patch.startTime = optionalNullableStartTimeField(body, "startTime") ?? null;
         if (Object.prototype.hasOwnProperty.call(body, "note")) patch.note = optionalNullableStringField(body, "note", 200) ?? null;
         if (Object.prototype.hasOwnProperty.call(body, "status")) patch.status = calendarStatusField(body);
         return json(await calendarService.updatePlan(
@@ -292,7 +292,8 @@ export default {
           decodeURIComponent(calendarPlanMatch[1] ?? ""),
           integerQuery(url, "expectedRevision"),
         ), 200, origin);
-      }      if (url.pathname === "/api/devices/register" && request.method === "POST") {
+      }
+      if (url.pathname === "/api/devices/register" && request.method === "POST") {
         const authenticated = await service.authenticate(bearerToken(request));
         const body = await readObject(request);
         return json(await pushService.registerDevice(
@@ -366,6 +367,16 @@ function optionalNullableStringField(body: Record<string, unknown>, name: string
   const normalized = value.trim();
   if (!normalized) return null;
   if (Array.from(normalized).length > maxLength) invalidRequest("文本字段过长。");
+  return normalized;
+}
+
+function optionalNullableStartTimeField(body: Record<string, unknown>, name: string): string | null | undefined {
+  const value = body[name];
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") invalidRequest("开始时间格式应为 HH:mm。");
+  const normalized = value.trim();
+  if (!normalized) invalidRequest("开始时间格式应为 HH:mm。");
   return normalized;
 }
 

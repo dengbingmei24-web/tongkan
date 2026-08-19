@@ -137,9 +137,9 @@ function validDate(value: string): string {
   return value;
 }
 function validStartTime(value: string | null | undefined): string | null {
-  if (value === null || value === undefined || value.trim() === "") return null;
+  if (value === null || value === undefined) return null;
   const normalized = value.trim();
-  if (!TIME_RE.test(normalized)) throw new AuthError("INVALID_REQUEST", "开始时间格式应为 HH:mm。", 400);
+  if (!normalized || !TIME_RE.test(normalized)) throw new AuthError("INVALID_REQUEST", "开始时间格式应为 HH:mm。", 400);
   return normalized;
 }
 function validNote(value: string | null | undefined): string | null {

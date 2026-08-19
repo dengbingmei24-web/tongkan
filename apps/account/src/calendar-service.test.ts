@@ -102,6 +102,7 @@ describe("CalendarService", () => {
     const repository = new MemoryCalendarRepository();
     const service = new CalendarService(repository);
     await expect(service.createPlan(user, itemId, "2026-02-30", null, null, 0)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    await expect(service.createPlan(user, itemId, "2026-02-28", "", null, 0)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
     await expect(service.createPlan(user, itemId, "2026-02-28", "24:00", null, 0)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
     await expect(service.createPlan(user, itemId, "2026-02-28", null, "字".repeat(201), 0)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
     await expect(service.createPlan(user, "f".repeat(32), "2026-02-28", null, null, 0)).rejects.toMatchObject({ code: "LIBRARY_ITEM_NOT_FOUND" });
