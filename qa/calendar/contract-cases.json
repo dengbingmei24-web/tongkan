@@ -1,0 +1,1797 @@
+{
+  "schemaVersion": 1,
+  "feature": "TK-004-calendar",
+  "openApiContract": "specs/TK-004-calendar/contracts/openapi.yaml",
+  "defaultPreviewOrigin": "https://tongkan-account-preview-gateway.pages.dev/account-api",
+  "notes": [
+    "默认仅执行 ValidateOnly；Live 必须显式启用并使用一次性 SecureString 凭据。",
+    "只允许精确 Preview host 或 localhost/127.0.0.1；禁止生产 host。",
+    "合同只保存非 secret 夹具名和相对 API 路径，不保存 token、邮箱、邀请 URL 或私有数据。",
+    "D1 级联 SQL 仅供审查任务核对定义，runner 永不执行数据库命令。"
+  ],
+  "errorContract": {
+    "400": [
+      "INVALID_REQUEST",
+      "INVALID_JSON"
+    ],
+    "401": [
+      "AUTH_REQUIRED"
+    ],
+    "403": [
+      "ARCHIVE_FORBIDDEN"
+    ],
+    "404": [
+      "NOT_FOUND",
+      "LIBRARY_ITEM_NOT_FOUND",
+      "PLAN_NOT_FOUND"
+    ],
+    "409": [
+      "PAIR_REQUIRED",
+      "PLAN_ALREADY_EXISTS",
+      "CALENDAR_VERSION_CONFLICT"
+    ],
+    "415": [
+      "JSON_REQUIRED"
+    ]
+  },
+  "requiredCoverage": [
+    "auth",
+    "no-pair",
+    "a-b-consistency",
+    "query-boundaries",
+    "mutation-validation",
+    "crud",
+    "sorting",
+    "today-filter",
+    "duplicate",
+    "stale-revision",
+    "revision-race-20",
+    "late-write",
+    "archive-keep",
+    "archive-forbidden",
+    "cascade"
+  ],
+  "liveInputs": [
+    {
+      "name": "LIBRARY_ITEM_1",
+      "kind": "hexId"
+    },
+    {
+      "name": "LIBRARY_ITEM_2",
+      "kind": "hexId"
+    },
+    {
+      "name": "LIBRARY_ITEM_3",
+      "kind": "hexId"
+    },
+    {
+      "name": "FOREIGN_LIBRARY_ITEM_ID",
+      "kind": "hexId"
+    },
+    {
+      "name": "CRUD_DATE",
+      "kind": "date"
+    },
+    {
+      "name": "CRUD_UPDATED_DATE",
+      "kind": "date"
+    },
+    {
+      "name": "SORT_DATE",
+      "kind": "date"
+    },
+    {
+      "name": "DUPLICATE_DATE",
+      "kind": "date"
+    },
+    {
+      "name": "RACE_START_DATE",
+      "kind": "date"
+    },
+    {
+      "name": "KEEP_PAIR_ID",
+      "kind": "hexId"
+    },
+    {
+      "name": "KEEP_MONTH",
+      "kind": "month"
+    },
+    {
+      "name": "KEEP_PLAN_ID",
+      "kind": "hexId"
+    },
+    {
+      "name": "PENDING_PAIR_ID",
+      "kind": "hexId"
+    },
+    {
+      "name": "DELETE_PAIR_ID",
+      "kind": "hexId"
+    },
+    {
+      "name": "DELETED_PAIR_ID",
+      "kind": "hexId"
+    },
+    {
+      "name": "RUN_ID",
+      "kind": "runId"
+    }
+  ],
+  "d1Evidence": [
+    {
+      "name": "pair",
+      "sql": "SELECT COUNT(*) AS row_count FROM pairs WHERE id = ?1;",
+      "expect": {
+        "row_count": 0
+      }
+    },
+    {
+      "name": "calendar-state",
+      "sql": "SELECT COUNT(*) AS row_count FROM pair_calendar_state WHERE pair_id = ?1;",
+      "expect": {
+        "row_count": 0
+      }
+    },
+    {
+      "name": "calendar-plans",
+      "sql": "SELECT COUNT(*) AS row_count FROM calendar_plans WHERE pair_id = ?1;",
+      "expect": {
+        "row_count": 0
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "unauthorized-calendar",
+      "title": "未登录日历请求统一拒绝",
+      "category": "authorization",
+      "coverage": [
+        "auth"
+      ],
+      "mode": "sequential",
+      "requests": [
+        {
+          "name": "month-without-token",
+          "actor": "none",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "2099-01"
+          },
+          "expect": {
+            "statuses": [
+              401
+            ],
+            "errorCode": "AUTH_REQUIRED",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "today-without-token",
+          "actor": "none",
+          "method": "GET",
+          "path": "/api/calendar/today",
+          "query": {
+            "date": "2099-01-01"
+          },
+          "expect": {
+            "statuses": [
+              401
+            ],
+            "errorCode": "AUTH_REQUIRED",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "create-without-token",
+          "actor": "none",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "00000000000000000000000000000000",
+            "date": "2099-01-01",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": 0
+          },
+          "expect": {
+            "statuses": [
+              401
+            ],
+            "errorCode": "AUTH_REQUIRED",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "no-pair-account",
+      "title": "已登录但无活动好友关系",
+      "category": "authorization",
+      "coverage": [
+        "no-pair"
+      ],
+      "mode": "sequential",
+      "requests": [
+        {
+          "name": "month-without-pair",
+          "actor": "C",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "2099-01"
+          },
+          "expect": {
+            "statuses": [
+              409
+            ],
+            "errorCode": "PAIR_REQUIRED",
+            "bodyAbsent": [
+              "currentRevision",
+              "pairId"
+            ]
+          }
+        },
+        {
+          "name": "create-without-pair",
+          "actor": "C",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "2099-01-01",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": 0
+          },
+          "expect": {
+            "statuses": [
+              409
+            ],
+            "errorCode": "PAIR_REQUIRED",
+            "bodyAbsent": [
+              "currentRevision",
+              "pairId"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "active-calendar-a-b-baseline",
+      "title": "绑定双方读取相同活动日历",
+      "category": "snapshot",
+      "coverage": [
+        "a-b-consistency"
+      ],
+      "mode": "sequential",
+      "requests": [
+        {
+          "name": "actor-a-month",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "{{CRUD_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "readOnly": false,
+              "range.from": "{{CRUD_MONTH_FROM}}",
+              "range.to": "{{CRUD_MONTH_TO}}"
+            },
+            "uniqueBy": [
+              {
+                "path": "plans",
+                "property": "id"
+              }
+            ]
+          },
+          "capture": {
+            "ACTIVE_PAIR_ID": "pairId",
+            "BASE_REVISION": "revision",
+            "CRUD_RANGE_FROM": "range.from",
+            "CRUD_RANGE_TO": "range.to"
+          }
+        },
+        {
+          "name": "actor-b-month",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "{{CRUD_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "pairId": "{{ACTIVE_PAIR_ID}}",
+              "revision": "{{BASE_REVISION}}",
+              "readOnly": false,
+              "range.from": "{{CRUD_RANGE_FROM}}",
+              "range.to": "{{CRUD_RANGE_TO}}"
+            },
+            "uniqueBy": [
+              {
+                "path": "plans",
+                "property": "id"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "calendar-query-boundaries",
+      "title": "月份日期闰年和 today 查询边界",
+      "category": "validation",
+      "coverage": [
+        "query-boundaries",
+        "today-filter"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "active-calendar-a-b-baseline"
+      ],
+      "requests": [
+        {
+          "name": "invalid-month",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "2026-13"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "invalid-date",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "2026-02-30"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "leap-month",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "2028-02"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{BASE_REVISION}}",
+              "range.from": "2028-02-01",
+              "range.to": "2028-02-29"
+            }
+          }
+        },
+        {
+          "name": "common-february",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "2029-02"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{BASE_REVISION}}",
+              "range.from": "2029-02-01",
+              "range.to": "2029-02-28"
+            }
+          }
+        },
+        {
+          "name": "single-date",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{BASE_REVISION}}",
+              "range.from": "{{CRUD_DATE}}",
+              "range.to": "{{CRUD_DATE}}"
+            }
+          }
+        },
+        {
+          "name": "today-date",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar/today",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{BASE_REVISION}}",
+              "range.from": "{{CRUD_DATE}}",
+              "range.to": "{{CRUD_DATE}}"
+            },
+            "allArrayItems": [
+              {
+                "path": "plans",
+                "property": "status",
+                "value": "planned"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "mutation-input-boundaries-no-revision",
+      "title": "失败输入不增加 revision",
+      "category": "validation",
+      "coverage": [
+        "mutation-validation"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "active-calendar-a-b-baseline"
+      ],
+      "requests": [
+        {
+          "name": "boundary-baseline",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "arrayCount": {
+              "plans": 0
+            }
+          },
+          "capture": {
+            "BOUNDARY_REVISION": "revision"
+          }
+        },
+        {
+          "name": "invalid-library-id",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "bad",
+            "date": "{{CRUD_DATE}}",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "foreign-library-item",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{FOREIGN_LIBRARY_ITEM_ID}}",
+            "date": "{{CRUD_DATE}}",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              404
+            ],
+            "errorCode": "LIBRARY_ITEM_NOT_FOUND",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "invalid-create-date",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "2026-02-30",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "invalid-start-time",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{CRUD_DATE}}",
+            "startTime": "24:00",
+            "note": null,
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "empty-start-time",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{CRUD_DATE}}",
+            "startTime": "",
+            "note": null,
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "long-note",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{CRUD_DATE}}",
+            "startTime": null,
+            "note": "{{NOTE_201}}",
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              400
+            ],
+            "errorCode": "INVALID_REQUEST",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "boundary-verify",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{BOUNDARY_REVISION}}"
+            },
+            "arrayCount": {
+              "plans": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "create-plan-a-b-consistency",
+      "title": "A 创建后 B 读取相同计划",
+      "category": "crud",
+      "coverage": [
+        "crud",
+        "a-b-consistency"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "mutation-input-boundaries-no-revision"
+      ],
+      "requests": [
+        {
+          "name": "create-plan",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{CRUD_DATE}}",
+            "startTime": null,
+            "note": "   ",
+            "expectedRevision": "{{BOUNDARY_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              201
+            ],
+            "body": {
+              "pairId": "{{ACTIVE_PAIR_ID}}",
+              "readOnly": false,
+              "revision": "{{BOUNDARY_REVISION_PLUS_1}}",
+              "plans.0.libraryItemId": "{{LIBRARY_ITEM_1}}",
+              "plans.0.date": "{{CRUD_DATE}}",
+              "plans.0.startTime": null,
+              "plans.0.note": null,
+              "plans.0.status": "planned"
+            },
+            "bodyNonNull": [
+              "plans.0.id",
+              "plans.0.media.bvid",
+              "plans.0.media.url",
+              "plans.0.media.title",
+              "plans.0.createdBy.id",
+              "plans.0.updatedBy.id"
+            ],
+            "arrayCount": {
+              "plans": 1
+            }
+          },
+          "capture": {
+            "CRUD_PLAN_ID": "plans.0.id",
+            "CRUD_CREATE_REVISION": "revision"
+          }
+        },
+        {
+          "name": "partner-reads-created",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "pairId": "{{ACTIVE_PAIR_ID}}",
+              "revision": "{{CRUD_CREATE_REVISION}}",
+              "plans.0.id": "{{CRUD_PLAN_ID}}",
+              "plans.0.status": "planned"
+            },
+            "arrayCount": {
+              "plans": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "update-and-complete-plan",
+      "title": "改期、备注和完成状态",
+      "category": "crud",
+      "coverage": [
+        "crud",
+        "today-filter"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "create-plan-a-b-consistency"
+      ],
+      "requests": [
+        {
+          "name": "partner-reschedules",
+          "actor": "B",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{CRUD_PLAN_ID}}",
+          "body": {
+            "date": "{{CRUD_UPDATED_DATE}}",
+            "startTime": "20:00",
+            "note": "  更新后一起看  ",
+            "expectedRevision": "{{CRUD_CREATE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_CREATE_REVISION_PLUS_1}}",
+              "plans.0.id": "{{CRUD_PLAN_ID}}",
+              "plans.0.date": "{{CRUD_UPDATED_DATE}}",
+              "plans.0.startTime": "20:00",
+              "plans.0.note": "更新后一起看",
+              "plans.0.status": "planned"
+            }
+          },
+          "capture": {
+            "CRUD_RESCHEDULE_REVISION": "revision"
+          }
+        },
+        {
+          "name": "old-date-empty",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_RESCHEDULE_REVISION}}"
+            },
+            "arrayCount": {
+              "plans": 0
+            }
+          }
+        },
+        {
+          "name": "new-date-has-plan",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_UPDATED_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_RESCHEDULE_REVISION}}"
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{CRUD_PLAN_ID}}",
+                  "note": "更新后一起看"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator-completes",
+          "actor": "A",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{CRUD_PLAN_ID}}",
+          "body": {
+            "status": "completed",
+            "expectedRevision": "{{CRUD_RESCHEDULE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_RESCHEDULE_REVISION_PLUS_1}}",
+              "plans.0.id": "{{CRUD_PLAN_ID}}",
+              "plans.0.status": "completed"
+            },
+            "bodyNonNull": [
+              "plans.0.completedAt"
+            ]
+          },
+          "capture": {
+            "CRUD_COMPLETED_REVISION": "revision"
+          }
+        },
+        {
+          "name": "today-excludes-completed",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar/today",
+          "query": {
+            "date": "{{CRUD_UPDATED_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_COMPLETED_REVISION}}"
+            },
+            "arrayNotContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{CRUD_PLAN_ID}}"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "date-keeps-completed",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_UPDATED_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_COMPLETED_REVISION}}"
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{CRUD_PLAN_ID}}",
+                  "status": "completed"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "delete-plan",
+      "title": "取消计划物理删除",
+      "category": "crud",
+      "coverage": [
+        "crud"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "update-and-complete-plan"
+      ],
+      "requests": [
+        {
+          "name": "partner-deletes",
+          "actor": "B",
+          "method": "DELETE",
+          "path": "/api/calendar/plans/{{CRUD_PLAN_ID}}",
+          "query": {
+            "expectedRevision": "{{CRUD_COMPLETED_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_COMPLETED_REVISION_PLUS_1}}"
+            },
+            "arrayNotContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{CRUD_PLAN_ID}}"
+                }
+              }
+            ]
+          },
+          "capture": {
+            "CRUD_DELETE_REVISION": "revision"
+          }
+        },
+        {
+          "name": "creator-confirms-delete",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_UPDATED_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{CRUD_DELETE_REVISION}}"
+            },
+            "arrayNotContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{CRUD_PLAN_ID}}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "same-day-sort-month-date-today",
+      "title": "同日稳定排序与 today planned 过滤",
+      "category": "sorting",
+      "coverage": [
+        "sorting",
+        "today-filter",
+        "a-b-consistency"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "active-calendar-a-b-baseline"
+      ],
+      "requests": [
+        {
+          "name": "sort-baseline",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{SORT_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "arrayCount": {
+              "plans": 0
+            }
+          },
+          "capture": {
+            "SORT_REV_0": "revision"
+          }
+        },
+        {
+          "name": "create-20",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{SORT_DATE}}",
+            "startTime": "20:00",
+            "note": null,
+            "expectedRevision": "{{SORT_REV_0}}"
+          },
+          "expect": {
+            "statuses": [
+              201
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "SORT_REV_0",
+              "delta": 1
+            }
+          },
+          "capture": {
+            "SORT_PLAN_20": "plans.0.id",
+            "SORT_REV_1": "revision"
+          }
+        },
+        {
+          "name": "create-all-day",
+          "actor": "B",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_2}}",
+            "date": "{{SORT_DATE}}",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": "{{SORT_REV_1}}"
+          },
+          "expect": {
+            "statuses": [
+              201
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "SORT_REV_1",
+              "delta": 1
+            }
+          },
+          "capture": {
+            "SORT_PLAN_ALL": "plans.1.id",
+            "SORT_REV_2": "revision"
+          }
+        },
+        {
+          "name": "create-18",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_3}}",
+            "date": "{{SORT_DATE}}",
+            "startTime": "18:30",
+            "note": null,
+            "expectedRevision": "{{SORT_REV_2}}"
+          },
+          "expect": {
+            "statuses": [
+              201
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "SORT_REV_2",
+              "delta": 1
+            }
+          },
+          "capture": {
+            "SORT_PLAN_18": "plans.0.id",
+            "SORT_REV_3": "revision"
+          }
+        },
+        {
+          "name": "date-order-a",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{SORT_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{SORT_REV_3}}"
+            },
+            "arrayCount": {
+              "plans": 3
+            },
+            "arrayOrder": [
+              {
+                "path": "plans",
+                "property": "startTime",
+                "expected": [
+                  "18:30",
+                  "20:00",
+                  null
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "today-order-b",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar/today",
+          "query": {
+            "date": "{{SORT_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{SORT_REV_3}}"
+            },
+            "arrayCount": {
+              "plans": 3
+            },
+            "arrayOrder": [
+              {
+                "path": "plans",
+                "property": "startTime",
+                "expected": [
+                  "18:30",
+                  "20:00",
+                  null
+                ]
+              }
+            ],
+            "allArrayItems": [
+              {
+                "path": "plans",
+                "property": "status",
+                "value": "planned"
+              }
+            ]
+          }
+        },
+        {
+          "name": "month-contains-three",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "month": "{{SORT_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "pairId": "{{ACTIVE_PAIR_ID}}",
+              "revision": "{{SORT_REV_3}}"
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{SORT_PLAN_18}}"
+                }
+              },
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{SORT_PLAN_20}}"
+                }
+              },
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{SORT_PLAN_ALL}}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "duplicate-plan-no-revision",
+      "title": "同条目同日重复不增加 revision",
+      "category": "conflict",
+      "coverage": [
+        "duplicate"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "active-calendar-a-b-baseline"
+      ],
+      "requests": [
+        {
+          "name": "duplicate-baseline",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{DUPLICATE_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "arrayCount": {
+              "plans": 0
+            }
+          },
+          "capture": {
+            "DUPLICATE_REV_0": "revision"
+          }
+        },
+        {
+          "name": "duplicate-first-create",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{DUPLICATE_DATE}}",
+            "startTime": "23:59",
+            "note": "{{NOTE_200}}",
+            "expectedRevision": "{{DUPLICATE_REV_0}}"
+          },
+          "expect": {
+            "statuses": [
+              201
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "DUPLICATE_REV_0",
+              "delta": 1
+            },
+            "body": {
+              "plans.0.note": "{{NOTE_200}}"
+            }
+          },
+          "capture": {
+            "DUPLICATE_PLAN_ID": "plans.0.id",
+            "DUPLICATE_REVISION": "revision"
+          }
+        },
+        {
+          "name": "duplicate-second-create",
+          "actor": "B",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_1}}",
+            "date": "{{DUPLICATE_DATE}}",
+            "startTime": null,
+            "note": null,
+            "expectedRevision": "{{DUPLICATE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              409
+            ],
+            "errorCode": "PLAN_ALREADY_EXISTS",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "duplicate-verify",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{DUPLICATE_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{DUPLICATE_REVISION}}"
+            },
+            "arrayCount": {
+              "plans": 1
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{DUPLICATE_PLAN_ID}}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stale-revision-no-overwrite",
+      "title": "旧 revision 不覆盖新状态",
+      "category": "conflict",
+      "coverage": [
+        "stale-revision"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "duplicate-plan-no-revision"
+      ],
+      "requests": [
+        {
+          "name": "winner-update",
+          "actor": "A",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{DUPLICATE_PLAN_ID}}",
+          "body": {
+            "note": "winner-{{RUN_ID}}",
+            "expectedRevision": "{{DUPLICATE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "DUPLICATE_REVISION",
+              "delta": 1
+            }
+          },
+          "capture": {
+            "STALE_WIN_REVISION": "revision"
+          }
+        },
+        {
+          "name": "loser-stale-update",
+          "actor": "B",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{DUPLICATE_PLAN_ID}}",
+          "body": {
+            "note": "loser-{{RUN_ID}}",
+            "expectedRevision": "{{DUPLICATE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              409
+            ],
+            "errorCode": "CALENDAR_VERSION_CONFLICT",
+            "body": {
+              "currentRevision": "{{STALE_WIN_REVISION}}"
+            }
+          }
+        },
+        {
+          "name": "stale-verify",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{DUPLICATE_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "revision": "{{STALE_WIN_REVISION}}"
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{DUPLICATE_PLAN_ID}}",
+                  "note": "winner-{{RUN_ID}}"
+                }
+              }
+            ],
+            "arrayNotContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{DUPLICATE_PLAN_ID}}",
+                  "note": "loser-{{RUN_ID}}"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "revision-race-20",
+      "title": "20 轮同 revision 竞争",
+      "category": "concurrency",
+      "coverage": [
+        "revision-race-20"
+      ],
+      "mode": "revisionRace",
+      "iterations": 20,
+      "dependsOn": [
+        "active-calendar-a-b-baseline"
+      ],
+      "baselineRequests": [
+        {
+          "name": "race-date-baseline",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{RACE_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "arrayCount": {
+              "plans": 0
+            }
+          },
+          "capture": {
+            "RACE_SEED_REVISION": "revision"
+          }
+        },
+        {
+          "name": "race-seed-create",
+          "actor": "A",
+          "method": "POST",
+          "path": "/api/calendar/plans",
+          "body": {
+            "libraryItemId": "{{LIBRARY_ITEM_2}}",
+            "date": "{{RACE_DATE}}",
+            "startTime": null,
+            "note": "seed-{{RUN_ID}}-{{ITERATION}}",
+            "expectedRevision": "{{RACE_SEED_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              201
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "RACE_SEED_REVISION",
+              "delta": 1
+            }
+          },
+          "capture": {
+            "RACE_PLAN_ID": "plans.0.id",
+            "RACE_BASE_REVISION": "revision"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "name": "race-update-a",
+          "actor": "A",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{RACE_PLAN_ID}}",
+          "body": {
+            "note": "race-a-{{RUN_ID}}-{{ITERATION}}",
+            "expectedRevision": "{{RACE_BASE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              200,
+              409
+            ]
+          }
+        },
+        {
+          "name": "race-update-b",
+          "actor": "B",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{RACE_PLAN_ID}}",
+          "body": {
+            "note": "race-b-{{RUN_ID}}-{{ITERATION}}",
+            "expectedRevision": "{{RACE_BASE_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              200,
+              409
+            ]
+          }
+        }
+      ],
+      "aggregateExpect": {
+        "statusCounts": {
+          "200": 1,
+          "409": 1
+        },
+        "errorCodeCounts": {
+          "CALENDAR_VERSION_CONFLICT": 1
+        },
+        "conflictRevisionMatchesSuccessRevision": true
+      },
+      "verifyRequests": [
+        {
+          "name": "race-authoritative-read",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{RACE_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "revisionDelta": {
+              "path": "revision",
+              "from": "RACE_BASE_REVISION",
+              "delta": 1
+            },
+            "arrayCount": {
+              "plans": 1
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{RACE_PLAN_ID}}"
+                }
+              }
+            ],
+            "bodyOneOf": [
+              {
+                "path": "plans.0.note",
+                "values": [
+                  "race-a-{{RUN_ID}}-{{ITERATION}}",
+                  "race-b-{{RUN_ID}}-{{ITERATION}}"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "late-old-pair-write",
+      "title": "旧 pair 晚到写入不影响新 pair",
+      "category": "isolation",
+      "coverage": [
+        "late-write"
+      ],
+      "mode": "sequential",
+      "dependsOn": [
+        "active-calendar-a-b-baseline"
+      ],
+      "requests": [
+        {
+          "name": "new-pair-baseline",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ]
+          },
+          "capture": {
+            "NEW_PAIR_ID": "pairId",
+            "NEW_PAIR_REVISION": "revision"
+          }
+        },
+        {
+          "name": "late-old-plan-update",
+          "actor": "A",
+          "method": "PATCH",
+          "path": "/api/calendar/plans/{{KEEP_PLAN_ID}}",
+          "body": {
+            "note": "late-{{RUN_ID}}",
+            "expectedRevision": "{{NEW_PAIR_REVISION}}"
+          },
+          "expect": {
+            "statuses": [
+              404
+            ],
+            "errorCode": "PLAN_NOT_FOUND",
+            "bodyAbsent": [
+              "currentRevision"
+            ]
+          }
+        },
+        {
+          "name": "new-pair-unchanged",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/calendar",
+          "query": {
+            "date": "{{CRUD_DATE}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "pairId": "{{NEW_PAIR_ID}}",
+              "revision": "{{NEW_PAIR_REVISION}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "archive-keep-readonly",
+      "title": "keep 归档日历只读可见",
+      "category": "archive",
+      "coverage": [
+        "archive-keep"
+      ],
+      "mode": "sequential",
+      "requests": [
+        {
+          "name": "keep-owner-read",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/pair/archives/{{KEEP_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              200
+            ],
+            "body": {
+              "pairId": "{{KEEP_PAIR_ID}}",
+              "readOnly": true
+            },
+            "arrayContains": [
+              {
+                "path": "plans",
+                "match": {
+                  "id": "{{KEEP_PLAN_ID}}"
+                }
+              }
+            ]
+          },
+          "capture": {
+            "KEEP_ARCHIVE_REVISION": "revision"
+          }
+        }
+      ]
+    },
+    {
+      "id": "archive-forbidden-states",
+      "title": "pending/delete/第三方归档拒绝",
+      "category": "archive",
+      "coverage": [
+        "archive-forbidden"
+      ],
+      "mode": "sequential",
+      "requests": [
+        {
+          "name": "pending-owner-read",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/pair/archives/{{PENDING_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              403
+            ],
+            "errorCode": "ARCHIVE_FORBIDDEN",
+            "bodyAbsent": [
+              "pairId",
+              "revision",
+              "plans"
+            ]
+          }
+        },
+        {
+          "name": "delete-owner-read",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/pair/archives/{{DELETE_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              403
+            ],
+            "errorCode": "ARCHIVE_FORBIDDEN",
+            "bodyAbsent": [
+              "pairId",
+              "revision",
+              "plans"
+            ]
+          }
+        },
+        {
+          "name": "third-account-read",
+          "actor": "C",
+          "method": "GET",
+          "path": "/api/pair/archives/{{KEEP_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              403
+            ],
+            "errorCode": "ARCHIVE_FORBIDDEN",
+            "bodyAbsent": [
+              "pairId",
+              "revision",
+              "plans"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "both-delete-api-and-d1-cascade",
+      "title": "双方 delete 后 API 与 D1 均无残留",
+      "category": "cascade",
+      "coverage": [
+        "cascade"
+      ],
+      "mode": "sequential",
+      "requests": [
+        {
+          "name": "deleted-read-a",
+          "actor": "A",
+          "method": "GET",
+          "path": "/api/pair/archives/{{DELETED_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              404
+            ],
+            "errorCode": "NOT_FOUND",
+            "bodyAbsent": [
+              "pairId",
+              "revision",
+              "plans"
+            ]
+          }
+        },
+        {
+          "name": "deleted-read-b",
+          "actor": "B",
+          "method": "GET",
+          "path": "/api/pair/archives/{{DELETED_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              404
+            ],
+            "errorCode": "NOT_FOUND",
+            "bodyAbsent": [
+              "pairId",
+              "revision",
+              "plans"
+            ]
+          }
+        },
+        {
+          "name": "deleted-read-c",
+          "actor": "C",
+          "method": "GET",
+          "path": "/api/pair/archives/{{DELETED_PAIR_ID}}/calendar",
+          "query": {
+            "month": "{{KEEP_MONTH}}"
+          },
+          "expect": {
+            "statuses": [
+              404
+            ],
+            "errorCode": "NOT_FOUND",
+            "bodyAbsent": [
+              "pairId",
+              "revision",
+              "plans"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
