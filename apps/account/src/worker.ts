@@ -1,6 +1,8 @@
 import { hasTestAccess } from "./access-guard";
 import { ActiveRoomService } from "./active-room-service";
 import { AuthService } from "./auth-service";
+import { D1CalendarRepository } from "./calendar-repository";
+import { CalendarService } from "./calendar-service";
 import { isTestMode, requireSecrets } from "./config";
 import type { Env } from "./env";
 import { AuthError } from "./errors";
@@ -34,6 +36,7 @@ export default {
       const activeRoomService = new ActiveRoomService(env, repository);
       const pushService = new PushService(env, repository);
       const libraryService = new LibraryService(new D1LibraryRepository(env.DB));
+      const calendarService = new CalendarService(new D1CalendarRepository(env.DB));
       if (url.pathname === "/api/auth/send-code" && request.method === "POST") {
         const body = await readObject(request);
         const result = await service.sendCode(stringField(body, "email") ?? "", request.headers.get("cf-connecting-ip"));
@@ -232,7 +235,64 @@ export default {
           integerQuery(url, "expectedRevision"),
         ), 200, origin);
       }
-      if (url.pathname === "/api/devices/register" && request.method === "POST") {
+      const archiveCalendarMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/calendar$/);
+      if (archiveCalendarMatch && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await calendarService.getArchiveMonth(
+          authenticated.user,
+          decodeURIComponent(archiveCalendarMatch[1] ?? ""),
+          requiredQuery(url, "month"),
+        ), 200, origin);
+      }
+      if (url.pathname === "/api/calendar" && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        const month = url.searchParams.get("month");
+        const date = url.searchParams.get("date");
+        if ((month === null) === (date === null)) invalidRequest("请提供 month 或 date，且只能提供一个。");
+        return json(month !== null
+          ? await calendarService.getActiveMonth(authenticated.user, month)
+          : await calendarService.getActiveDate(authenticated.user, date ?? ""), 200, origin);
+      }
+      if (url.pathname === "/api/calendar/today" && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await calendarService.getToday(authenticated.user, requiredQuery(url, "date")), 200, origin);
+      }
+      if (url.pathname === "/api/calendar/plans" && request.method === "POST") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        const body = await readObject(request);
+        return json(await calendarService.createPlan(
+          authenticated.user,
+          stringField(body, "libraryItemId") ?? "",
+          stringField(body, "date") ?? "",
+          optionalNullableStringField(body, "startTime", 5),
+          optionalNullableStringField(body, "note", 200),
+          integerField(body, "expectedRevision"),
+        ), 201, origin);
+      }
+      const calendarPlanMatch = url.pathname.match(/^\/api\/calendar\/plans\/([^/]+)$/);
+      if (calendarPlanMatch && request.method === "PATCH") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        const body = await readObject(request);
+        const patch: { date?: string; startTime?: string | null; note?: string | null; status?: "planned" | "completed" } = {};
+        if (Object.prototype.hasOwnProperty.call(body, "date")) patch.date = stringField(body, "date") ?? "";
+        if (Object.prototype.hasOwnProperty.call(body, "startTime")) patch.startTime = optionalNullableStringField(body, "startTime", 5) ?? null;
+        if (Object.prototype.hasOwnProperty.call(body, "note")) patch.note = optionalNullableStringField(body, "note", 200) ?? null;
+        if (Object.prototype.hasOwnProperty.call(body, "status")) patch.status = calendarStatusField(body);
+        return json(await calendarService.updatePlan(
+          authenticated.user,
+          decodeURIComponent(calendarPlanMatch[1] ?? ""),
+          patch,
+          integerField(body, "expectedRevision"),
+        ), 200, origin);
+      }
+      if (calendarPlanMatch && request.method === "DELETE") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await calendarService.deletePlan(
+          authenticated.user,
+          decodeURIComponent(calendarPlanMatch[1] ?? ""),
+          integerQuery(url, "expectedRevision"),
+        ), 200, origin);
+      }      if (url.pathname === "/api/devices/register" && request.method === "POST") {
         const authenticated = await service.authenticate(bearerToken(request));
         const body = await readObject(request);
         return json(await pushService.registerDevice(
@@ -298,6 +358,28 @@ function nullableIdField(body: Record<string, unknown>, name: string): string | 
   return value as string;
 }
 
+function optionalNullableStringField(body: Record<string, unknown>, name: string, maxLength: number): string | null | undefined {
+  const value = body[name];
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") invalidRequest("文本字段无效。");
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (Array.from(normalized).length > maxLength) invalidRequest("文本字段过长。");
+  return normalized;
+}
+
+function calendarStatusField(body: Record<string, unknown>): "planned" | "completed" {
+  const value = body.status;
+  if (value !== "planned" && value !== "completed") invalidRequest("计划状态无效。");
+  return value;
+}
+
+function requiredQuery(url: URL, name: string): string {
+  const value = url.searchParams.get(name);
+  if (value === null || value === "") invalidRequest("请求参数不完整。");
+  return value;
+}
 function optionalBooleanField(body: Record<string, unknown>, name: string): boolean | undefined {
   const value = body[name];
   if (value === undefined) return undefined;
