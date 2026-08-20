@@ -7,7 +7,7 @@
     "build": "wrangler deploy --dry-run --outdir dist --env=\"\"",
     "dev": "wrangler dev",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "db:local": "wrangler d1 migrations apply tongkan-account --local",
     "db:remote": "wrangler d1 migrations apply tongkan-account --remote",
     "db:preview": "wrangler d1 migrations apply tongkan-account-preview --remote --env preview",

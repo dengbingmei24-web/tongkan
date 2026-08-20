@@ -27,14 +27,14 @@
 
 ## Baseline Gate
 
-当前主工作区包含已上线但未提交的 TK-003/Alpha 10.2.4 改动。依据 D-079，开始实现前必须：
+已于 2026-08-19 完成：
 
-1. 审查任务确认并提交 Alpha 10.2.4 当前基线，或由用户明确批准该提交。
-2. 工作区变为可说明的干净状态。
-3. 用该提交哈希替换三个任务合同中的 `TBD_CLEAN_BASELINE`。
-4. 创建 `codex/TK-004-calendar` 审查分支以及 W1/W2/W3 独立 worktree。
+1. 用户明确批准把当前 Alpha 10.2.4/TK-003 工作区提交为 TK-004 基线。
+2. 审查分支 `codex/TK-004-calendar` 以 `a5324c5e5b15eb4798e0e3af159175477fd15647` 为干净基线。
+3. 三份任务合同已记录同一基线哈希。
+4. W1/W2/W3 已在独立 worktree 完成实现、提交和审查。
 
-不得从当前未提交基线直接启动并行实现，也不得通过 checkout/reset 丢弃现有改动。
+经用户明确批准，W1/W2/W3 的八个提交已按顺序 cherry-pick 到审查分支，当前 HEAD 为 `1780acc5c35bee52a83697f6cc660a13ec24262b`。Preview/Production migration、Worker deployment 和 Alpha 10.3 APK 仍未获授权或执行。
 
 ## Architecture
 

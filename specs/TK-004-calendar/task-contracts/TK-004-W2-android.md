@@ -1,7 +1,7 @@
 # Worker Task Contract: TK-004-W2 Android Calendar
 
 **Feature**: TK-004
-**Baseline Commit**: `TBD_CLEAN_BASELINE`
+**Baseline Commit**: `a5324c5e5b15eb4798e0e3af159175477fd15647`
 **Branch**: `codex/TK-004-W2-android`
 **Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-004-W2-android`
 **Owner**: Android execution task

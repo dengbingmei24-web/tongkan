@@ -111,6 +111,7 @@ Select-String -Path docs/decisions/DECISIONS.md -Pattern "片单|主题|全屏|�
 | D-087 | Alpha 10.2.1 采用逐条添加反馈与房间内片库抽屉 | 已接受 | 2026-08-18 |
 | D-088 | Alpha 10.2.3 补齐账号模式、解绑、邀请和片库日常操作 | 已接受 | 2026-08-19 |
 | D-089 | 绑定好友房间以 App 内短期可发现为主 | 已接受 | 2026-08-19 |
+| D-090 | Alpha 10.3 采用独立共享日历版本与媒体快照 | 已接受 | 2026-08-20 |
 
 ## D-001 房间固定最多两人
 
@@ -948,3 +949,16 @@ Select-String -Path docs/decisions/DECISIONS.md -Pattern "片单|主题|全屏|�
 - 安全边界：只有当前活动 pair 的两名成员可发布或读取；创建者不获得“加入自己的房间”入口，第三方和旧 pair 不可见；只保存加密访客邀请 URL，绝不保存或返回 host key。邀请 URL 必须严格匹配 `https://tongkan-personal.pages.dev/room/{32位roomId}#join={32位inviteKey}`。
 - 原因：FCM 权限、设备 token 和系统通知均可能不可用，复制或发送链接又增加双方操作成本。App 内可发现让绑定好友关系真正承担“找到对方房间”的职责，同时不改变临时房间和最多两人的既有语义。
 - 影响：新增 D1 migration `0006_active_pair_rooms.sql`、Account `GET/POST/DELETE /api/pair/active-room`、Android 首页卡片与 10 秒轮询。FCM 仅作为可选加速提醒，链接分享仅在活跃房间发布失败时作为兜底；生产 migration 必须单独获得用户批准。
+
+## D-090 Alpha 10.3 采用独立共享日历版本与媒体快照
+
+- 日期：2026-08-20
+- 状态：已接受
+- 范围：产品、Account Worker、D1、Android、QA、Alpha 10.3
+- 决策：每个 pair 使用独立 `pair_calendar_state.revision` 管理共享日历并发，不复用片库 revision。第一切片只允许从当前共同片库创建计划，并把 BVID、分P、规范链接、标题和封面复制为媒体快照；片库条目删除后 `libraryItemId` 可以为空，但计划继续可读。
+- 状态与读取：计划状态只有 `planned` 和 `completed`，取消使用物理删除；日期详情保留两种状态，首页“今天想看”只返回当天 `planned` 项。开始时间为空时显示“当天”，有时间项按时间升序排列并排在无时间项之前。
+- 归档与权限：活动 pair 双方拥有相同写权限，所有修改携带 expected revision；旧 revision 返回冲突且失败不增加版本。keep 归档只读，pending/delete/第三方拒绝，双方 delete 后随 pair 级联清理。
+- Android：使用 Breath Tech 原生月格、日期详情和计划编辑器；片库提供“安排日期”，首页提供“今天想看”，从计划开始同看复用现有房间、活跃好友房间和 FCM 可选提醒链路。
+- 非目标：Alpha 10.3 不加入自动提醒、重复计划、外部日历、多人/私密计划或实际共同观看历史。月历真实观看实心点、双标记和“实际观看”分组继续属于 Alpha 10.4。
+- 原因：独立 revision 避免片库排序或元数据更新与日历编辑互相制造冲突；媒体快照保证条目删除、解绑归档和后续元数据变化时仍能解释原计划；planned/completed 与 planned-only today 查询形成最小闭环，不需要提前引入统计系统。
+- 影响：新增 `0007_calendar_plans.sql`、日历 API、Account/D1 测试、Android 日历/首页/片库入口和 16-case QA 合同。当前仅在 `codex/TK-004-calendar` 本地集成；Preview/生产 migration、Worker 部署和 APK 发布仍需分别授权。

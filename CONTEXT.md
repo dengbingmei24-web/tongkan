@@ -3,15 +3,16 @@
 > Current cross-conversation snapshot. Historical conversation logs are archived at `docs/archive/context/CONTEXT_HISTORY_2026-08.md`.
 
 ---
-last_updated: 2026-08-19T15:17:01+08:00
+last_updated: 2026-08-20T14:06:10+08:00
 current_version: 1.0.0-alpha10.2.4 released for physical verification
-target_version: 1.0.0-alpha10.3 shared calendar; specification complete, implementation pending clean baseline
-status: Alpha 10.2.4 production remains the current delivery. The user cannot perform the remaining two-device P0 checks now, so physical acceptance is explicitly deferred but still required before a later release. TK-004 Alpha 10.3 calendar specification, data model, OpenAPI, checklist and worker contracts are complete; implementation is blocked only by the D-079 clean-baseline rule because the deployed TK-003/10.2.4 workspace is still uncommitted.
+target_version: 1.0.0-alpha10.3 shared calendar; local integration and documentation closure complete, Preview/production pending separate approval
+status: Alpha 10.2.4 production remains the current delivery and its remaining two-device P0 checks are still deferred but required. TK-004 W1/W2/W3 plus T404/T405 closure are committed locally; the branch is not pushed. No Preview or production migration 0007, Worker deployment, Alpha 10.3 release APK, push or additional merge has been authorized or performed.
 ---
 
 ## Current Baseline
 
-- Branch: `codex/TK-003-shared-library`; TK-003 specs and W1/W2/W3 integration are committed locally and have not been pushed.
+- Review branch: `codex/TK-004-calendar`; the latest local commit contains the approved W1 Account, W2 Android and W3 QA commits plus the T404/T405 closure on top of baseline `a5324c5e5b15eb4798e0e3af159175477fd15647`. The branch has not been pushed and the working tree is clean.
+- Approved isolated tips: W1 Account `51f6791`, W2 Android `89c213a`, W3 QA `46ea3c3`; all are locally integrated in W1 → W2 → W3 order. Safety stashes `safety-before-tk004-t404-20260820` and `safety-before-tk004-cherry-pick-20260819-review-docs` remain preserved and must not be dropped.
 - Accepted P0 baseline: portrait composer stays above the keyboard, continuous deletion works, keyboard/App send share one path, one local bubble is created, input clears and no composer remains after transitions.
 - Integrated P1 scope: unilateral unbind/archive Account code, Android bound/pending/archive UI, hardened QA contracts, FCM-ready invitation flow and the existing Beta playback/chat controls.
 - Production Account Worker: version `519be06a-5d10-4f8e-ba69-a00e7216493e`, `AUTH_TEST_MODE=false`, production D1 migrations are current through `0006_active_pair_rooms.sql`.
@@ -20,6 +21,17 @@ status: Alpha 10.2.4 production remains the current delivery. The user cannot pe
 - Previous Preview APK remains local for isolated QA only: `release/tongkan-android-1.0.0-alpha10.2-preview.apk`.
 
 ## Recently Completed
+
+- Completed TK-004 T404 integrated validation: `pnpm typecheck`, 149 regular tests, localhost/seven-scenario integration, full build, dependency freshness, Account/Signaling Wrangler dry-runs, Calendar 16-case offline ValidateOnly, Android 55/55 with Lint 0 errors/25 warnings and Debug assemble, ten-file Android SHA parity, `git diff --check`, 110-file Markdown links and a 413-path credential scan all passed.
+- Stabilized the Windows Account test command with `vitest run --no-file-parallelism` because parallel D1 test files intermittently collide on the Wrangler registry with `EBUSY`; real local D1 coverage and the 20-round concurrent revision race remain enabled.
+- Completed TK-004 T405 documentation closure: synchronized the account PRD, Now/Next/Later roadmap, Alpha 10 selected design, release QA, unreleased changelog, tasks and Context, and accepted D-090 for the independent calendar revision/media snapshot/state/archive boundaries. Alpha 10.4 remains the owner of actual viewing-history markers.
+- With explicit user approval, committed the TK-004 local integration/documentation baseline with message `chore: close TK-004 calendar integration`; no push, migration, deployment or APK publication occurred.
+- With explicit user approval, stashed all tracked and untracked reviewer documents, cherry-picked the eight approved W1/W2/W3 commits without conflicts, restored the documents with `stash apply`, and retained the safety stash. No deployment, migration, APK publication, push or extra merge occurred.
+- With explicit user approval, committed the complete Alpha 10.2.4/TK-003 workspace as clean TK-004 baseline `a5324c5e5b15eb4798e0e3af159175477fd15647` on `codex/TK-004-calendar`; the safety stash `safety-before-alpha10.3-calendar-20260819-143040` remains available.
+- W1 Account/D1 is APPROVED at `51f6791`: additive migration 0007, independent calendar revision, month/date/today/archive reads, CRUD/status, media snapshots, pair initialization, 20-round D1 race, archive and cascade coverage. Review fixed empty-string `startTime` so only `HH:mm` or `null` is accepted; Calendar 5/5, Account 68/68, typecheck, protocol build and Wrangler dry-run pass.
+- W2 Android is APPROVED at `89c213a`: native month calendar and date details, plan create/edit/complete/cancel, library scheduling, Home “今天想看”, existing room/invitation reuse, revision recovery and lifecycle cleanup. A clean ASCII build passed 55/55 JVM tests, Lint 0 errors/25 existing warnings and Debug assemble; no release APK was produced.
+- W3 QA is APPROVED at `46ea3c3`: 16-case offline/Preview contract, protected-host allowlist, input/CRUD/sorting/today/race/archive/cascade coverage. AST, JSON and `-ValidateOnly` pass without secret access, HTTP client creation or network traffic.
+- Added formal reviewer verdicts under `specs/TK-004-calendar/reviews/`; all three approved tips are locally integrated, while Preview Live and production actions remain separately gated.
 
 - Completed the TK-004 Alpha 10.3 calendar specification package under `specs/TK-004-calendar/`: user stories, data model, OpenAPI, research, plan, tasks, requirements checklist, quickstart and disjoint W1 Account/W2 Android/W3 QA contracts.
 - Created and restored `safety-before-alpha10.3-calendar-20260819-143040` with all tracked and untracked Alpha 10.2.4 changes preserved before calendar planning.
@@ -69,26 +81,25 @@ status: Alpha 10.2.4 production remains the current delivery. The user cannot pe
 ## In Progress
 
 - Alpha 10.2.4 two-device P0 verification is deferred at the user's request because testing is not convenient now; it remains an unpassed release gate.
-- TK-004 calendar scope and contracts are frozen: month/date/today reads, create/reschedule/cancel/complete, Home “今天想看”, archive read-only, no reminders or recurrence.
-- Calendar code work waits for explicit authorization to commit the current deployed Alpha 10.2.4/TK-003 workspace as a clean baseline, then create isolated TK-004 worktrees.
+- TK-004 implementation, review, local integration, T404 validation and T405 documentation closure are complete in the local TK-004 closure commit; the branch remains unpushed.
+- Preview migration 0007, Preview Worker deployment, disposable A/B/C Live QA, production migration/deployment and any Alpha 10.3 APK remain unexecuted and separately gated as T406/release work.
 
 ## Known Issues
 
 1. The daily-use APK is Debug-signed; stable public distribution requires a long-term Release signing key and signed release build.
 2. Real two-device shared-library behavior, FCM delivery and the complete Beta matrix remain physically unverified; automated tests cannot replace them.
 3. The Preview gateway and isolated Preview token still exist for future QA; the production APK does not use or contain them. Remove or rotate them before abandoning Preview testing.
-4. TK-003 integration, QA fixes, version/docs changes and production-release records are still uncommitted and unpushed.
+4. TK-004 W1/W2/W3 and the reviewer closure are committed locally; the branch has not been pushed.
 5. Recent commits use automatic Git identity `unknown <dengbingmei@game.ntes>`; configure a GitHub noreply identity before future public commits if desired.
 6. Basic friend unbinding is physically confirmed. The keep/delete retention matrix and App-home room discovery still require two-device production acceptance, currently deferred by the user.
-7. TK-004 implementation cannot start isolated worktrees until the current deployed Alpha 10.2.4/TK-003 changes are committed as a clean baseline; no commit is authorized yet.
+7. Calendar migration 0007 and Worker routes have not been applied to Preview or production, and the Android calendar has not received physical-device validation.
 
 ## Next Steps
 
-1. Obtain explicit approval to commit the current Alpha 10.2.4/TK-003 working tree without push, merge or deployment.
-2. Replace `TBD_CLEAN_BASELINE` in TK-004 contracts, then create `codex/TK-004-calendar` and isolated W1/W2/W3 worktrees.
-3. Implement Account/D1 calendar, Android calendar/Home integration and QA contracts against the frozen OpenAPI.
-4. Run module and full-workspace gates; Preview/production migration, Worker deployment and APK build remain separately authorized actions.
-5. Resume the deferred Alpha 10.2.4 two-device physical matrix when the user has access to both devices.
+1. Keep the local TK-004 closure commit as the checkpoint; push and deployment remain separately gated.
+2. If separately approved, apply migration 0007 and deploy only to Preview, then run the disposable A/B/C Calendar Live contract and reviewer-only D1 cascade evidence.
+3. Only after Preview acceptance and a new explicit authorization, consider production migration 0007, Account Worker deployment and an Alpha 10.3 APK build/release.
+4. Resume the deferred Alpha 10.2.4 two-device physical matrix and add Alpha 10.3 calendar/device checks when the user has access to both devices.
 
 ## Primary References
 
@@ -104,6 +115,10 @@ status: Alpha 10.2.4 production remains the current delivery. The user cannot pe
 - Multi-session workflow: `docs/development/MULTI_SESSION_WORKFLOW.md`
 
 ## Recent Conversation Log
+
+- 2026-08-20: Continued the TK-004 reviewer closeout without overwriting existing changes. Preserved `safety-before-tk004-t404-20260820`; completed full integrated T404 validation, serialized Account test files to prevent Windows Wrangler registry `EBUSY`, synchronized PRD/roadmap/design/QA/changelog/tasks/Context plus D-090, and committed the local TK-004 closure checkpoint. Alpha 10.3 remains local and unreleased: no Preview/production migration 0007, Worker deployment, release APK, push or extra merge occurred.
+- 2026-08-19: User explicitly authorized local integration of the three approved TK-004 branches. Created and preserved `safety-before-tk004-cherry-pick-20260819-review-docs`, cherry-picked eight W1/W2/W3 commits without conflicts, restored all reviewer documents, and advanced `codex/TK-004-calendar` to `1780acc`. Full workspace typecheck and 149 tests plus W3 offline ValidateOnly pass; current Account/Protocol, Android and QA trees match the approved tips. Preview/production migration, Worker deployment, APK publication, push and additional merge were not performed. Permission review blocked fresh integrated signaling/full dry-run and Android reruns, so the existing approved dry-run/Android gate evidence remains authoritative.
+- 2026-08-19: User explicitly approved committing the current workspace as the TK-004 baseline. Created clean baseline `a5324c5e5b15eb4798e0e3af159175477fd15647`, completed and reviewed isolated W1 Account/D1, W2 Android and W3 QA branches, fixed W1 empty `startTime` handling and W2 cross-date/lifecycle issues, and recorded APPROVED verdicts. Account 68/68, Android 55/55 with Lint 0 errors/25 warnings and Debug build, plus W3 16-case ValidateOnly all pass. No isolated commits were integrated; no Preview/production migration, Worker deployment, release APK, push or merge occurred.
 
 - 2026-08-19: User deferred the remaining Alpha 10.2.4 two-device P0 checks because testing is not convenient and authorized continuing other feature development. Selected the already-confirmed Next direction, TK-004 Alpha 10.3 shared calendar, and completed its spec/data/OpenAPI/plan/tasks/checklist plus disjoint Account/Android/QA contracts. A full tracked+untracked safety stash was created and restored. Per D-079, code implementation is blocked until the current deployed TK-003 workspace receives explicit commit authorization and becomes a clean baseline; no code, migration, deployment or APK changed.
 - 2026-08-19: User asked how to redesign Tongkan's UI with external design software. Reviewed the current Alpha 10 Breath Tech Android/Web design baselines, existing HTML prototypes and screenshots, and prepared a project-specific Figma-first workflow covering required screens, component/state delivery, Android implementation constraints and alternative tools. No product scope, code, build, APK, deployment or accepted visual decision changed.

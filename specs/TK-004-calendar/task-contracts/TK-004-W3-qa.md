@@ -1,7 +1,7 @@
 # Worker Task Contract: TK-004-W3 Calendar QA
 
 **Feature**: TK-004
-**Baseline Commit**: `TBD_CLEAN_BASELINE`
+**Baseline Commit**: `a5324c5e5b15eb4798e0e3af159175477fd15647`
 **Branch**: `codex/TK-004-W3-qa`
 **Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-004-W3-qa`
 **Owner**: QA contract execution task
