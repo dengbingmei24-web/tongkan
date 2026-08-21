@@ -113,7 +113,7 @@ pnpm --filter @tongkan/account exec wrangler deploy --env=""
 - 日常 APK 使用 `https://tongkan-personal.pages.dev/account-api`、公开 FCM 客户端配置和空 Preview 令牌。
 - 当前 APK 仍为 Debug 签名；双设备片库、FCM 与完整 Beta 物理验收因没有第二位测试者延期。
 - Android 当前交付 APK 为 1.0.0-alpha10.2.4 / versionCode 40，SHA-256 `64D6530D50E127528CA0BD57E9F2F04C37E20EAB25E9F174BDB11C0581A09BA6`；生产 API、FCM 配置完整且 Preview 令牌为空。
-- Preview Account Worker 当前版本为 `5238a35c-09d7-478e-961f-5554e697af9b`；Preview 与生产 D1 均已应用 `0006_active_pair_rooms.sql`。
+- Preview Account Worker 当前版本为 `439139cb-ab48-4f72-a3f5-3012d6c37477`；Preview D1 已应用 `0007_calendar_plans.sql`，生产 D1 仍停留在 `0006_active_pair_rooms.sql`。2026-08-21 Preview 健康检查返回 200/`testMode=true`，Calendar Live QA 16/16 与 20/20 revision race 通过，夹具已清理且测试密钥已轮换。
 
 ### 账号预览联调
 

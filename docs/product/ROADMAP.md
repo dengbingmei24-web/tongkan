@@ -51,7 +51,7 @@
 
 **实现版本**：Alpha 10.3。发布日期：**待确认**。
 
-**当前状态（2026-08-20）**：Account/D1、Android 与 QA 已在 `codex/TK-004-calendar` 本地集成并通过自动化门禁，但 Preview/生产 migration、Worker 部署、APK 发布和双设备物理验收均未执行。用户此前明确允许在 Now 真机测试暂缓时继续其他功能开发；这不降低任何发布门槛，也不构成发布日期承诺。
+**当前状态（2026-08-21）**：Account/D1、Android 与 QA 已在 `codex/TK-004-calendar` 本地集成并通过自动化门禁；Preview migration 0007、Preview Worker 和 16-case Live QA 已完成。生产 migration/Worker、APK 发布和双设备物理验收仍未执行。用户此前明确允许在 Now 真机测试暂缓时继续其他功能开发；这不降低任何发布门槛，也不构成发布日期承诺。
 
 ### 要解决的问题
 
@@ -70,7 +70,7 @@
 - 已本地实现共享日历数据模型、独立 revision、版本冲突和活动 pair/归档授权边界。
 - 已本地实现月历、日期详情、计划新增/编辑/完成/取消、片库快速安排和首页“今天想看”。
 - 已明确首版只安排当前共同片库视频，并保存媒体快照；未来是否支持尚未入库的视频：**待确认**。
-- 进入真实交付前仍需经授权完成 Preview migration/Worker、A/B/C Live QA、生产迁移部署、APK 构建和双设备验收。
+- Preview migration 0007、Preview Worker 和 A/B/C Live QA 已完成；进入真实交付前仍需分别授权生产迁移部署、APK 构建，并完成双设备验收。
 - 自动提醒、重复计划和外部日历同步不作为 Next 默认范围；是否开发：**待确认**。
 - 实际共同观看记录、日历实心点/双标记和统计继续属于 Later，不随 Alpha 10.3 自动承诺。
 

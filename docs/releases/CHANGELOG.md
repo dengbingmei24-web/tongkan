@@ -12,13 +12,13 @@
 ### 技术与验证
 
 - 新增 D1 migration `0007_calendar_plans.sql`、`pair_calendar_state` 独立 revision 和 `calendar_plans`；旧 revision 冲突不覆盖新状态，失败不增加 revision。
-- W1/W2/W3 已本地集成到 `codex/TK-004-calendar`。全仓 typecheck、149 项测试、集成测试、build、依赖检查、Account 68/68、Calendar 16-case ValidateOnly、Android 55/55、Lint 与 Debug 构建均通过。
+- W1/W2/W3 已本地集成到 `codex/TK-004-calendar`。全仓 typecheck、149 项测试、集成测试、build、依赖检查、Account 68/68、Calendar 16-case ValidateOnly、Android 55/55、Lint 与 Debug 构建均通过；Preview Calendar Live 16/16、20/20 revision race、归档权限和 D1 级联证据也已通过。
 - Windows 下 Account 测试文件使用 `vitest run --no-file-parallelism`，避免多个 Wrangler 本地 D1 测试文件同时占用 registry 产生 `EBUSY`；测试内 20 轮并发 revision race 保持不变。
 - `git diff --check`、110 个 tracked Markdown 文件链接检查与 413 个 tracked 路径凭据扫描通过；另复核 3 个未跟踪 review 文件，未发现生产凭据。
 
 ### 发布状态
 
-- 本版本仅完成本地集成，尚未应用 Preview/生产 migration 0007、部署 Account Worker、复制或发布 Alpha 10.3 APK，也未 push。
+- Preview D1 已应用 migration 0007，Preview Account Worker 已部署为 `439139cb-ab48-4f72-a3f5-3012d6c37477`；生产 migration/Worker、Alpha 10.3 APK 复制或发布均未执行，分支也未 push。
 - 当前生产版本仍为 Alpha 10.2.4；自动提醒、重复计划、外部日历和实际共同观看历史/日历标记继续后置，发布日期待确认。
 
 ## 1.0.0-alpha10.2.4 - 2026-08-19

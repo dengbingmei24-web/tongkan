@@ -346,7 +346,7 @@ Alpha 10.3 第一版确定采用“日期必填 + 开始时间可选 + 备注可
 
 ### Alpha 10.3：日历计划
 
-- 状态（2026-08-20）：Account/D1、Android 与 QA 三个批准分支已本地集成到 `codex/TK-004-calendar`，全仓自动化和 Android Debug 构建通过；Preview/生产 migration、Worker 部署与 Alpha 10.3 APK 均未执行。
+- 状态（2026-08-21）：Account/D1、Android 与 QA 三个批准分支已本地集成到 `codex/TK-004-calendar`，全仓自动化和 Android Debug 构建通过；Preview migration 0007、Preview Worker 与 16-case Live QA 已完成，生产 migration/Worker 和 Alpha 10.3 APK 均未执行。
 - 新增 `0007_calendar_plans.sql`、独立 calendar revision，以及月份、日期、今日和 keep 归档读取；计划支持新增、改期、完成、恢复待看和取消。
 - 计划从当前共同片库选择视频并保存媒体快照；片库条目删除后，计划仍保留标题、封面、BVID、分P和规范链接。
 - Android 已实现七列月格、日期详情、计划编辑器、片库“安排日期”、首页“今天想看”和从计划开始同看。

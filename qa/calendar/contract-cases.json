@@ -694,7 +694,7 @@
             "bodyNonNull": [
               "plans.0.id",
               "plans.0.media.bvid",
-              "plans.0.media.url",
+              "plans.0.media.canonicalUrl",
               "plans.0.media.title",
               "plans.0.createdBy.id",
               "plans.0.updatedBy.id"

@@ -3,16 +3,16 @@
 > Current cross-conversation snapshot. Historical conversation logs are archived at `docs/archive/context/CONTEXT_HISTORY_2026-08.md`.
 
 ---
-last_updated: 2026-08-20T14:06:10+08:00
+last_updated: 2026-08-21T11:36:02+08:00
 current_version: 1.0.0-alpha10.2.4 released for physical verification
-target_version: 1.0.0-alpha10.3 shared calendar; local integration and documentation closure complete, Preview/production pending separate approval
-status: Alpha 10.2.4 production remains the current delivery and its remaining two-device P0 checks are still deferred but required. TK-004 W1/W2/W3 plus T404/T405 closure are committed locally; the branch is not pushed. No Preview or production migration 0007, Worker deployment, Alpha 10.3 release APK, push or additional merge has been authorized or performed.
+target_version: 1.0.0-alpha10.3 shared calendar; local integration and Preview acceptance complete, production/APK pending separate approval
+status: Alpha 10.2.4 production remains the current delivery and its remaining two-device P0 checks are still deferred but required. TK-004 Preview D1 migration 0007, Preview Account Worker and the full disposable Calendar Live QA are complete and recorded in a local checkpoint. Production migration/deployment, Alpha 10.3 APK, push and additional merge remain unauthorized and unperformed.
 ---
 
 ## Current Baseline
 
-- Review branch: `codex/TK-004-calendar`; the latest local commit contains the approved W1 Account, W2 Android and W3 QA commits plus the T404/T405 closure on top of baseline `a5324c5e5b15eb4798e0e3af159175477fd15647`. The branch has not been pushed and the working tree is clean.
-- Approved isolated tips: W1 Account `51f6791`, W2 Android `89c213a`, W3 QA `46ea3c3`; all are locally integrated in W1 → W2 → W3 order. Safety stashes `safety-before-tk004-t404-20260820` and `safety-before-tk004-cherry-pick-20260819-review-docs` remain preserved and must not be dropped.
+- Review branch: `codex/TK-004-calendar`; its latest local checkpoint contains the approved W1 Account, W2 Android and W3 QA commits, T404/T405 closure, Calendar Preview migration/deployment evidence and the Live QA runner/contract fixes on top of baseline `a5324c5e5b15eb4798e0e3af159175477fd15647`. The branch has not been pushed. After the checkpoint, the pre-existing untracked `合作方-透明.png` remains untouched and outside the commit.
+- Approved isolated tips: W1 Account `51f6791`, W2 Android `89c213a`, W3 QA `46ea3c3`; all are locally integrated in W1 → W2 → W3 order. Safety stashes `safety-before-tk004-t404-20260820`, `safety-before-tk004-cherry-pick-20260819-review-docs`, `safety-before-calendar-live-contract-fix-20260821-112108`, `safety-before-calendar-preview-docs-20260821-112820` and `safety-before-calendar-preview-qa-commit-20260821-113558` remain preserved and must not be dropped.
 - Accepted P0 baseline: portrait composer stays above the keyboard, continuous deletion works, keyboard/App send share one path, one local bubble is created, input clears and no composer remains after transitions.
 - Integrated P1 scope: unilateral unbind/archive Account code, Android bound/pending/archive UI, hardened QA contracts, FCM-ready invitation flow and the existing Beta playback/chat controls.
 - Production Account Worker: version `519be06a-5d10-4f8e-ba69-a00e7216493e`, `AUTH_TEST_MODE=false`, production D1 migrations are current through `0006_active_pair_rooms.sql`.
@@ -22,6 +22,9 @@ status: Alpha 10.2.4 production remains the current delivery and its remaining t
 
 ## Recently Completed
 
+- With explicit user approval, applied Preview D1 migration `0007_calendar_plans.sql` to `tongkan-account-preview`, verified `pair_calendar_state` and `calendar_plans`, deployed Preview Account Worker version `439139cb-ab48-4f72-a3f5-3012d6c37477`, and confirmed `/health` returns HTTP 200 with `testMode=true`.
+- Completed the disposable Calendar Preview Live contract: all 16 cases passed, including 20/20 revision races, A/B consistency, mutation boundaries, keep/pending/delete/third-account archive rules and both-delete D1 cascade evidence (`pair=0 state=0 plans=0`). One-time fixtures were removed (`users=0 pairs=0`) and the Preview test access key was rotated after QA.
+- Live execution exposed and fixed a PowerShell case-insensitive parameter/local-variable collision in `qa/calendar/run-preview.ps1` and corrected the QA-only response path from `media.url` to the frozen `media.canonicalUrl` contract. Runner AST, JSON checks, 16/16 ValidateOnly and `git diff --check` pass.
 - Completed TK-004 T404 integrated validation: `pnpm typecheck`, 149 regular tests, localhost/seven-scenario integration, full build, dependency freshness, Account/Signaling Wrangler dry-runs, Calendar 16-case offline ValidateOnly, Android 55/55 with Lint 0 errors/25 warnings and Debug assemble, ten-file Android SHA parity, `git diff --check`, 110-file Markdown links and a 413-path credential scan all passed.
 - Stabilized the Windows Account test command with `vitest run --no-file-parallelism` because parallel D1 test files intermittently collide on the Wrangler registry with `EBUSY`; real local D1 coverage and the 20-round concurrent revision race remain enabled.
 - Completed TK-004 T405 documentation closure: synchronized the account PRD, Now/Next/Later roadmap, Alpha 10 selected design, release QA, unreleased changelog, tasks and Context, and accepted D-090 for the independent calendar revision/media snapshot/state/archive boundaries. Alpha 10.4 remains the owner of actual viewing-history markers.
@@ -80,26 +83,25 @@ status: Alpha 10.2.4 production remains the current delivery and its remaining t
 
 ## In Progress
 
-- Alpha 10.2.4 two-device P0 verification is deferred at the user's request because testing is not convenient now; it remains an unpassed release gate.
 - TK-004 implementation, review, local integration, T404 validation and T405 documentation closure are complete in the local TK-004 closure commit; the branch remains unpushed.
-- Preview migration 0007, Preview Worker deployment, disposable A/B/C Live QA, production migration/deployment and any Alpha 10.3 APK remain unexecuted and separately gated as T406/release work.
+- The Calendar QA runner/contract fixes and Preview evidence documentation are preserved in the authorized local checkpoint; the branch remains unpushed.
+- Production migration 0007, production Account Worker deployment and any Alpha 10.3 APK remain unexecuted and separately gated as T406/release work.
 
 ## Known Issues
 
 1. The daily-use APK is Debug-signed; stable public distribution requires a long-term Release signing key and signed release build.
 2. Real two-device shared-library behavior, FCM delivery and the complete Beta matrix remain physically unverified; automated tests cannot replace them.
-3. The Preview gateway and isolated Preview token still exist for future QA; the production APK does not use or contain them. Remove or rotate them before abandoning Preview testing.
-4. TK-004 W1/W2/W3 and the reviewer closure are committed locally; the branch has not been pushed.
+3. The Preview gateway and an isolated, newly rotated Preview test key still exist for future QA; the production APK does not use or contain them. Remove or rotate them before abandoning Preview testing.
+4. TK-004 W1/W2/W3, reviewer closure and the Calendar Preview QA checkpoint are committed locally; the branch has not been pushed.
 5. Recent commits use automatic Git identity `unknown <dengbingmei@game.ntes>`; configure a GitHub noreply identity before future public commits if desired.
 6. Basic friend unbinding is physically confirmed. The keep/delete retention matrix and App-home room discovery still require two-device production acceptance, currently deferred by the user.
-7. Calendar migration 0007 and Worker routes have not been applied to Preview or production, and the Android calendar has not received physical-device validation.
+7. Calendar migration 0007 and Worker routes are accepted on Preview only; production remains on migration 0006, and the Android calendar has not received physical-device validation.
 
 ## Next Steps
 
-1. Keep the local TK-004 closure commit as the checkpoint; push and deployment remain separately gated.
-2. If separately approved, apply migration 0007 and deploy only to Preview, then run the disposable A/B/C Calendar Live contract and reviewer-only D1 cascade evidence.
-3. Only after Preview acceptance and a new explicit authorization, consider production migration 0007, Account Worker deployment and an Alpha 10.3 APK build/release.
-4. Resume the deferred Alpha 10.2.4 two-device physical matrix and add Alpha 10.3 calendar/device checks when the user has access to both devices.
+1. Keep the local Calendar Preview QA checkpoint as the branch baseline; push only after separate user authorization.
+2. Only after a new explicit authorization, consider production migration 0007, production Account Worker deployment and an Alpha 10.3 APK build/release.
+3. Resume the deferred Alpha 10.2.4 two-device physical matrix and add Alpha 10.3 calendar/device checks when the user has access to both devices.
 
 ## Primary References
 
@@ -115,6 +117,9 @@ status: Alpha 10.2.4 production remains the current delivery and its remaining t
 - Multi-session workflow: `docs/development/MULTI_SESSION_WORKFLOW.md`
 
 ## Recent Conversation Log
+- 2026-08-21: User explicitly approved committing the current Calendar Preview QA workspace while forbidding push, deployment and APK work. Recorded the runner variable-collision fix, frozen `media.canonicalUrl` contract correction, Preview deployment/Live evidence and synchronized Context/QA/product/operations/release/task status in one local checkpoint; excluded and preserved the unrelated untracked `合作方-透明.png`.
+- 2026-08-21: User explicitly approved Preview migration 0007, Preview Account Worker deployment and Calendar Live QA, while forbidding production and APK actions. Applied migration 0007 to `tongkan-account-preview`, deployed Preview Worker `439139cb-ab48-4f72-a3f5-3012d6c37477`, and passed all 16 Live cases including 20/20 races, archive authorization and D1 cascade evidence. Fixed the PowerShell variable collision and QA-only `media.canonicalUrl` path, removed disposable fixtures, rotated the Preview key, and left production/APK untouched.
+- 2026-08-20: User requested continued progress after the TK-004 local checkpoint. Ran the non-destructive Preview preflight: Calendar 16/16 ValidateOnly, Account typecheck and Wrangler dry-run passed. No remote request, migration, Worker deployment, APK build or push occurred; Preview migration/Worker remains separately gated.
 
 - 2026-08-20: Continued the TK-004 reviewer closeout without overwriting existing changes. Preserved `safety-before-tk004-t404-20260820`; completed full integrated T404 validation, serialized Account test files to prevent Windows Wrangler registry `EBUSY`, synchronized PRD/roadmap/design/QA/changelog/tasks/Context plus D-090, and committed the local TK-004 closure checkpoint. Alpha 10.3 remains local and unreleased: no Preview/production migration 0007, Worker deployment, release APK, push or extra merge occurred.
 - 2026-08-19: User explicitly authorized local integration of the three approved TK-004 branches. Created and preserved `safety-before-tk004-cherry-pick-20260819-review-docs`, cherry-picked eight W1/W2/W3 commits without conflicts, restored all reviewer documents, and advanced `codex/TK-004-calendar` to `1780acc`. Full workspace typecheck and 149 tests plus W3 offline ValidateOnly pass; current Account/Protocol, Android and QA trees match the approved tips. Preview/production migration, Worker deployment, APK publication, push and additional merge were not performed. Permission review blocked fresh integrated signaling/full dry-run and Android reruns, so the existing approved dry-run/Android gate evidence remains authoritative.

@@ -634,10 +634,10 @@ foreach ($case in $selectedCases) {
   $actors += @($definitions | ForEach-Object { [string]$_.actor })
 }
 $actors = @($actors | Select-Object -Unique)
-$tokenA = Convert-SecureText -Value $TokenA -Label "Token A" -Required ($actors -contains "A")
-$tokenB = Convert-SecureText -Value $TokenB -Label "Token B" -Required ($actors -contains "B")
-$tokenC = Convert-SecureText -Value $TokenC -Label "Token C" -Required ($actors -contains "C")
-$testKey = Convert-SecureText -Value $PreviewTestKey -Label "Preview test key" -Required (-not (Test-IsLocalOrigin -Origin $ApiOrigin))
+$plainTokenA = Convert-SecureText -Value $TokenA -Label "Token A" -Required ($actors -contains "A")
+$plainTokenB = Convert-SecureText -Value $TokenB -Label "Token B" -Required ($actors -contains "B")
+$plainTokenC = Convert-SecureText -Value $TokenC -Label "Token C" -Required ($actors -contains "C")
+$plainTestKey = Convert-SecureText -Value $PreviewTestKey -Label "Preview test key" -Required (-not (Test-IsLocalOrigin -Origin $ApiOrigin))
 
 $handler = [System.Net.Http.HttpClientHandler]::new()
 $handler.AllowAutoRedirect = $false
@@ -653,13 +653,13 @@ try {
     if ([string]$case.mode -eq "revisionRace") {
       for ($iteration = 1; $iteration -le [int]$case.iterations; $iteration++) {
         foreach ($definition in @($case.baselineRequests)) {
-          $result = Invoke-OneRequest -Client $client -Definition $definition -State $state -Iteration $iteration -TokenA $tokenA -TokenB $tokenB -TokenC $tokenC -TestKey $testKey
+          $result = Invoke-OneRequest -Client $client -Definition $definition -State $state -Iteration $iteration -TokenA $plainTokenA -TokenB $plainTokenB -TokenC $plainTokenC -TestKey $plainTestKey
           Write-Host "PASS $currentCaseId/$($result.Name) iteration $iteration HTTP $($result.Status)"
         }
-        $results = @(Invoke-ParallelRequests -Client $client -Definitions @($case.requests) -State $state -Iteration $iteration -TokenA $tokenA -TokenB $tokenB -TokenC $tokenC -TestKey $testKey)
+        $results = @(Invoke-ParallelRequests -Client $client -Definitions @($case.requests) -State $state -Iteration $iteration -TokenA $plainTokenA -TokenB $plainTokenB -TokenC $plainTokenC -TestKey $plainTestKey)
         Assert-AggregateResult -Expectation $case.aggregateExpect -Results $results
         foreach ($definition in @(Get-OptionalValue -Object $case -Name "verifyRequests" -Default @())) {
-          $verifyResult = Invoke-OneRequest -Client $client -Definition $definition -State $state -Iteration $iteration -TokenA $tokenA -TokenB $tokenB -TokenC $tokenC -TestKey $testKey
+          $verifyResult = Invoke-OneRequest -Client $client -Definition $definition -State $state -Iteration $iteration -TokenA $plainTokenA -TokenB $plainTokenB -TokenC $plainTokenC -TestKey $plainTestKey
           Write-Host "PASS $currentCaseId/$($verifyResult.Name) iteration $iteration HTTP $($verifyResult.Status)"
         }
         Write-Host "PASS $currentCaseId iteration $iteration aggregate"
@@ -668,21 +668,26 @@ try {
     }
 
     foreach ($definition in @($case.requests)) {
-      $result = Invoke-OneRequest -Client $client -Definition $definition -State $state -Iteration 0 -TokenA $tokenA -TokenB $tokenB -TokenC $tokenC -TestKey $testKey
+      $result = Invoke-OneRequest -Client $client -Definition $definition -State $state -Iteration 0 -TokenA $plainTokenA -TokenB $plainTokenB -TokenC $plainTokenC -TestKey $plainTestKey
       $errorSuffix = if ([string]::IsNullOrWhiteSpace([string]$result.ErrorCode)) { "" } else { " $($result.ErrorCode)" }
       Write-Host "PASS $currentCaseId/$($result.Name) HTTP $($result.Status)$errorSuffix"
     }
   }
 } catch {
   $failed = $true
-  Write-Error "Case $currentCaseId failed ($($_.Exception.GetType().Name)); request, response and fixture values omitted."
+  $failureMessage = [string]$_.Exception.Message
+  $safeFailureMessage = if (
+    $failureMessage.Length -le 200 -and
+    $failureMessage -notmatch "(?i)https?://|@|bearer|token|test.?key|[a-f0-9]{16,}|[{}\[\]]"
+  ) { $failureMessage } else { "details redacted" }
+  Write-Error "Case $currentCaseId failed ($($_.Exception.GetType().Name): $safeFailureMessage); request, response and fixture values omitted."
 } finally {
   $client.Dispose()
   $handler.Dispose()
-  $tokenA = $null
-  $tokenB = $null
-  $tokenC = $null
-  $testKey = $null
+  $plainTokenA = $null
+  $plainTokenB = $null
+  $plainTokenC = $null
+  $plainTestKey = $null
   $state.Clear()
 }
 

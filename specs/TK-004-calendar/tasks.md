@@ -34,13 +34,13 @@
 - [x] T303 [W3] 覆盖 keep 归档只读、pending/delete 拒绝、双方 delete D1 级联清理。
 - [x] T304 [W3] 提供 ValidateOnly 与 Preview runner；不得保存 session token 或执行生产请求。
 
-> Review status on 2026-08-19: W1 tip `51f6791`, W2 tip `89c213a` and W3 tip `46ea3c3` are all **APPROVED** and locally integrated into review-branch HEAD `1780acc`. Preview/production actions remain separately gated.
+> Review status on 2026-08-21: W1 tip `51f6791`, W2 tip `89c213a` and W3 tip `46ea3c3` are all **APPROVED** and locally integrated into review-branch HEAD `091c4be`. Authorized Preview migration/deployment and Calendar Live QA are complete; production and APK actions remain separately gated.
 
 ## Phase 4: Reviewer Integration
 
 - [x] T401 [REVIEW] 审查并集成 W1；Account typecheck、68/68 tests、本地 migration/D1 integration 通过，当前树与已通过 Wrangler dry-run 的批准 tip 一致。
 - [x] T402 [REVIEW] 审查并集成 W2；当前 Android 树与已通过 55/55 JVM、Lint 和 Debug assemble 的批准 tip 一致。
-- [x] T403 [REVIEW] 审查并集成 W3，离线 ValidateOnly 通过；Preview A/B/C 黑盒仍等待 migration/Worker 的独立授权。
+- [x] T403 [REVIEW] 审查并集成 W3；离线 ValidateOnly 与授权后的 Preview A/B/C 16-case Live QA 均通过，包含 20/20 revision race、归档权限和 D1 级联证据。
 - [x] T404 [REVIEW] 全仓 typecheck、149 tests、integration、build、deps、Android 55/55/Lint/assemble、diff check、110-file 链接检查和 413-path 凭据扫描通过；Windows Account 测试文件串行化以规避 Wrangler registry `EBUSY`。
 - [x] T405 [REVIEW] 已同步 PRD、路线图、设计、QA、CHANGELOG、D-090 和 CONTEXT；Alpha 10.3 仅本地集成，Alpha 10.2.4 物理 P0 仍暂缓。
 - [ ] T406 [REVIEW] 如用户另行批准，应用生产 migration 0007、部署 Account Worker并构建 Alpha 10.3 APK；否则保持生产不变。
