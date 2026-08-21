@@ -76,6 +76,14 @@ public final class BreathTheme {
         return dark ? Color.rgb(255, 114, 122) : Color.rgb(216, 73, 82);
     }
 
+    public int success() {
+        return dark ? Color.rgb(103, 206, 151) : Color.rgb(61, 155, 106);
+    }
+
+    public int darkenedLine() {
+        return dark ? Color.argb(82, 255, 255, 255) : Color.argb(58, 12, 17, 25);
+    }
+
     public int disabled() {
         return dark ? Color.rgb(70, 75, 84) : Color.rgb(205, 209, 216);
     }

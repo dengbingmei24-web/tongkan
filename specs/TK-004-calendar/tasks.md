@@ -34,7 +34,7 @@
 - [x] T303 [W3] 覆盖 keep 归档只读、pending/delete 拒绝、双方 delete D1 级联清理。
 - [x] T304 [W3] 提供 ValidateOnly 与 Preview runner；不得保存 session token 或执行生产请求。
 
-> Review status on 2026-08-21: W1 tip `51f6791`, W2 tip `89c213a` and W3 tip `46ea3c3` are all **APPROVED** and locally integrated into review-branch HEAD `091c4be`. Authorized Preview migration/deployment and Calendar Live QA are complete; production and APK actions remain separately gated.
+> Review status on 2026-08-21: W1 tip `51f6791`, W2 tip `89c213a` and W3 tip `46ea3c3` are **APPROVED** and integrated. Preview/production migration, Worker deployment, Preview Live QA, Alpha 10.3 production-config APK and Breath Tech visual acceptance are complete; two-device calendar/daily-use acceptance and publication remain open.
 
 ## Phase 4: Reviewer Integration
 
@@ -42,8 +42,9 @@
 - [x] T402 [REVIEW] 审查并集成 W2；当前 Android 树与已通过 55/55 JVM、Lint 和 Debug assemble 的批准 tip 一致。
 - [x] T403 [REVIEW] 审查并集成 W3；离线 ValidateOnly 与授权后的 Preview A/B/C 16-case Live QA 均通过，包含 20/20 revision race、归档权限和 D1 级联证据。
 - [x] T404 [REVIEW] 全仓 typecheck、149 tests、integration、build、deps、Android 55/55/Lint/assemble、diff check、110-file 链接检查和 413-path 凭据扫描通过；Windows Account 测试文件串行化以规避 Wrangler registry `EBUSY`。
-- [x] T405 [REVIEW] 已同步 PRD、路线图、设计、QA、CHANGELOG、D-090 和 CONTEXT；Alpha 10.3 仅本地集成，Alpha 10.2.4 物理 P0 仍暂缓。
-- [ ] T406 [REVIEW] 如用户另行批准，应用生产 migration 0007、部署 Account Worker并构建 Alpha 10.3 APK；否则保持生产不变。
+- [x] T405 [REVIEW] 已同步 PRD、路线图、设计、QA、CHANGELOG、D-090 和 CONTEXT；Alpha 10.2.4 物理 P0 仍暂缓。
+- [x] T406 [REVIEW] 经用户明确授权，完成生产 D1 备份与 migration 0007、生产 Account Worker 部署/冒烟，以及 Alpha 10.3 versionCode 41 生产配置 Debug APK 构建与校验；未 push、未公开发布。
+- [x] T407 [REVIEW] 用户确认 Breath Tech/nav-v3 真机视觉验收通过；已用当前 UI 源码和生产参数重建并校验 Alpha 10.3 命名候选，双设备日历/日常使用矩阵继续作为后续门槛。
 
 ## Dependencies
 

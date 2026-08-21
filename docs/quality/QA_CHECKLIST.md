@@ -78,17 +78,18 @@
 - [ ] 拒绝通知权限、无 FCM token 或推送失败时不弹出强制分享面板，好友 B 仍可从 App 首页进入。
 - [ ] 活跃房间发布失败时房主收到复制链接/系统分享兜底，不影响已创建的临时房间。
 
-### Alpha 10.3 日历集成与 Preview 证据（2026-08-21，未发布）
+### Alpha 10.3 日历集成、Preview、生产与视觉证据（2026-08-21，未发布）
 
-- [x] W1 Account/D1、W2 Android 与 W3 QA 的批准提交已无冲突集成到 `codex/TK-004-calendar`；当前 HEAD 为 `091c4be188053875d35ebfa45fd8633b04adcf69`。
+- [x] W1 Account/D1、W2 Android 与 W3 QA 的批准提交已无冲突集成到 `codex/TK-004-calendar`；Calendar Preview QA 检查点 HEAD 为 `bf2318601401bff2007a28ea8307de2f4a788857`。
 - [x] `pnpm typecheck`、`pnpm test`、`pnpm test:integration`、`pnpm build` 与 `pnpm deps:check` 通过；常规测试共 149 项，集成测试包含 localhost smoke 和七项真实双端场景。
 - [x] Account 68/68 通过，包含真实本地 D1 migration、计划 CRUD/状态、月份/日期/今日排序、20 轮 revision race、keep 归档与级联清理。Windows 下测试文件改为 `vitest run --no-file-parallelism`，只避免 Wrangler registry 的 `EBUSY` 碰撞，不减少 D1 并发覆盖。
 - [x] Calendar QA 16-case `-ValidateOnly` 离线通过，未读取 secret、创建 HTTP client 或发送网络请求。
-- [x] Android 在 `C:\tmp\android-build\project-tk004-integrated-20260820-1306` 通过 55/55 JVM、Lint 0 错误/25 警告与 `assembleDebug`；10 个变更文件 SHA 一致，临时 APK 未复制到 `release/`。
+- [x] 当前 Breath Tech UI 源码在 `C:\tmp\android-build\project-alpha10.3-breath-tech-production-20260821-142603` 通过 55/55 JVM、Lint 0 错误/26 警告与 `assembleDebug`；APK 为 versionCode 41/versionName 1.0.0-alpha10.3，v2 Debug 签名有效，生产 API 存在、Preview 主机不存在、测试令牌为空，SHA-256 为 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`。
 - [x] `git diff --check`、110 个 tracked Markdown 文件本地链接检查和 413 个 tracked 路径凭据扫描通过；另复核 3 个未跟踪 review 文件，固定测试值不属于生产凭据，生产凭据发现数为 0。
 - [x] Preview D1 已应用 `0007_calendar_plans.sql`，Preview Account Worker 已部署为 `439139cb-ab48-4f72-a3f5-3012d6c37477`，健康检查为 HTTP 200/`testMode=true`。一次性 A/B/C Calendar Live 合同 16/16 通过，包含 20/20 revision race、归档权限和 D1 级联 `pair=0 state=0 plans=0`；夹具清理为 `users=0 pairs=0`，测试密钥已轮换。
-- [ ] 生产 D1 migration 0007、生产 Account Worker 部署和 Alpha 10.3 APK 构建/发布；均未授权、未执行。
-- [ ] 两台真实设备验证月历同步、计划新增/改期/完成/取消、首页“今天想看”、从计划进入房间和 keep 归档只读；Alpha 10.2.4 既有双设备 P0 也仍延期，不能视为通过。
+- [x] 生产 D1 已在仓库外完整备份后应用 migration 0007，现有 pair/state 回填为 `1/1`；生产 Worker `17a59403-98bb-4652-9ad1-32a5ff5882db` 以 100% 生效并通过健康/鉴权冒烟。Alpha 10.3 生产配置 APK 已复制到 `release/`，SHA-256 为 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`，尚未公开发布。
+- [x] 用户确认 Breath Tech/nav-v3 真机视觉验收通过；当前视觉源包含首页状态卡、底部导航细线和可滚动贴底面板。
+- [ ] 两台真实设备验证月历同步、计划新增/改期/完成/取消、首页“今天想看”、从计划进入房间和 keep 归档只读；这项与旧版 Alpha 10.2.4 日常使用矩阵仍是下一道门槛。
 
 ## 2. 房间与邀请
 

@@ -346,7 +346,7 @@ Alpha 10.3 第一版确定采用“日期必填 + 开始时间可选 + 备注可
 
 ### Alpha 10.3：日历计划
 
-- 状态（2026-08-21）：Account/D1、Android 与 QA 三个批准分支已本地集成到 `codex/TK-004-calendar`，全仓自动化和 Android Debug 构建通过；Preview migration 0007、Preview Worker 与 16-case Live QA 已完成，生产 migration/Worker 和 Alpha 10.3 APK 均未执行。
+- 状态（2026-08-21）：Account/D1、Android 与 QA 已集成并通过自动化；Preview 与生产 migration 0007/Worker 均完成，Preview 16-case Live QA 通过，Alpha 10.3 生产配置 Debug APK 已构建。Breath Tech 视觉真机验收已通过；双设备日历/日常使用验收、release 签名和公开发布仍未完成。
 - 新增 `0007_calendar_plans.sql`、独立 calendar revision，以及月份、日期、今日和 keep 归档读取；计划支持新增、改期、完成、恢复待看和取消。
 - 计划从当前共同片库选择视频并保存媒体快照；片库条目删除后，计划仍保留标题、封面、BVID、分P和规范链接。
 - Android 已实现七列月格、日期详情、计划编辑器、片库“安排日期”、首页“今天想看”和从计划开始同看。
@@ -363,7 +363,7 @@ B站登录和画质选择在 Alpha 10 账号空间稳定后另行排期。
 
 ## 13. 本轮产品决策状态
 
-账号、唯一好友、解绑、共享片库、日历字段、内置头像和共同观看统计规则均已确认。Alpha 10.0–10.2.4 已进入生产日常使用；Alpha 10.3 日历已本地实现并完成集成验证，但尚未应用 Preview/生产 migration、部署 Worker 或发布 APK。Alpha 10.4 历史统计和正式内置头像资源仍待后续开发。双机片库、FCM、好友房间直达与完整播放矩阵的物理验收延期，但不视为已通过。
+账号、唯一好友、解绑、共享片库、日历字段、内置头像和共同观看统计规则均已确认。Alpha 10.0–10.2.4 已进入生产日常使用；Alpha 10.3 日历已完成 Preview/生产 migration、Worker 部署、生产配置 Debug APK 构建和视觉真机验收，但尚未公开发布。Alpha 10.4 历史统计和正式内置头像资源仍待后续开发。双设备日历、片库、FCM、好友房间直达与完整播放矩阵的物理验收仍待逐项证据，不视为已通过。
 
 ## 14. 第一阶段验收标准
 

@@ -54,23 +54,23 @@ public final class AuthScreen {
         top.addView(themeButton, new LinearLayout.LayoutParams(components.dp(48), components.dp(48)));
         content.addView(top, components.matchWrap());
 
-        TextView kicker = components.text("PRIVATE SIGNAL / TWO PEOPLE", 10, BreathComponents.ROLE_ACCENT_TEXT);
+        TextView kicker = components.text("SIGN IN · 邮箱验证码", 10, BreathComponents.ROLE_ACCENT_TEXT);
         kicker.setTypeface(Typeface.create("monospace", Typeface.BOLD));
         kicker.setLetterSpacing(0.12f);
         content.addView(kicker, components.margin(components.matchWrap(), 0, 52, 0, 0));
 
-        TextView title = components.title("连接彼此，\n不打扰观看。", 32);
+        TextView title = components.title("和唯一的人\n一起看。", 34);
         content.addView(title, components.margin(components.matchWrap(), 0, 14, 0, 0));
-        TextView copy = components.body("登录后保存你们的片库、计划和共同观看记录。匿名房间仍然可以继续使用。");
+        TextView copy = components.body("用邮箱验证码登录，每个账号只绑定一位好友。视频内容流不经过同看服务器。");
         content.addView(copy, components.margin(components.matchWrap(), 0, 12, 0, 0));
 
         TextView emailLabel = components.code("邮箱");
         content.addView(emailLabel, components.margin(components.matchWrap(), 0, 28, 0, 8));
-        emailInput = components.emailInput("name@example.com");
+        emailInput = components.emailInput("you@example.com");
         emailInput.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_mail, 0, 0, 0);
         emailInput.setCompoundDrawablePadding(components.dp(9));
         content.addView(emailInput, components.matchHeight(52));
-        TextView help = components.text("验证码仅用于同看账号登录，不用于营销。", 11, BreathComponents.ROLE_MUTED_TEXT);
+        TextView help = components.text("验证码仅用于同看账号登录，不用于营销或推荐。", 11, BreathComponents.ROLE_MUTED_TEXT);
         content.addView(help, components.margin(components.matchWrap(), 0, 8, 0, 0));
 
         requestCodeButton = components.button("获取验证码", true);
@@ -95,11 +95,11 @@ public final class AuthScreen {
         });
         content.addView(changeEmailButton, components.margin(components.matchHeight(48), 0, 8, 0, 0));
 
-        Button anonymousButton = components.button("暂时使用匿名房间", false);
+        Button anonymousButton = components.textButton("或 · 暂时使用匿名房间");
         anonymousButton.setOnClickListener(view -> listener.onUseAnonymousRoom());
-        content.addView(anonymousButton, components.margin(components.matchHeight(52), 0, 10, 0, 0));
+        content.addView(anonymousButton, components.margin(components.matchHeight(48), 0, 10, 0, 0));
 
-        statusText = components.text("每个账号仅绑定一位好友", 11, BreathComponents.ROLE_MUTED_TEXT);
+        statusText = components.text("内容流点对点直连 · 同看仅同步进度", 11, BreathComponents.ROLE_MUTED_TEXT);
         statusText.setGravity(Gravity.CENTER);
         content.addView(statusText, components.margin(components.matchWrap(), 0, 22, 0, 0));
 
@@ -108,7 +108,7 @@ public final class AuthScreen {
         TextView footer = components.code("TONGKAN ACCOUNT · ALPHA 10");
         footer.setGravity(Gravity.CENTER);
         content.addView(footer, components.margin(components.matchWrap(), 0, 24, 0, 0));
-        TextView privacy = components.text("内容流始终由你的设备直接加载", 10, BreathComponents.ROLE_MUTED_TEXT);
+        TextView privacy = components.text("每个账号仅绑定一位好友", 10, BreathComponents.ROLE_MUTED_TEXT);
         privacy.setGravity(Gravity.CENTER);
         content.addView(privacy, components.margin(components.matchWrap(), 0, 5, 0, 0));
         applyTheme();

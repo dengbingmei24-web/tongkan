@@ -2,9 +2,14 @@ package com.tongkan.mobile.ui;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.StateListDrawable;
 
@@ -17,6 +22,25 @@ public final class BreathDrawables {
 
     public static Drawable input(Context context, BreathTheme theme) {
         return rounded(context, theme.field(), theme.line(), 14);
+    }
+
+    public static Drawable sheet(Context context, BreathTheme theme) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(theme.panel());
+        float radius = dp(context, 24);
+        drawable.setCornerRadii(new float[] {radius, radius, radius, radius, 0, 0, 0, 0});
+        drawable.setStroke(dp(context, 1), theme.line());
+        return drawable;
+    }
+
+    public static Drawable statusPill(Context context, BreathTheme theme, boolean positive) {
+        int color = positive ? theme.success() : theme.accent();
+        return rounded(
+            context,
+            Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)),
+            Color.argb(62, Color.red(color), Color.green(color), Color.blue(color)),
+            999
+        );
     }
 
     public static Drawable button(Context context, BreathTheme theme, boolean primary) {
@@ -41,9 +65,36 @@ public final class BreathDrawables {
     }
 
     public static Drawable navBackground(Context context, BreathTheme theme, boolean selected) {
-        return selected
-            ? rounded(context, theme.accentSoft(), Color.TRANSPARENT, 10)
-            : rounded(context, Color.TRANSPARENT, Color.TRANSPARENT, 10);
+        GradientDrawable base = rounded(context, Color.TRANSPARENT, Color.TRANSPARENT, 10);
+        if (!selected) {
+            return new RippleDrawable(ColorStateList.valueOf(theme.accentSoft()), base, null);
+        }
+        Drawable indicator = new NavIndicatorDrawable(context, theme.ink());
+        LayerDrawable layers = new LayerDrawable(new Drawable[] {base, indicator});
+        return new RippleDrawable(ColorStateList.valueOf(theme.accentSoft()), layers, null);
+    }
+
+    private static final class NavIndicatorDrawable extends Drawable {
+        private final Context context;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        NavIndicatorDrawable(Context context, int color) {
+            this.context = context;
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        @Override public void draw(Canvas canvas) {
+            float width = dp(context, 24);
+            float height = dp(context, 2);
+            float left = (getBounds().width() - width) / 2f;
+            float bottom = getBounds().height() - dp(context, 3);
+            canvas.drawRoundRect(left, bottom - height, left + width, bottom, height, height, paint);
+        }
+
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+        @Override public void setColorFilter(ColorFilter colorFilter) { paint.setColorFilter(colorFilter); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
     public static Drawable dangerButton(Context context, BreathTheme theme) {

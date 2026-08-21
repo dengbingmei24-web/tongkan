@@ -1,6 +1,5 @@
 package com.tongkan.mobile.ui;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
@@ -442,85 +441,189 @@ public final class LibraryScreen {
     }
 
     private void showCategoryFilter(View source) {
-        String[] labels = new String[snapshot.categories.size()];
-        for (int index = 0; index < labels.length; index += 1) labels[index] = snapshot.categories.get(index).name;
-        new AlertDialog.Builder(context)
-            .setTitle("选择分类")
-            .setItems(labels, (dialog, index) -> {
-                categoryId = snapshot.categories.get(index).id;
+        LinearLayout content = components.column(0, 0, 0);
+        List<Button> options = new ArrayList<>();
+        for (AccountModels.LibraryCategory category : snapshot.categories) {
+            Button option = components.button(category.name, category.id.equals(categoryId));
+            content.addView(option, components.margin(components.matchHeight(48), 0, options.isEmpty() ? 0 : 8, 0, 0));
+            options.add(option);
+        }
+        Button cancel = components.textButton("取消");
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(
+            context,
+            theme,
+            "02 / LIBRARY · FILTER",
+            "选择分类",
+            "仅显示所选分类中的视频，可随时清除筛选。",
+            content
+        );
+        for (int index = 0; index < options.size(); index += 1) {
+            AccountModels.LibraryCategory category = snapshot.categories.get(index);
+            options.get(index).setOnClickListener(view -> {
+                dialog.dismiss();
+                categoryId = category.id;
                 rerenderFrom(source);
-            })
-            .setNegativeButton("取消", null)
-            .show();
+            });
+        }
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void showCategoryManager() {
         if (snapshot == null || snapshot.readOnly || loading) return;
-        List<String> labels = new ArrayList<>();
-        labels.add("＋ 新建分类");
-        for (AccountModels.LibraryCategory category : snapshot.categories) labels.add(category.name);
-        new AlertDialog.Builder(context)
-            .setTitle("管理分类")
-            .setItems(labels.toArray(new String[0]), (dialog, index) -> {
-                if (index == 0) showCategoryNameDialog(null);
-                else showCategoryActions(snapshot.categories.get(index - 1));
-            })
-            .setNegativeButton("关闭", null)
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        Button create = components.button("新建分类", true);
+        content.addView(create, components.matchHeight(48));
+        List<Button> categoryButtons = new ArrayList<>();
+        for (AccountModels.LibraryCategory category : snapshot.categories) {
+            Button categoryButton = components.button(category.name, false);
+            content.addView(categoryButton, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+            categoryButtons.add(categoryButton);
+        }
+        Button close = components.textButton("关闭");
+        content.addView(close, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(
+            context,
+            theme,
+            "02 / LIBRARY · CATEGORIES",
+            "管理分类",
+            snapshot.categories.isEmpty() ? "先建立一个分类，让两个人更快找到想看的内容。" : "选择分类后可重命名、排序或删除。",
+            content
+        );
+        create.setOnClickListener(view -> {
+            dialog.dismiss();
+            showCategoryNameDialog(null);
+        });
+        for (int index = 0; index < categoryButtons.size(); index += 1) {
+            AccountModels.LibraryCategory category = snapshot.categories.get(index);
+            categoryButtons.get(index).setOnClickListener(view -> {
+                dialog.dismiss();
+                showCategoryActions(category);
+            });
+        }
+        close.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void showCategoryNameDialog(AccountModels.LibraryCategory category) {
         EditText input = components.textInput("1–24 个字符");
         if (category != null) input.setText(category.name);
-        new AlertDialog.Builder(context)
-            .setTitle(category == null ? "新建分类" : "重命名分类")
-            .setView(input)
-            .setNegativeButton("取消", null)
-            .setPositiveButton("保存", (dialog, which) -> {
-                if (category == null) listener.onCreateCategory(input.getText().toString());
-                else listener.onRenameCategory(category, input.getText().toString());
-            })
-            .show();
+        if (input.length() > 0) input.setSelection(input.length());
+        LinearLayout content = components.column(0, 0, 0);
+        content.addView(input, components.matchHeight(52));
+        LinearLayout actions = components.row();
+        Button cancel = components.button("取消", false);
+        Button save = components.button("保存", true);
+        actions.addView(cancel, components.weight(1));
+        actions.addView(save, components.margin(components.weight(1), 8, 0, 0, 0));
+        content.addView(actions, components.margin(components.matchHeight(48), 0, 12, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(
+            context,
+            theme,
+            "02 / LIBRARY · CATEGORY",
+            category == null ? "新建分类" : "重命名分类",
+            "分类名称会同步给双人空间中的两个人。",
+            content
+        );
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        save.setOnClickListener(view -> {
+            dialog.dismiss();
+            if (category == null) listener.onCreateCategory(input.getText().toString());
+            else listener.onRenameCategory(category, input.getText().toString());
+        });
+        dialog.show();
     }
 
     private void showCategoryActions(AccountModels.LibraryCategory category) {
-        String[] actions = {"重命名", "上移", "下移", "删除分类"};
-        new AlertDialog.Builder(context)
-            .setTitle(category.name)
-            .setItems(actions, (dialog, index) -> {
-                int currentIndex = snapshot.categories.indexOf(category);
-                if (index == 0) showCategoryNameDialog(category);
-                else if (index == 1 && currentIndex > 0) listener.onReorderCategories(State.movedCategoryIds(snapshot.categories, currentIndex, -1));
-                else if (index == 2 && currentIndex < snapshot.categories.size() - 1) listener.onReorderCategories(State.movedCategoryIds(snapshot.categories, currentIndex, 1));
-                else if (index == 3) confirmDeleteCategory(category);
-            })
-            .setNegativeButton("取消", null)
-            .show();
+        int currentIndex = snapshot.categories.indexOf(category);
+        LinearLayout content = components.column(0, 0, 0);
+        Button rename = components.button("重命名分类", false);
+        Button moveUp = components.button("向上移动", false);
+        Button moveDown = components.button("向下移动", false);
+        Button delete = components.dangerButton("删除分类");
+        Button cancel = components.textButton("取消");
+        moveUp.setEnabled(currentIndex > 0);
+        moveDown.setEnabled(currentIndex >= 0 && currentIndex < snapshot.categories.size() - 1);
+        content.addView(rename, components.matchHeight(48));
+        content.addView(moveUp, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(moveDown, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(delete, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(context, theme, "02 / LIBRARY · CATEGORY", category.name, "调整这个分类在共同片库中的名称和位置。", content);
+        rename.setOnClickListener(view -> {
+            dialog.dismiss();
+            showCategoryNameDialog(category);
+        });
+        moveUp.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onReorderCategories(State.movedCategoryIds(snapshot.categories, currentIndex, -1));
+        });
+        moveDown.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onReorderCategories(State.movedCategoryIds(snapshot.categories, currentIndex, 1));
+        });
+        delete.setOnClickListener(view -> {
+            dialog.dismiss();
+            confirmDeleteCategory(category);
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void confirmDeleteCategory(AccountModels.LibraryCategory category) {
-        new AlertDialog.Builder(context)
-            .setTitle("删除分类？")
-            .setMessage("分类中的视频会变为未分类，不会删除视频。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("删除", (dialog, which) -> listener.onDeleteCategory(category))
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        Button delete = components.dangerButton("确认删除分类");
+        Button cancel = components.textButton("取消");
+        content.addView(delete, components.matchHeight(48));
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 8, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(context, theme, "02 / LIBRARY · DELETE", "删除「" + category.name + "」？", "分类中的视频会回到未分类，不会删除视频。", content);
+        delete.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onDeleteCategory(category);
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void showItemActions(AccountModels.LibraryItem item) {
         String watchAction = "watched".equals(item.watchStatus) ? "标记为未观看" : "标记为已看完";
-        String[] actions = {"重命名视频", watchAction, "移动分类", "刷新视频信息", "删除视频"};
-        new AlertDialog.Builder(context)
-            .setTitle(item.title)
-            .setItems(actions, (dialog, index) -> {
-                if (index == 0) showItemNameDialog(item);
-                else if (index == 1) listener.onUpdateItem(item, null, "watched".equals(item.watchStatus) ? "unwatched" : "watched", false);
-                else if (index == 2) showMoveCategory(item);
-                else if (index == 3) listener.onUpdateItem(item, null, null, true);
-                else if (index == 4) confirmDeleteItem(item);
-            })
-            .setNegativeButton("取消", null)
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        Button rename = components.button("重命名视频", false);
+        Button watch = components.button(watchAction, false);
+        Button move = components.button("移动分类", false);
+        Button refresh = components.button("刷新视频信息", false);
+        Button delete = components.dangerButton("删除视频");
+        Button cancel = components.textButton("取消");
+        content.addView(rename, components.matchHeight(48));
+        content.addView(watch, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(move, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(refresh, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(delete, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(context, theme, "02 / LIBRARY · VIDEO", item.title, "管理观看状态、分类和视频信息。", content);
+        rename.setOnClickListener(view -> {
+            dialog.dismiss();
+            showItemNameDialog(item);
+        });
+        watch.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onUpdateItem(item, null, "watched".equals(item.watchStatus) ? "unwatched" : "watched", false);
+        });
+        move.setOnClickListener(view -> {
+            dialog.dismiss();
+            showMoveCategory(item);
+        });
+        refresh.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onUpdateItem(item, null, null, true);
+        });
+        delete.setOnClickListener(view -> {
+            dialog.dismiss();
+            confirmDeleteItem(item);
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void showItemNameDialog(AccountModels.LibraryItem item) {
@@ -528,35 +631,64 @@ public final class LibraryScreen {
         input.setSingleLine(true);
         input.setText(item.title);
         input.setSelection(input.length());
-        new AlertDialog.Builder(context)
-            .setTitle("重命名视频")
-            .setView(input)
-            .setNegativeButton("取消", null)
-            .setPositiveButton("保存", (dialog, which) -> listener.onRenameItem(item, input.getText().toString()))
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        content.addView(input, components.matchHeight(52));
+        LinearLayout actions = components.row();
+        Button cancel = components.button("取消", false);
+        Button save = components.button("保存", true);
+        actions.addView(cancel, components.weight(1));
+        actions.addView(save, components.margin(components.weight(1), 8, 0, 0, 0));
+        content.addView(actions, components.margin(components.matchHeight(48), 0, 12, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(context, theme, "02 / LIBRARY · RENAME", "重命名视频", "只修改共同片库中的显示名称，不会改变 B站原视频。", content);
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        save.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onRenameItem(item, input.getText().toString());
+        });
+        dialog.show();
     }
 
     private void showMoveCategory(AccountModels.LibraryItem item) {
-        String[] labels = new String[snapshot.categories.size() + 1];
-        labels[0] = "未分类";
-        for (int index = 0; index < snapshot.categories.size(); index += 1) labels[index + 1] = snapshot.categories.get(index).name;
-        new AlertDialog.Builder(context)
-            .setTitle("移动到分类")
-            .setItems(labels, (dialog, index) -> {
-                if (index == 0) listener.onClearItemCategory(item);
-                else listener.onUpdateItem(item, snapshot.categories.get(index - 1).id, null, false);
-            })
-            .setNegativeButton("取消", null)
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        Button uncategorized = components.button("未分类", item.categoryId == null);
+        content.addView(uncategorized, components.matchHeight(48));
+        List<Button> categoryButtons = new ArrayList<>();
+        for (AccountModels.LibraryCategory category : snapshot.categories) {
+            Button categoryButton = components.button(category.name, category.id.equals(item.categoryId));
+            content.addView(categoryButton, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+            categoryButtons.add(categoryButton);
+        }
+        Button cancel = components.textButton("取消");
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(context, theme, "02 / LIBRARY · MOVE", "移动到分类", "选择这个视频在共同片库中的归属。", content);
+        uncategorized.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onClearItemCategory(item);
+        });
+        for (int index = 0; index < categoryButtons.size(); index += 1) {
+            AccountModels.LibraryCategory category = snapshot.categories.get(index);
+            categoryButtons.get(index).setOnClickListener(view -> {
+                dialog.dismiss();
+                listener.onUpdateItem(item, category.id, null, false);
+            });
+        }
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void confirmDeleteItem(AccountModels.LibraryItem item) {
-        new AlertDialog.Builder(context)
-            .setTitle("删除视频？")
-            .setMessage("会从两个人的共同片库中删除「" + item.title + "」。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("删除", (dialog, which) -> listener.onDeleteItem(item))
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        Button delete = components.dangerButton("确认删除视频");
+        Button cancel = components.textButton("取消");
+        content.addView(delete, components.matchHeight(48));
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 8, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(context, theme, "02 / LIBRARY · DELETE", "删除视频？", "会从两个人的共同片库中删除「" + item.title + "」。", content);
+        delete.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onDeleteItem(item);
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private String categoryName(String id) {

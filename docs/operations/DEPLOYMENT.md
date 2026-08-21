@@ -104,16 +104,16 @@ pnpm --filter @tongkan/account exec wrangler deploy --env=""
 
 预览环境使用 `tongkan-account-preview` D1 和 `AUTH_TEST_MODE=true`，只用于开发验证，不能作为公开生产登录入口。`.dev.vars` 和所有 Secret 值均被 Git 忽略。
 
-### Alpha 10.2.4 生产状态（2026-08-19）
+### Alpha 10.3 生产状态（2026-08-21）
 
-- 生产 D1 `tongkan-account` 已在迁移前导出私密备份到仓库外临时目录。
-- `0004_pair_archives.sql`、`0005_shared_library.sql` 与 `0006_active_pair_rooms.sql` 已成功应用，远程迁移列表为空。
-- 生产 Account Worker 当前活动版本为 `519be06a-5d10-4f8e-ba69-a00e7216493e`，100% 流量，`AUTH_TEST_MODE=false`。
-- 正式 Pages 入口 `/account-api/health` 返回 200/`testMode=false`；`/account-api/api/library` 与 `/account-api/api/pair/active-room` 未登录均返回 401 `AUTH_REQUIRED`。
+- 生产 D1 `tongkan-account` 已在 migration 0007 前导出到仓库外 `%LOCALAPPDATA%\Temp\tongkan-production-backup-alpha10.3-20260821-114825\tongkan-account-before-0007.sql`；文件大小 17,555 字节，SHA-256 `141C28AE635FC9BDC250B4C933AB37FD8ACF7E313787AC00142FBF0BFCCF11ED`。
+- `0004_pair_archives.sql`、`0005_shared_library.sql`、`0006_active_pair_rooms.sql` 与 `0007_calendar_plans.sql` 均已成功应用，远程迁移列表为空；现有 pair/state 回填为 `1/1`，计划数为 0。
+- 生产 Account Worker 当前活动版本为 `17a59403-98bb-4652-9ad1-32a5ff5882db`，100% 流量，`AUTH_TEST_MODE=false`。
+- 正式 Pages 入口 `/account-api/health` 返回 200/`testMode=false`；`/account-api/api/calendar`、`/account-api/api/library` 与 `/account-api/api/pair/active-room` 未登录均返回 401 `AUTH_REQUIRED`。
 - 日常 APK 使用 `https://tongkan-personal.pages.dev/account-api`、公开 FCM 客户端配置和空 Preview 令牌。
-- 当前 APK 仍为 Debug 签名；双设备片库、FCM 与完整 Beta 物理验收因没有第二位测试者延期。
-- Android 当前交付 APK 为 1.0.0-alpha10.2.4 / versionCode 40，SHA-256 `64D6530D50E127528CA0BD57E9F2F04C37E20EAB25E9F174BDB11C0581A09BA6`；生产 API、FCM 配置完整且 Preview 令牌为空。
-- Preview Account Worker 当前版本为 `439139cb-ab48-4f72-a3f5-3012d6c37477`；Preview D1 已应用 `0007_calendar_plans.sql`，生产 D1 仍停留在 `0006_active_pair_rooms.sql`。2026-08-21 Preview 健康检查返回 200/`testMode=true`，Calendar Live QA 16/16 与 20/20 revision race 通过，夹具已清理且测试密钥已轮换。
+- 当前 APK 仍为 Debug 签名；Breath Tech 视觉真机验收已通过，共享日历、双设备片库、FCM 与完整 Beta 物理矩阵仍待两台真机执行。
+- Android 当前交付候选 APK 为 1.0.0-alpha10.3 / versionCode 41，SHA-256 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`；生产 API、FCM 配置完整，Preview 令牌为空，APK 内未发现 Preview 主机。
+- Preview Account Worker 当前版本为 `439139cb-ab48-4f72-a3f5-3012d6c37477`；Preview 与生产 D1 均已应用 `0007_calendar_plans.sql`。Preview Calendar Live QA 16/16 与 20/20 revision race 通过，夹具已清理且测试密钥已轮换。
 
 ### 账号预览联调
 

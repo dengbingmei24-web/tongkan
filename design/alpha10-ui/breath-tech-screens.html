@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>同看 Alpha 10 · Breath Tech 高保真设计稿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Breath Tech · Design Tokens (对齐 breath-tech.css 真源)
+   ============================================================ */
+:root{
+  --studio:#eef1f5;--studio-ink:#0a0c10;--studio-muted:#737a87;--studio-line:rgba(13,18,28,.09);
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-in:cubic-bezier(.7,0,.84,0);
+  --dur-micro:120ms;--dur-short:220ms;--dur-long:420ms;
+  --font:"Inter","Noto Sans SC",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:var(--font);background:var(--studio);color:var(--studio-ink);-webkit-font-smoothing:antialiased}
+button,input{font:inherit}button{cursor:pointer}
+
+.studio{min-height:100vh;padding:34px 30px 60px;background:radial-gradient(circle at 50% 8%,rgba(255,255,255,.92),transparent 30%),var(--studio);transition:background .3s}
+.studio.dark{--studio:#07090c;--studio-ink:#f4f6f9;--studio-muted:#858c99;--studio-line:rgba(255,255,255,.09);color:var(--studio-ink);background:radial-gradient(circle at 50% 6%,rgba(82,105,168,.14),transparent 28%),var(--studio)}
+.studio-header{max-width:1500px;margin:0 auto 30px;display:flex;align-items:flex-start;justify-content:space-between;gap:28px;flex-wrap:wrap}
+.studio-code{font:600 10px/1 var(--mono);letter-spacing:.16em;color:var(--studio-muted)}
+.studio h1{margin:9px 0 0;font-size:34px;line-height:1;letter-spacing:-.055em}
+.studio-header p{margin:9px 0 0;color:var(--studio-muted);font-size:13px;max-width:520px;line-height:1.6}
+.studio-controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.theme-toggle{display:flex;gap:2px;padding:3px;border:1px solid var(--studio-line);border-radius:11px;background:color-mix(in srgb,var(--studio) 80%,transparent);backdrop-filter:blur(18px)}
+.theme-toggle button{height:34px;padding:0 16px;border:0;border-radius:8px;background:transparent;color:var(--studio-muted);font-size:12px;font-weight:600;transition:color var(--dur-micro),background var(--dur-micro),transform var(--dur-micro)}
+.theme-toggle button:active{transform:scale(.97)}
+.theme-toggle button.active{background:var(--studio-ink);color:var(--studio)}
+
+.section-block{max-width:1500px;margin:0 auto 8px}
+.section-block h2{margin:46px 0 4px;font-size:19px;letter-spacing:-.03em}
+.section-block h2 .sec-idx{font:600 11px/1 var(--mono);letter-spacing:.14em;color:var(--studio-muted);margin-right:10px}
+.section-block .sec-desc{margin:0 0 18px;color:var(--studio-muted);font-size:12.5px;line-height:1.55;max-width:640px}
+
+.grid{display:flex;flex-wrap:wrap;gap:34px 30px;align-items:flex-start}
+.frame{width:390px}
+.frame.wide{width:auto}
+.frame-meta{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 4px 9px;color:var(--studio-muted);font:600 9px/1.3 var(--mono);letter-spacing:.08em}
+.frame-meta strong{color:var(--studio-ink);font-weight:600;font-family:var(--font);font-size:12px;letter-spacing:0}
+.frame-meta .tag{padding:2px 7px;border:1px solid var(--studio-line);border-radius:6px}
+
+.device{width:390px;height:844px;padding:5px;border-radius:39px;background:#15171b;box-shadow:0 22px 50px rgba(15,20,30,.20)}
+.studio.dark .device{box-shadow:0 26px 66px rgba(0,0,0,.5)}
+.device.land{width:844px;height:404px;border-radius:34px}
+
+.screen{position:relative;height:100%;overflow:hidden;border-radius:34px;color:var(--ink);background:var(--bg);
+  --bg:#f7f8fa;--ink:#0b0d12;--muted:#777e8b;--faint:#a5aab4;--line:rgba(12,17,25,.085);
+  --panel:rgba(255,255,255,.68);--panel-strong:rgba(255,255,255,.88);--field:rgba(241,243,247,.78);
+  --cta:#101218;--cta-ink:#fff;--accent:#637fff;--accent-soft:rgba(99,127,255,.12);--glow:rgba(94,124,255,.18);--danger:#d84952;--ok:#3d9b6a}
+.device.land .screen{border-radius:30px}
+.studio.dark .screen{--bg:#05070a;--ink:#f5f7fa;--muted:#858c98;--faint:#5f6672;--line:rgba(255,255,255,.085);
+  --panel:rgba(15,18,24,.62);--panel-strong:rgba(17,20,27,.88);--field:rgba(17,20,27,.76);
+  --cta:#f4f6f9;--cta-ink:#090b0f;--accent:#91a7ff;--accent-soft:rgba(145,167,255,.12);--glow:rgba(111,139,255,.20);--danger:#ff727a;--ok:#4fbd85}
+.screen:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.38),transparent 46%);opacity:.34;z-index:0}
+.screen:after{content:"";position:absolute;z-index:0;top:-110px;left:50%;width:310px;height:240px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 68%);opacity:.7}
+.device.land .screen:after{width:420px;top:-140px}
+
+.status-camera{position:absolute;z-index:10;top:14px;left:50%;width:10px;height:10px;transform:translateX(-50%);border-radius:50%;background:#08090b;box-shadow:0 0 0 2px rgba(255,255,255,.05)}
+.statusbar{position:absolute;z-index:9;top:0;left:0;right:0;height:44px;padding:13px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;font:600 10px/1 var(--font);color:var(--ink)}
+.system-icons{display:flex;align-items:center;gap:5px}
+.system-icons svg{width:15px;height:11px;fill:none;stroke:currentColor;stroke-width:1.5}
+.system-icons svg:last-child{width:21px}
+
+.page{position:absolute;z-index:2;inset:0;padding:52px 21px 84px;overflow:hidden}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px}
+.page-index{font:600 9px/1.2 var(--mono);letter-spacing:.13em;color:var(--muted)}
+.page-title{margin:7px 0 0;font-size:31px;line-height:1;letter-spacing:-.055em;font-weight:700}
+.page-note{margin:8px 0 0;max-width:250px;color:var(--muted);font-size:11px;line-height:1.55}
+svg.ico{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+
+.icon-btn{width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:13px;display:grid;place-items:center;background:var(--panel);color:var(--ink);backdrop-filter:blur(16px)}
+.icon-btn.ghost{border-color:transparent;background:transparent;backdrop-filter:none}
+.button{position:relative;min-height:47px;padding:0 17px;border:1px solid var(--line);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--panel);color:var(--ink);font-size:13px;font-weight:600;overflow:hidden}
+.button.primary{background:var(--cta);color:var(--cta-ink);border-color:color-mix(in srgb,var(--cta) 84%,var(--line));box-shadow:0 14px 38px rgba(14,18,26,.13),0 0 0 1px color-mix(in srgb,var(--accent) 9%,transparent)}
+.studio.dark .button.primary{box-shadow:0 16px 44px rgba(0,0,0,.34),0 0 28px rgba(120,146,255,.07)}
+.button.full{width:100%}
+.button.danger{color:var(--danger);background:transparent;border-color:color-mix(in srgb,var(--danger) 24%,var(--line));box-shadow:none}
+.button:disabled,.button.disabled{opacity:.46}
+.button-row{display:grid;grid-template-columns:1.3fr .9fr;gap:9px}
+.button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.85}
+.button.primary svg[data-fill]{fill:currentColor;stroke:none}
+
+.panel{position:relative;border:1px solid var(--line);border-radius:19px;background:var(--panel);backdrop-filter:blur(18px)}
+.panel.strong{background:var(--panel-strong)}
+.label-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0 10px}
+.section-label{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.section-meta{color:var(--muted);font:500 9px/1 var(--mono);letter-spacing:.06em}
+.mono{font-family:var(--mono)}
+
+.presence{padding:15px 16px}
+.presence-line{display:flex;align-items:center;gap:11px}
+.avatar{width:37px;height:37px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;background:#20232a;border:1px solid rgba(255,255,255,.18);flex:0 0 auto}
+.avatar.second{background:#737b8c}
+.avatar.dim{background:color-mix(in srgb,var(--muted) 55%,transparent);opacity:.7}
+.link-track{position:relative;flex:1;height:1px;background:var(--line)}
+.link-track:before,.link-track:after{content:"";position:absolute;top:50%;width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 13px var(--accent);transform:translateY(-50%)}
+.link-track:before{left:0}.link-track:after{right:0}
+.link-track.broken{background:repeating-linear-gradient(90deg,var(--line) 0 5px,transparent 5px 10px)}
+.link-track.broken:after{background:var(--faint);box-shadow:none}
+.presence-copy{display:flex;justify-content:space-between;margin-top:11px;color:var(--muted);font-size:10px}
+.presence-copy strong{color:var(--ink);font-weight:600}
+.dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft),0 0 10px var(--accent);margin-right:5px;vertical-align:middle}
+.dot.off{background:var(--faint);box-shadow:none}
+
+/* now card */
+.now-card{padding:18px;margin-top:11px;overflow:hidden;min-height:200px}
+.now-card:before{content:"";position:absolute;right:-55px;top:-72px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,var(--glow),transparent 69%)}
+.now-top{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.now-code{font:600 9px/1 var(--mono);letter-spacing:.12em;color:var(--muted)}
+.now-status{font:600 9px/1 var(--mono);color:var(--accent)}
+.now-title{position:relative;margin:22px 0 5px;font-size:24px;font-weight:700;letter-spacing:-.04em;max-width:236px}
+.now-sub{position:relative;color:var(--muted);font-size:10px;max-width:250px;line-height:1.5}
+.now-card .button-row{position:relative;margin-top:17px}
+.signal-orbit{position:absolute;right:8px;top:20px;width:110px;height:80px;pointer-events:none}
+.signal-orbit:before,.signal-orbit:after{content:"";position:absolute;border:1px solid var(--line);border-radius:50%;transform:rotate(-13deg)}
+.signal-orbit:before{inset:9px 2px}.signal-orbit:after{inset:22px 19px}
+.signal-orbit span{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.signal-orbit span:nth-child(1){right:14px;top:22px}.signal-orbit span:nth-child(2){left:28px;bottom:14px;opacity:.55}.signal-orbit span:nth-child(3){left:53px;top:39px;width:2px;height:2px}
+
+.stream-list{border-top:1px solid var(--line)}
+.stream-row{min-height:62px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:8px 2px}
+.stream-row:last-child{border-bottom:0}
+.row-icon{width:34px;height:34px;flex:0 0 auto;border-radius:11px;display:grid;place-items:center;color:var(--muted);background:var(--field)}
+.row-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75}
+.row-main{min-width:0;flex:1}
+.row-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{margin-top:4px;color:var(--muted);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-end{color:var(--faint);font:500 9px/1 var(--mono);flex:0 0 auto}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:11px}
+.metric{padding:14px 11px;border-right:1px solid var(--line)}
+.metric:last-child{border-right:0}
+.metric strong{display:block;font-size:18px;letter-spacing:-.035em}
+.metric span{display:block;margin-top:5px;color:var(--muted);font-size:9px}
+
+.bottom-nav{position:absolute;z-index:12;left:0;right:0;bottom:0;height:74px;padding:8px 14px;display:grid;grid-template-columns:repeat(4,1fr);background:linear-gradient(to top,var(--bg) 76%,color-mix(in srgb,var(--bg) 80%,transparent));border-top:1px solid var(--line);backdrop-filter:blur(20px)}
+.nav-btn{position:relative;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:8px}
+.nav-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75}
+.nav-btn:after{content:"";position:absolute;bottom:3px;width:13px;height:1px;background:var(--accent);box-shadow:0 0 9px var(--accent);opacity:0}
+.nav-btn.active{color:var(--ink)}
+.nav-btn.active:after{opacity:1}
+
+.field{position:relative}
+.field label{display:block;margin-bottom:8px;color:var(--muted);font:600 9px/1 var(--mono);letter-spacing:.09em}
+.field input,.search input{width:100%;height:48px;border:1px solid var(--line);border-radius:14px;background:var(--field);color:var(--ink);padding:0 14px;font-size:12px}
+.field input.focus{border-color:color-mix(in srgb,var(--accent) 52%,var(--line));box-shadow:0 0 0 4px var(--accent-soft)}
+.field input.err{border-color:color-mix(in srgb,var(--danger) 55%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--danger) 12%,transparent)}
+.field input::placeholder,.search input::placeholder{color:var(--faint)}
+.field-help{margin-top:7px;color:var(--muted);font-size:9px;line-height:1.45}
+.field-help.err{color:var(--danger)}
+.input-shell{position:relative}.input-shell input{padding-left:42px}
+.field-icon{position:absolute;z-index:2;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);display:grid}
+.field-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75}
+.search{position:relative}.search input{padding-left:41px}
+
+.auth{position:absolute;z-index:2;inset:0;padding:60px 23px 27px;display:flex;flex-direction:column}
+.auth-top{display:flex;align-items:center;justify-content:space-between}
+.auth-mark{position:relative;width:50px;height:50px;border:1px solid var(--line);border-radius:17px;display:grid;place-items:center;background:var(--panel);font:600 11px/1 var(--mono);letter-spacing:.08em}
+.auth-mark:before,.auth-mark:after{content:"";position:absolute;background:var(--accent);box-shadow:0 0 11px var(--accent)}
+.auth-mark:before{width:9px;height:1px;right:-5px}.auth-mark:after{width:1px;height:9px;bottom:-5px}
+.auth-kicker{margin-top:44px;color:var(--muted);font:600 9px/1 var(--mono);letter-spacing:.14em}
+.auth-title{margin:15px 0 0;font-size:31px;line-height:1.08;letter-spacing:-.055em}
+.auth-copy{margin:11px 0 26px;color:var(--muted);font-size:11px;line-height:1.6}
+.auth-form{display:grid;gap:16px}
+.auth-trust{margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:9px}
+.auth-trust svg{width:15px;height:15px;fill:none;stroke:var(--accent);stroke-width:1.7}
+.auth-foot{margin:auto 0 0;text-align:center;color:var(--muted);font:500 8px/1.55 var(--mono)}
+.text-btn{padding:0;border:0;background:transparent;color:var(--ink);font-size:10px;font-weight:600}
+
+.filter-line{display:flex;gap:14px;border-bottom:1px solid var(--line);overflow:hidden}
+.filter{position:relative;height:44px;padding:0 4px;border:0;background:transparent;color:var(--muted);font-size:11px;white-space:nowrap}
+.filter:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--accent);opacity:0}
+.filter.active{color:var(--ink)}.filter.active:after{opacity:1}
+.cat-label{margin:16px 0 4px;color:var(--muted);font:600 9px/1 var(--mono);letter-spacing:.1em}
+.poster{width:66px;height:37px;flex:0 0 auto;border-radius:11px;border:1px solid var(--line);background:radial-gradient(circle at 67% 29%,rgba(126,151,255,.7),transparent 17%),linear-gradient(145deg,#1b2130,#080a0e)}
+.poster.alt{background:radial-gradient(circle at 67% 29%,rgba(189,198,255,.55),transparent 17%),linear-gradient(145deg,#2e2835,#0a0b0e)}
+.poster.soft{background:radial-gradient(circle at 67% 29%,rgba(121,235,221,.5),transparent 17%),linear-gradient(145deg,#24302f,#080a0c)}
+.media-list{border-top:1px solid var(--line)}
+.media-row{min-height:66px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line);padding:9px 2px}
+.media-row:last-child{border-bottom:0}
+.state-chip{font:500 8px/1 var(--mono);letter-spacing:.05em;padding:3px 6px;border:1px solid var(--line);border-radius:6px;color:var(--muted)}
+.state-chip.plan{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.state-chip.done{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 30%,var(--line))}
+
+.floating-add{position:absolute;z-index:11;right:20px;bottom:88px;min-width:90px;height:45px;padding:0 15px;border:1px solid color-mix(in srgb,var(--cta) 80%,var(--line));border-radius:15px;background:var(--cta);color:var(--cta-ink);display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:600;box-shadow:0 17px 36px rgba(8,11,18,.18),0 0 24px var(--glow)}
+.floating-add svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9}
+
+.state-block{margin-top:60px;text-align:center;padding:0 26px}
+.state-orb{width:60px;height:60px;margin:0 auto 18px;border:1px solid var(--line);border-radius:20px;display:grid;place-items:center;background:var(--panel);color:var(--accent)}
+.state-orb svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.6}
+.state-orb.danger{color:var(--danger)}
+.state-title{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.state-copy{margin:9px auto 22px;max-width:230px;color:var(--muted);font-size:11px;line-height:1.6}
+.skeleton{border-radius:12px;background:linear-gradient(100deg,var(--field) 30%,color-mix(in srgb,var(--ink) 6%,var(--field)) 50%,var(--field) 70%);background-size:200% 100%}
+.spinner{width:15px;height:15px;border:1.6px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+.spinner.big{width:26px;height:26px;border-width:2px;color:var(--accent)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.calendar-panel{padding:16px 13px 13px;margin-top:4px}
+.calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-year{font:500 8px/1 var(--mono);letter-spacing:.1em;color:var(--muted)}
+.month{font-size:16px;font-weight:600;margin-top:4px}
+.calendar-nav{display:flex;gap:5px}
+.calendar-nav .icon-btn{width:38px;height:38px;border-radius:11px}
+.calendar-nav .icon-btn svg{width:16px;height:16px}
+.week,.dates{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.week{color:var(--muted);font:500 8px/1 var(--mono);letter-spacing:.05em;margin-bottom:4px}
+.date{position:relative;height:42px;display:grid;place-items:center;border-radius:11px;font-size:11px;border:0;background:transparent;color:var(--ink)}
+.date.dim{color:var(--faint)}
+.date.plan:after{content:"";position:absolute;bottom:6px;width:3px;height:3px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.date.active{color:var(--cta-ink);background:var(--cta)}
+.date.active:after{background:var(--accent)}
+.timeline{border-left:1px solid var(--line);margin-left:4px;margin-top:12px}
+.time-item{position:relative;padding:0 0 17px 17px}
+.time-item:before{content:"";position:absolute;left:-4px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--bg);border:1px solid var(--accent);box-shadow:0 0 9px var(--glow)}
+.time-code{color:var(--muted);font:500 8px/1 var(--mono);letter-spacing:.05em}
+.time-title{margin-top:5px;font-size:12px;font-weight:600}
+.time-note{margin-top:3px;color:var(--muted);font-size:9px}
+.calendar-quiet{margin-top:6px;padding:13px 0;border-top:1px solid var(--line);display:flex;align-items:flex-start;gap:11px}
+.calendar-quiet>span{width:34px;height:34px;flex:0 0 auto;border:1px solid var(--line);border-radius:11px;display:grid;place-items:center;color:var(--muted);background:var(--panel)}
+.calendar-quiet svg{width:16px;height:16px}
+.calendar-quiet strong{font-size:11px}
+.calendar-quiet p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.55}
+
+.pair-hero{padding:6px 0 18px;text-align:center;border-bottom:1px solid var(--line)}
+.pair-orbit{position:relative;width:176px;height:112px;margin:5px auto 6px}
+.orbit{position:absolute;inset:12px 0;border:1px solid var(--line);border-radius:50%;transform:rotate(-8deg)}
+.orbit:after{content:"";position:absolute;right:12px;top:9px;width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 13px var(--accent)}
+.pair-orbit .avatar{position:absolute;top:37px;width:43px;height:43px}
+.pair-orbit .avatar:first-of-type{left:39px}
+.pair-orbit .avatar.second{right:39px}
+.pair-center{position:absolute;left:50%;bottom:0;transform:translateX(-50%);white-space:nowrap;text-align:center}
+.pair-center strong{display:block;font-size:14px}
+.pair-center span{display:block;margin-top:3px;color:var(--muted);font:500 8px/1 var(--mono)}
+.pair-signal{display:inline-flex;align-items:center;margin-top:5px;color:var(--muted);font-size:9px}
+
+.sheet-backdrop{position:absolute;z-index:30;inset:0;background:rgba(2,4,8,.50)}
+.sheet{position:absolute;z-index:31;left:8px;right:8px;bottom:8px;padding:10px 17px 18px;border:1px solid var(--line);border-radius:22px;background:var(--panel-strong);backdrop-filter:blur(28px);box-shadow:0 28px 80px rgba(0,0,0,.28)}
+.sheet-handle{width:34px;height:3px;margin:1px auto 17px;border-radius:3px;background:var(--line)}
+.sheet-title{font-size:18px;font-weight:600;letter-spacing:-.025em}
+.sheet-copy{margin:6px 0 16px;color:var(--muted);font-size:9px;line-height:1.55}
+.sheet-form{display:grid;gap:12px}
+.parse-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line);font-size:10px}
+.parse-row .row-end{margin-left:auto}
+.parse-ico{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;flex:0 0 auto}
+.parse-ico svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.parse-ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.parse-warn{color:var(--accent);background:var(--accent-soft)}
+.parse-bad{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent)}
+
+.toast{position:absolute;z-index:40;left:18px;right:18px;bottom:87px;min-height:45px;padding:0 13px;border:1px solid var(--line);border-radius:14px;background:var(--cta);color:var(--cta-ink);display:flex;align-items:center;gap:9px;font-size:10px;font-weight:500;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.toast svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+
+.opt-row{display:flex;gap:12px;padding:14px;border:1px solid var(--line);border-radius:15px;background:var(--panel);align-items:flex-start}
+.opt-row.sel{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));background:var(--accent-soft)}
+.opt-radio{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--muted);flex:0 0 auto;margin-top:1px;display:grid;place-items:center}
+.opt-row.sel .opt-radio{border-color:var(--accent)}
+.opt-row.sel .opt-radio:after{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.opt-row strong{font-size:12px;font-weight:600}
+.opt-row p{margin:4px 0 0;color:var(--muted);font-size:9.5px;line-height:1.5}
+
+/* 观看页 */
+.watch{position:absolute;z-index:2;inset:0;padding:52px 18px 16px;display:flex;flex-direction:column;overflow:hidden}
+.watchbar{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.watch .icon-btn{width:42px;height:42px}
+.room{flex:1;min-width:0}
+.room-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.room-sub{margin-top:3px;color:var(--muted);font-size:10px;display:flex;align-items:center}
+.player{width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;position:relative;background:#08090b;border:1px solid var(--line)}
+.player .scene{position:absolute;inset:0;background:radial-gradient(circle at 70% 32%,rgba(126,151,255,.42),transparent 20%),linear-gradient(150deg,#222a38 0%,#141924 42%,#080a0e 100%)}
+.player .scene:before{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(12deg,#0a0c11 0 44%,#2a2f3d 45% 56%,#101319 57%)}
+.center-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.94);color:#111}
+.center-play svg{width:19px;height:19px;fill:#111;stroke:none;margin-left:2px}
+.sync-chip{position:absolute;left:12px;top:12px;padding:6px 10px;border-radius:999px;background:rgba(8,9,11,.66);color:#eef;font:600 10px/1 var(--font);backdrop-filter:blur(8px);display:flex;align-items:center;gap:6px}
+.sync-chip .dot{margin:0;box-shadow:0 0 8px var(--accent)}
+.video-cap{position:absolute;left:14px;bottom:12px;color:#fff;font-size:12px;font-weight:600;text-shadow:0 1px 4px #000}
+.ready-note{text-align:center;font-size:10px;color:var(--muted);margin-top:11px}
+.wtimeline{margin-top:12px}
+.time-row{display:flex;justify-content:space-between;font:500 10px/1 var(--mono);color:var(--muted);margin-bottom:8px}
+.track{height:4px;background:var(--line);border-radius:999px;position:relative}
+.track .fill{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:999px;box-shadow:0 0 10px var(--accent)}
+.track .knob{position:absolute;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;background:var(--cta);border:2px solid var(--bg);border-radius:50%}
+.wtools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.wtool{min-width:0;height:60px;border:1px solid var(--line);border-radius:13px;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:10px;font-weight:600;color:var(--ink)}
+.wtool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7}
+.wtool span.on{color:var(--accent)}
+.wmember{margin-top:12px;padding:11px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:11px}
+.wmember .avatar{width:34px;height:34px}
+.wmember-main{flex:1;min-width:0}
+.wmember-name{font-size:12px;font-weight:600}
+.wmember-sub{margin-top:3px;color:var(--muted);font-size:9.5px}
+.wmember .status-word{font:600 10px/1 var(--font);color:var(--accent)}
+.msg-card{margin-top:12px;flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.msg-scroll{flex:1;padding:12px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+.msg{max-width:78%;padding:8px 11px;border-radius:13px;font-size:11px;line-height:1.4}
+.msg.them{align-self:flex-start;background:var(--field);border:1px solid var(--line);border-bottom-left-radius:5px}
+.msg.me{align-self:flex-end;background:var(--cta);color:var(--cta-ink);border-bottom-right-radius:5px}
+.msg-sys{align-self:center;font:500 9px/1 var(--mono);color:var(--muted);padding:2px 0}
+.composer{display:flex;gap:8px;padding:9px;border-top:1px solid var(--line);background:var(--panel-strong)}
+.composer .say{flex:1;height:40px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--faint);display:flex;align-items:center;padding:0 13px;font-size:11px}
+.composer .send{width:44px;height:40px;border-radius:12px;background:var(--cta);color:var(--cta-ink);border:0;display:grid;place-items:center}
+.composer .send svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
+
+.watch.land{flex-direction:row;padding:16px;gap:14px}
+.watch.land .lplayer{flex:1;min-width:0;aspect-ratio:auto;height:100%}
+.watch.land .lside{width:288px;flex:0 0 auto;display:flex;flex-direction:column;min-height:0}
+.watch.land .lside .watchbar{margin-bottom:10px}
+.watch.land .msg-card{margin-top:10px}
+.watch.land .wtimeline{margin-top:10px}
+
+.drawer-scrim{position:absolute;z-index:30;inset:0;background:rgba(2,4,8,.5)}
+.drawer-bottom{position:absolute;z-index:31;left:0;right:0;bottom:0;height:64%;padding:12px 18px 18px;border-radius:22px 22px 0 0;border:1px solid var(--line);border-bottom:0;background:var(--panel-strong);backdrop-filter:blur(28px)}
+.drawer-right{position:absolute;z-index:31;top:0;right:0;bottom:0;width:300px;padding:16px;border-left:1px solid var(--line);background:var(--panel-strong);backdrop-filter:blur(28px)}
+.drawer-title{font-size:15px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.drawer-sub{color:var(--muted);font-size:9.5px;margin-bottom:12px}
+
+.legend{max-width:1500px;margin:36px auto 0;padding:18px 20px;border:1px solid var(--studio-line);border-radius:16px;background:color-mix(in srgb,var(--studio) 70%,transparent);color:var(--studio-muted);font-size:12px;line-height:1.7}
+.legend b{color:var(--studio-ink)}
+.legend code{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--studio-ink) 8%,transparent);color:var(--studio-ink)}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin-right:5px;border:1px solid rgba(128,128,128,.3)}
+@media(prefers-reduced-motion:reduce){.spinner{animation-duration:1.4s}}
+
+/* ============================================================
+   视觉增强补丁 · P0 / P1
+   ============================================================ */
+
+/* --- 字重标准化 --- */
+/* 非标准 720/680/650 → 实际渲染到 700，直接声明 800 让大标题更有重量感 */
+.page-title            { font-weight: 800; letter-spacing: -.06em; }
+.auth-title            { font-weight: 800; }
+.now-title             { font-weight: 800; }
+.section-label         { font-weight: 700; }
+.room-title            { font-weight: 800; }
+.drawer-title, .sheet-title { font-weight: 700; }
+
+/* --- 白色主题：面板层次感 --- */
+/* 顶部内侧高光 + 底部细投影，让面板脱离背景而不用加厚重阴影 */
+.panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.88),   /* 顶部玻璃高光 */
+    0 2px 14px rgba(12,17,25,.055),        /* 底部漫反射 */
+    0 1px 3px  rgba(12,17,25,.04);
+}
+/* now-card 需要更强的浮起感，它是视觉焦点 */
+.now-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.92),
+    0 24px 56px rgba(12,17,25,.10),
+    0 4px  12px rgba(12,17,25,.06);
+}
+/* presence 卡片——轻一点 */
+.panel.presence {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.84),
+    0 1px 8px rgba(12,17,25,.045);
+}
+
+/* --- 黑色主题：面板用冷光边界替代高光 --- */
+.studio.dark .panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.055),   /* 极淡顶光 */
+    0 0 0 1px rgba(145,167,255,.07),        /* 冷光边框晕 */
+    0 4px 20px rgba(0,0,0,.28);
+}
+.studio.dark .now-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 0 0 1px rgba(145,167,255,.1),
+    0 28px 70px rgba(0,0,0,.38),
+    0 0 60px rgba(111,139,255,.06);         /* 冷光漫散 */
+}
+
+/* --- 设备外壳金属高光边 --- */
+.device {
+  box-shadow:
+    0 22px 50px rgba(15,20,30,.20),
+    inset 0  1px 0 rgba(255,255,255,.14),   /* 顶部高光 */
+    inset 0 -1px 0 rgba(0,0,0,.55),         /* 底部压暗 */
+    inset 1px 0 0 rgba(255,255,255,.06),    /* 左侧反光 */
+    inset -1px 0 0 rgba(0,0,0,.32);         /* 右侧暗边 */
+}
+.studio.dark .device {
+  box-shadow:
+    0 26px 66px rgba(0,0,0,.55),
+    inset 0  1px 0 rgba(255,255,255,.10),
+    inset 0 -1px 0 rgba(0,0,0,.70),
+    inset 1px 0 0 rgba(255,255,255,.04),
+    inset -1px 0 0 rgba(0,0,0,.45);
+}
+
+/* --- 连接轨道节点：从 6px 放大到 8px，box-shadow 收紧聚焦 --- */
+.link-track:before,
+.link-track:after {
+  width:  8px;
+  height: 8px;
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 10px var(--accent);
+}
+
+/* --- 顶部光晕：白色主题下缩小范围反而更聚焦 --- */
+.screen:after {
+  width:   240px;
+  height:  200px;
+  opacity: .65;
+}
+.studio.dark .screen:after {
+  width:   320px;
+  height:  260px;
+  opacity: .80;
+}
+
+/* --- now-card 光晕扩大，增加存在感 --- */
+.now-card:before {
+  width:  210px;
+  height: 210px;
+  right: -70px;
+  top:   -80px;
+  opacity: .85;
+}
+
+/* --- 海报新增暖色系 variant --- */
+.poster.warm {
+  background:
+    radial-gradient(circle at 33% 72%, rgba(255,184,110,.52), transparent 20%),
+    linear-gradient(155deg, #2a1e12, #0c0906);
+}
+
+/* --- icon-btn / button 微细腻化 --- */
+/* 给 icon-btn 加与面板一致的顶部高光，和 panel 系列统一语言 */
+.icon-btn {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75), 0 1px 4px rgba(12,17,25,.06);
+}
+.studio.dark .icon-btn {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 6px rgba(0,0,0,.22);
+}
+/* 普通描边 button 也跟上 */
+.button:not(.primary):not(.danger) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.82), 0 1px 4px rgba(12,17,25,.05);
+}
+.studio.dark .button:not(.primary):not(.danger) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 1px 5px rgba(0,0,0,.20);
+}
+
+/* --- Bottom sheet 深色加强：让抽屉和背景更有分离感 --- */
+.sheet {
+  box-shadow:
+    0 -1px 0 rgba(255,255,255,.22) inset,   /* 顶部高光线 */
+    0 28px 80px rgba(0,0,0,.28),
+    0 0 0 1px rgba(255,255,255,.08) inset;
+}
+.studio.dark .sheet {
+  box-shadow:
+    0 -1px 0 rgba(255,255,255,.08) inset,
+    0 28px 80px rgba(0,0,0,.60),
+    0 0 0 1px rgba(145,167,255,.10) inset;
+}
+
+/* --- 搜索框、输入框：加顶部暗线让内凹感更真实 --- */
+.field input, .field textarea, .search input {
+  box-shadow: inset 0 1px 3px rgba(12,17,25,.07);
+}
+.studio.dark .field input,
+.studio.dark .field textarea,
+.studio.dark .search input {
+  box-shadow: inset 0 1px 4px rgba(0,0,0,.28);
+}
+
+/* --- 进度条 fill 发光加强 --- */
+.track .fill {
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 0 12px var(--accent);
+}
+
+/* --- 消息气泡——对方气泡加顶部高光 --- */
+.msg.them {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.72);
+}
+.studio.dark .msg.them {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+</style>
+</head>
+<body>
+<div class="studio" id="studio"></div>
+<script>
+/* ==================== 图标库 ==================== */
+const I={
+moon:'<svg class="ico" viewBox="0 0 24 24"><path d="M20 15.2A8.3 8.3 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"/></svg>',
+sun:'<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+back:'<svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>',
+play:'<svg class="ico" data-fill viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></svg>',
+link:'<svg class="ico" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+plus:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+search:'<svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>',
+mail:'<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+key:'<svg class="ico" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 13 8-8M17 7l2 2M15 9l1.5 1.5"/></svg>',
+shield:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6Z"/><path d="m9 12 2 2 4-4"/></svg>',
+clock:'<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+spark:'<svg class="ico" viewBox="0 0 24 24"><path d="m12 3 1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4Z"/></svg>',
+film:'<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>',
+cal:'<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>',
+users:'<svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6M17 20a5.5 5.5 0 0 0-2.2-4.4"/></svg>',
+home:'<svg class="ico" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/></svg>',
+chevL:'<svg class="ico" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>',
+chevR:'<svg class="ico" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+chevRight:'<svg class="ico" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>',
+alert:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 3 2 20h20Z"/><path d="M12 9v5M12 17h.01"/></svg>',
+offline:'<svg class="ico" viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/><path d="m3 3 18 18"/></svg>',
+inbox:'<svg class="ico" viewBox="0 0 24 24"><path d="M4 13h4l1 3h6l1-3h4"/><path d="M4 13 6 5h12l2 8v6H4Z"/></svg>',
+check:'<svg class="ico" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>',
+x:'<svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+lock:'<svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+share:'<svg class="ico" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.1 10.9 7.8-4.5M8.1 13.1l7.8 4.5"/></svg>',
+danmaku:'<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="3"/><path d="M7 10h6M7 13.5h4M16 10h1M15 13.5h2"/></svg>',
+speed:'<svg class="ico" viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="m12 14 5-4"/></svg>',
+rotate:'<svg class="ico" viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="m4 8 2-2 2 2M20 16l-2 2-2-2"/></svg>',
+full:'<svg class="ico" viewBox="0 0 24 24"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/></svg>',
+send:'<svg class="ico" viewBox="0 0 24 24"><path d="M4 12 20 4l-6 16-3-7Z"/></svg>',
+chat:'<svg class="ico" viewBox="0 0 24 24"><path d="M5 18.5 3 21l.7-4A8 8 0 1 1 5 18.5Z"/></svg>',
+dots:'<svg class="ico" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg>',
+archive:'<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg>',
+history:'<svg class="ico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>',
+sort:'<svg class="ico" viewBox="0 0 24 24"><path d="M7 5v14M4 8l3-3 3 3M17 19V5M14 16l3 3 3-3"/></svg>',
+copy:'<svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
+gear:'<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>',
+unlink:'<svg class="ico" viewBox="0 0 24 24"><path d="M8 8 5 11a4 4 0 0 0 6 6l1-1M16 16l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M15 3v2M19 7h2M3 15h2M7 19v2"/></svg>'
+};
+function sb(){return '<div class="status-camera"></div><div class="statusbar"><span>9:41</span><span class="system-icons"><svg viewBox="0 0 24 12"><path d="M2 9h2v2H2zM6 7h2v4H6zM10 5h2v6h-2zM14 3h2v8h-2z" fill="currentColor" stroke="none"/></svg><svg viewBox="0 0 24 16"><path d="M2 8a13 13 0 0 1 20 0M5 11a9 9 0 0 1 14 0M8.5 14a4.5 4.5 0 0 1 7 0"/></svg><svg viewBox="0 0 26 12"><rect x="1" y="2" width="21" height="8" rx="2"/><rect x="3" y="4" width="15" height="4" fill="currentColor" stroke="none"/><path d="M24 5v2" stroke-width="2"/></svg></span></div>';}
+function nav(a){const it=[['home','首页',I.home],['film','片库',I.film],['cal','日历',I.cal],['users','我们',I.users]];return '<div class="bottom-nav">'+it.map(x=>`<button class="nav-btn ${x[0]===a?'active':''}">${x[2]}<span>${x[1]}</span></button>`).join('')+'</div>';}
+function head(idx,title,note){return `<div class="page-head"><div><div class="page-index">${idx}</div><h1 class="page-title">${title}</h1>${note?`<p class="page-note">${note}</p>`:''}</div>`;}
+
+/* ==================== 屏幕定义 ==================== */
+const S={};
+
+/* ---------- 登录 ---------- */
+S.loginDefault=()=>`<div class="auth">
+<div class="auth-top"><div class="auth-mark">TK</div><button class="icon-btn ghost">${I.moon}</button></div>
+<div class="auth-kicker">SIGN IN · 邮箱验证码</div>
+<h1 class="auth-title">和唯一的人<br>一起看。</h1>
+<p class="auth-copy">用邮箱验证码登录，每个账号只绑定一位好友。视频内容流不经过同看服务器。</p>
+<div class="auth-form">
+<div class="field input-shell"><label>邮箱</label><span class="field-icon">${I.mail}</span><input placeholder="you@example.com"></div>
+<button class="button primary full">${I.mail}<span>获取验证码</span></button>
+</div>
+<div class="auth-trust">${I.shield}<span>内容流点对点直连 · 同看仅同步进度</span></div>
+<div class="auth-foot">或 · <button class="text-btn">暂时使用匿名房间</button></div>
+</div>`;
+
+S.loginCode=()=>`<div class="auth">
+<div class="auth-top"><div class="auth-mark">TK</div><button class="icon-btn ghost">${I.moon}</button></div>
+<div class="auth-kicker">SIGN IN · 已发送</div>
+<h1 class="auth-title">输入 6 位<br>验证码。</h1>
+<p class="auth-copy">验证码已发送至 <strong style="color:var(--ink)">mei@qq.com</strong>，10 分钟内有效。</p>
+<div class="auth-form">
+<div class="field input-shell"><label>验证码</label><span class="field-icon">${I.key}</span><input class="focus mono" value="0 4 · _ _ · _ _" style="letter-spacing:.3em"></div>
+<button class="button primary full">${I.check}<span>登录</span></button>
+<div style="display:flex;justify-content:space-between"><button class="text-btn" style="color:var(--muted);font-weight:500">重新获取 (48s)</button><button class="text-btn" style="color:var(--muted);font-weight:500">更换邮箱</button></div>
+</div>
+<div class="auth-trust">${I.shield}<span>登录后自动进入双人空间</span></div>
+<div class="auth-foot">TONGKAN ACCOUNT · ALPHA 10</div>
+</div>`;
+
+S.loginLoading=()=>`<div class="auth">
+<div class="auth-top"><div class="auth-mark">TK</div><button class="icon-btn ghost">${I.moon}</button></div>
+<div class="auth-kicker">SIGN IN · 验证中</div>
+<h1 class="auth-title">输入 6 位<br>验证码。</h1>
+<p class="auth-copy">验证码已发送至 <strong style="color:var(--ink)">mei@qq.com</strong>，10 分钟内有效。</p>
+<div class="auth-form">
+<div class="field input-shell"><label>验证码</label><span class="field-icon">${I.key}</span><input class="mono" value="0 4 8 1 6 3" style="letter-spacing:.3em"></div>
+<button class="button primary full disabled"><span class="spinner"></span><span>正在登录…</span></button>
+<div style="display:flex;justify-content:space-between"><button class="text-btn" style="color:var(--faint);font-weight:500">重新获取 (48s)</button><button class="text-btn" style="color:var(--faint);font-weight:500">更换邮箱</button></div>
+</div>
+<div class="auth-trust">${I.shield}<span>正在校验会话并恢复双人空间</span></div>
+<div class="auth-foot">TONGKAN ACCOUNT · ALPHA 10</div>
+</div>`;
+
+S.loginError=()=>`<div class="auth">
+<div class="auth-top"><div class="auth-mark">TK</div><button class="icon-btn ghost">${I.moon}</button></div>
+<div class="auth-kicker" style="color:var(--danger)">SIGN IN · 验证失败</div>
+<h1 class="auth-title">验证码<br>不正确。</h1>
+<p class="auth-copy">请检查后重新输入，或重新获取新的验证码。</p>
+<div class="auth-form">
+<div class="field input-shell"><label>验证码</label><span class="field-icon">${I.key}</span><input class="err mono" value="0 4 8 1 6 9" style="letter-spacing:.3em"><p class="field-help err">验证码错误或已过期</p></div>
+<button class="button primary full">${I.check}<span>重新登录</span></button>
+<button class="button full">重新获取验证码</button>
+</div>
+<div class="auth-foot">TONGKAN ACCOUNT · ALPHA 10</div>
+</div>`;
+
+S.loginUnavailable=()=>`<div class="auth">
+<div class="auth-top"><div class="auth-mark">TK</div><button class="icon-btn ghost">${I.moon}</button></div>
+<div class="auth-kicker" style="color:var(--danger)">SIGN IN · 服务不可用</div>
+<h1 class="auth-title">账号服务<br>暂不可用。</h1>
+<p class="auth-copy">当前无法连接登录服务。你仍可以先用匿名房间和好友一起看，稍后再登录同步双人空间。</p>
+<div class="auth-form">
+<button class="button full">${I.history}<span>重试连接</span></button>
+<button class="button primary full">${I.play}<span>进入匿名房间</span></button>
+</div>
+<div class="auth-trust">${I.offline}<span>匿名房间不需要登录，最多两人</span></div>
+<div class="auth-foot">TONGKAN ACCOUNT · ALPHA 10</div>
+</div>`;
+
+/* ---------- 首页 ---------- */
+function homeMetrics(){return `<div class="metrics"><div class="metric"><strong>8.6h</strong><span>本月同看</span></div><div class="metric"><strong>12</strong><span>共同完成</span></div><div class="metric"><strong>128d</strong><span>成为好友</span></div></div>`;}
+
+/* 已绑定 · 双方在线 · 房间就绪 */
+S.homeBound=()=>`<div class="page">${head('01 / NOW','一起看','连接状态、今日计划与房间操作都在这里。')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="panel presence"><div class="presence-line"><span class="avatar">梅</span><span class="link-track"></span><span class="avatar second">然</span></div><div class="presence-copy"><span><span class="dot"></span>双方在线</span><strong>连接稳定 · 38 ms</strong></div></div>
+<div class="panel now-card"><div class="signal-orbit"><span></span><span></span><span></span></div><div class="now-top"><span class="now-code">ROOM / READY</span><span class="now-status"><span class="dot"></span>LIVE LINK</span></div><div class="now-title">今晚，看一部好电影。</div><div class="now-sub">房间创建后自动发布到双人空间，视频停在 0 秒等待双方播放。</div><div class="button-row"><button class="button primary">${I.play}<span>创建房间</span></button><button class="button">${I.link}<span>加入</span></button></div></div>
+<div class="label-row"><span class="section-label">今日轨道</span><span class="section-meta">AUG 19 · 2 ITEMS</span></div>
+<div class="stream-list"><div class="stream-row"><span class="row-icon">${I.clock}</span><div class="row-main"><div class="row-title">20:00 · 星际穿越</div><div class="row-sub">吃完饭一起看 · 已加入片库</div></div><span class="row-end">90 min</span></div>
+<div class="stream-row"><span class="row-icon">${I.spark}</span><div class="row-main"><div class="row-title">当天 · 旅行纪录片</div><div class="row-sub">还没有设置具体时间</div></div><span class="row-end">OPEN</span></div></div>
+${homeMetrics()}${nav('home')}</div>`;
+
+/* 未绑定好友 */
+S.homeUnbound=()=>`<div class="page">${head('01 / NOW','一起看','先绑定唯一好友，就能一起创建房间同步观看。')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="panel presence"><div class="presence-line"><span class="avatar">梅</span><span class="link-track broken"></span><span class="avatar dim">?</span></div><div class="presence-copy"><span><span class="dot off"></span>尚未绑定好友</span><strong>等待建立连接</strong></div></div>
+<div class="panel now-card"><div class="now-top"><span class="now-code">PAIR / EMPTY</span><span class="now-status" style="color:var(--muted)">NO LINK</span></div><div class="now-title">先找到<br>一起看的人。</div><div class="now-sub">生成一次性邀请码发给对方，或输入对方的邀请码。每个账号只能绑定一位好友。</div><div class="button-row"><button class="button primary">${I.plus}<span>生成邀请码</span></button><button class="button">输入</button></div></div>
+<div class="label-row"><span class="section-label">现在也可以</span></div>
+<div class="stream-list"><div class="stream-row"><span class="row-icon">${I.play}</span><div class="row-main"><div class="row-title">先用匿名房间看一部</div><div class="row-sub">无需绑定 · 通过链接邀请临时同看</div></div><span class="row-end">${I.chevRight}</span></div></div>
+${nav('home')}</div>`;
+
+/* 已绑定 · 好友离线 */
+S.homeOffline=()=>`<div class="page">${head('01 / NOW','一起看','好友当前不在线，你可以先准备好房间。')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="panel presence"><div class="presence-line"><span class="avatar">梅</span><span class="link-track broken"></span><span class="avatar second dim">然</span></div><div class="presence-copy"><span><span class="dot off"></span>然 · 离线</span><strong>上次在线 2 小时前</strong></div></div>
+<div class="panel now-card"><div class="now-top"><span class="now-code">ROOM / STANDBY</span><span class="now-status" style="color:var(--muted)">WAITING</span></div><div class="now-title">先建好房间，<br>等她上线。</div><div class="now-sub">创建后房间会发布到双人空间，然上线时首页会直接看到你在等她。</div><div class="button-row"><button class="button primary">${I.play}<span>创建房间</span></button><button class="button">${I.link}<span>加入</span></button></div></div>
+<div class="label-row"><span class="section-label">今日轨道</span><span class="section-meta">AUG 19 · 1 ITEM</span></div>
+<div class="stream-list"><div class="stream-row"><span class="row-icon">${I.clock}</span><div class="row-main"><div class="row-title">20:00 · 星际穿越</div><div class="row-sub">吃完饭一起看</div></div><span class="row-end">90 min</span></div></div>
+${homeMetrics()}${nav('home')}</div>`;
+
+/* 好友正在等你一起看 */
+S.homeWaiting=()=>`<div class="page">${head('01 / NOW','一起看','然创建了房间，正在等你。')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="panel presence"><div class="presence-line"><span class="avatar">梅</span><span class="link-track"></span><span class="avatar second">然</span></div><div class="presence-copy"><span><span class="dot"></span>双方在线</span><strong>连接稳定 · 41 ms</strong></div></div>
+<div class="panel now-card" style="border-color:color-mix(in srgb,var(--accent) 40%,var(--line));box-shadow:inset 0 1px 0 rgba(255,255,255,.92),0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent),0 18px 50px var(--glow)"><div class="signal-orbit"><span></span><span></span><span></span></div><div class="now-top"><span class="now-code" style="color:var(--accent)">FRIEND / LIVE</span><span class="now-status"><span class="dot"></span>WAITING FOR YOU</span></div><div class="now-title">然正在等你<br>一起看。</div><div class="now-sub">房间已就绪 · 旅行纪录片 · 停在 00:00。无需邀请码，直接进入即可。</div><div class="button-row"><button class="button primary">${I.play}<span>立即加入</span></button><button class="button">稍后</button></div></div>
+<div class="label-row"><span class="section-label">今日轨道</span><span class="section-meta">AUG 19 · 2 ITEMS</span></div>
+<div class="stream-list"><div class="stream-row"><span class="row-icon">${I.clock}</span><div class="row-main"><div class="row-title">20:00 · 星际穿越</div><div class="row-sub">吃完饭一起看 · 已加入片库</div></div><span class="row-end">90 min</span></div></div>
+${nav('home')}</div>`;
+
+/* 账号服务失败 */
+S.homeServiceErr=()=>`<div class="page">${head('01 / NOW','一起看','暂时无法读取账号与好友状态。')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="panel presence" style="border-color:color-mix(in srgb,var(--danger) 24%,var(--line))"><div class="presence-line"><span class="avatar">梅</span><span class="link-track broken"></span><span class="avatar dim">${I.alert}</span></div><div class="presence-copy"><span style="color:var(--danger)"><span class="dot off"></span>连接账号服务失败</span><strong>显示的是本地缓存</strong></div></div>
+<div class="panel now-card"><div class="now-top"><span class="now-code" style="color:var(--danger)">ACCOUNT / OFFLINE</span></div><div class="now-title">状态可能<br>不是最新的。</div><div class="now-sub">已保留你的登录状态，仅无法刷新好友在线信息。重试恢复，或先用匿名房间。</div><div class="button-row"><button class="button primary">${I.history}<span>重试</span></button><button class="button">${I.play}<span>匿名</span></button></div></div>
+${homeMetrics()}${nav('home')}</div>`;
+
+/* ---------- 片库 ---------- */
+function libFilters(active){const f=['全部','想看','已计划','已看完'];return `<div class="filter-line">${f.map((x,i)=>`<button class="filter ${i===active?'active':''}">${x}</button>`).join('')}</div>`;}
+function mediaRow(cls,title,sub,chip,chipCls){return `<div class="media-row"><span class="poster ${cls}"></span><div class="row-main"><div class="row-title">${title}</div><div class="row-sub">${sub}</div></div><span class="state-chip ${chipCls||''}">${chip}</span></div>`;}
+
+S.libContent=()=>`<div class="page">${head('02 / LIBRARY','共同片库','两个人一起攒的想看清单，添加、筛选、直接开看。')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="cat-label">想看 · 4</div>
+<div class="media-list">
+${mediaRow('','星际穿越','诺兰 · 169 分钟','想看','plan')}
+${mediaRow('alt','旅行纪录片 · 冰岛','UP 主 慢旅 · BV1x…','想看','plan')}
+${mediaRow('soft','深海','动画电影 · 112 分钟','已计划','plan')}
+</div>
+<div class="cat-label">已看完 · 12</div>
+<div class="media-list">
+${mediaRow('mono','爱在黎明破晓前','两个人的第一部','已看完','done')}
+</div>
+<button class="floating-add">${I.plus}<span>添加视频</span></button>${nav('film')}</div>`;
+
+S.libEmpty=()=>`<div class="page">${head('02 / LIBRARY','共同片库','还没有一起添加视频。')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="state-block"><div class="state-orb">${I.inbox}</div><div class="state-title">片库还是空的</div><div class="state-copy">粘贴一条 B 站链接，就能和好友把想看的都攒进来，随时一起开看。</div><button class="button primary" style="min-width:180px">${I.plus}<span>添加第一个视频</span></button></div>
+<button class="floating-add">${I.plus}<span>添加视频</span></button>${nav('film')}</div>`;
+
+S.libLoading=()=>`<div class="page">${head('02 / LIBRARY','共同片库','')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="media-list">${[0,1,2,3].map(()=>`<div class="media-row"><span class="poster skeleton" style="background-image:none"></span><div class="row-main"><div class="skeleton" style="height:11px;width:62%"></div><div class="skeleton" style="height:8px;width:40%;margin-top:8px"></div></div></div>`).join('')}</div>
+${nav('film')}</div>`;
+
+S.libError=()=>`<div class="page">${head('02 / LIBRARY','共同片库','')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="state-block"><div class="state-orb danger">${I.alert}</div><div class="state-title">片库加载失败</div><div class="state-copy">网络或服务暂时不可用，稍后重试。你添加的内容不会丢失。</div><button class="button" style="min-width:150px">${I.history}<span>重新加载</span></button></div>
+${nav('film')}</div>`;
+
+
+/* 未登录 (片库需要账号) */
+S.libUnauth=()=>`<div class="page">${head('02 / LIBRARY','共同片库','登录后才能查看双人共同片库。')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="state-block"><div class="state-orb">${I.lock}</div><div class="state-title">需要先登录</div><div class="state-copy">共同片库与双人空间绑定，登录账号后就能查看和添加内容。</div><button class="button primary" style="min-width:160px">${I.key}<span>去登录</span></button></div>
+<button class="floating-add" style="opacity:.4;pointer-events:none">${I.plus}<span>添加视频</span></button>${nav('film')}</div>`;
+
+/* 未绑定好友 (片库为空的前置状态) */
+S.libUnbound=()=>`<div class="page">${head('02 / LIBRARY','共同片库','先绑定好友，再一起攒片库。')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="state-block"><div class="state-orb">${I.users}</div><div class="state-title">还没有绑定好友</div><div class="state-copy">共同片库是你和好友一起的，先去首页绑定唯一好友，就能一起攒想看的清单了。</div><button class="button primary" style="min-width:180px">${I.link}<span>去绑定好友</span></button></div>
+<button class="floating-add" style="opacity:.4;pointer-events:none">${I.plus}<span>添加视频</span></button>${nav('film')}</div>`;
+
+/* 冲突 (同一视频双方都在添加) */
+S.libConflict=()=>`<div class="page">${head('02 / LIBRARY','共同片库','检测到重复添加的视频。')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>
+${libFilters(0)}
+<div class="panel" style="padding:13px 15px;margin-top:8px;border-color:color-mix(in srgb,var(--accent) 30%,var(--line))">
+<div class="now-top"><span class="now-code" style="color:var(--accent)">CONFLICT · 1 VIDEO</span></div>
+<div style="margin-top:8px;font-size:12px;font-weight:600">旅行纪录片 · 冰岛 — 已在片库</div>
+<div style="margin-top:4px;color:var(--muted);font-size:9.5px">你和然几乎同时添加了这个视频，已自动合并为一条。</div>
+<button class="button" style="margin-top:11px;min-width:120px">${I.check}<span>好的，已知晓</span></button>
+</div>
+<div class="cat-label">想看 · 4</div>
+<div class="media-list">
+${mediaRow('','星际穿越','诺兰 · 169 分钟','想看','plan')}
+${mediaRow('alt','旅行纪录片 · 冰岛','刚刚合并 · UP 主 慢旅','想看','plan')}
+</div>
+<button class="floating-add">${I.plus}<span>添加视频</span></button>${nav('film')}</div>`;
+
+/* 添加视频底部面板 (逐条识别) */
+S.libAddSheet=()=>`<div class="page">${head('02 / LIBRARY','共同片库','')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>${libFilters(0)}
+<div class="cat-label">想看 · 4</div><div class="media-list">${mediaRow('','星际穿越','诺兰 · 169 分钟','想看','plan')}${mediaRow('alt','旅行纪录片 · 冰岛','UP 主 慢旅','想看','plan')}</div>
+<div class="sheet-backdrop"></div>
+<div class="sheet"><div class="sheet-handle"></div><div class="sheet-title">添加视频</div><p class="sheet-copy">每行一条 B 站链接或 BV 号，最多 20 条。提交前会逐条校验。</p>
+<div class="field"><textarea style="width:100%;height:78px;border:1px solid var(--line);border-radius:14px;background:var(--field);color:var(--ink);padding:11px 14px;font-size:11px;font-family:var(--mono);resize:none">https://b23.tv/aX9k2
+BV1x7411y7qp
+随便一段文字</textarea></div>
+<div style="margin-top:6px">
+<div class="parse-row"><span class="parse-ico parse-ok">${I.check}</span><span>b23.tv/aX9k2 · 已识别</span><span class="row-end mono" style="color:var(--ok)">READY</span></div>
+<div class="parse-row"><span class="parse-ico parse-warn"><span class="spinner" style="width:11px;height:11px;border-width:1.4px"></span></span><span>BV1x7411y7qp · 解析中</span><span class="row-end mono" style="color:var(--accent)">RESOLVING</span></div>
+<div class="parse-row"><span class="parse-ico parse-bad">${I.x}</span><span>随便一段文字 · 无法识别</span><span class="row-end mono" style="color:var(--danger)">SKIP</span></div>
+</div>
+<button class="button primary full" style="margin-top:14px">${I.plus}<span>添加 1 条可识别视频</span></button></div>${nav('film')}</div>`;
+
+/* ---------- 日历 ---------- */
+function calGrid(){
+  const plan=[6,15,21];const active=19;let cells='';
+  const lead=[28,29,30,31];lead.forEach(d=>cells+=`<button class="date dim">${d}</button>`);
+  for(let d=1;d<=31;d++){const cl=[];if(d===active)cl.push('active');if(plan.includes(d))cl.push('plan');cells+=`<button class="date ${cl.join(' ')}">${d}</button>`;}
+  [1,2].forEach(d=>cells+=`<button class="date dim">${d}</button>`);
+  return `<div class="week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div><div class="dates">${cells}</div>`;
+}
+S.calendar=()=>`<div class="page">${head('03 / CALENDAR','日历','把"哪天想看"变成两个人都能看到的约定。')}<button class="icon-btn">${I.plus}</button></div>
+<div class="panel calendar-panel"><div class="calendar-head"><div><div class="cal-year">2026</div><div class="month">八月</div></div><div class="calendar-nav"><button class="icon-btn">${I.chevL}</button><button class="icon-btn">${I.chevR}</button></div></div>${calGrid()}</div>
+<div class="label-row"><span class="section-label">8 月 19 日</span><span class="section-meta">TODAY · 2 PLANS</span></div>
+<div class="timeline">
+<div class="time-item"><div class="time-code">20:00 · PLANNED</div><div class="time-title">星际穿越</div><div class="time-note">吃完饭一起看 · 169 分钟</div></div>
+<div class="time-item"><div class="time-code">ALL DAY · OPEN</div><div class="time-title">旅行纪录片</div><div class="time-note">时间未定 · 点击补充备注</div></div>
+</div>
+<div class="calendar-quiet"><span>${I.spark}</span><div><strong>留一点空白</strong><p>提醒和重复计划稍后再做，第一版只保留真正需要的约定。</p></div></div>
+${nav('cal')}</div>`;
+
+/* 创建计划 Drawer */
+S.calSheet=()=>`<div class="page">${head('03 / CALENDAR','日历','')}<button class="icon-btn">${I.plus}</button></div>
+<div class="panel calendar-panel"><div class="calendar-head"><div><div class="cal-year">2026</div><div class="month">八月</div></div><div class="calendar-nav"><button class="icon-btn">${I.chevL}</button><button class="icon-btn">${I.chevR}</button></div></div>${calGrid()}</div>
+<div class="sheet-backdrop"></div>
+<div class="sheet"><div class="sheet-handle"></div><div class="sheet-title">新建计划</div><p class="sheet-copy">日期必填，开始时间和备注可选。</p>
+<div class="sheet-form">
+<div class="field input-shell"><label>日期</label><span class="field-icon">${I.cal}</span><input class="focus" value="2026 / 08 / 21"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<div class="field input-shell"><label>开始时间 (可选)</label><span class="field-icon">${I.clock}</span><input placeholder="20:00"></div>
+<div class="field input-shell"><label>选择视频</label><span class="field-icon">${I.film}</span><input value="深海"></div>
+</div>
+<div class="field"><label>备注 (可选)</label><input placeholder="想说的话…"></div>
+<button class="button primary full">${I.check}<span>保存到日历</span></button>
+</div></div>${nav('cal')}</div>`;
+
+/* ---------- 我们 / Pair ---------- */
+function usRow(ico,title,sub,end){return `<div class="stream-row"><span class="row-icon">${ico}</span><div class="row-main"><div class="row-title">${title}</div><div class="row-sub">${sub}</div></div><span class="row-end">${end||I.chevRight}</span></div>`;}
+S.us=()=>`<div class="page">${head('04 / US','我们','连接、共同数据和账号都在这里管理。')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="pair-hero"><div class="pair-orbit"><div class="orbit"></div><span class="avatar">梅</span><span class="avatar second">然</span><div class="pair-center"><strong>梅 &amp; 然</strong><span>PAIRED · 128 DAYS</span></div></div><div class="pair-signal"><span class="dot"></span>双方在线 · 连接稳定</div></div>
+<div class="metrics"><div class="metric"><strong>128d</strong><span>绑定天数</span></div><div class="metric"><strong>86h</strong><span>累计同看</span></div><div class="metric"><strong>12</strong><span>共同完成</span></div></div>
+<div class="label-row"><span class="section-label">双人空间</span></div>
+<div class="stream-list">
+${usRow(I.history,'共同观看历史','86 小时 · 42 次同看')}
+${usRow(I.film,'共同片库','16 部想看 · 12 部已看完')}
+${usRow(I.archive,'旧空间归档','解绑前的记录都会保留在这里')}
+</div>
+<div class="label-row"><span class="section-label">账号</span><span class="section-meta">mei@qq.com</span></div>
+<div class="stream-list">
+${usRow(I.gear,'账号与通知设置','管理登录邮箱与推送')}
+${usRow(I.users,'进入匿名模式','临时不使用双人空间')}
+</div>
+<div style="margin-top:18px"><button class="button danger full">${I.unlink}<span>解除与然的绑定</span></button></div>
+${nav('users')}</div>`;
+
+/* 解绑确认面板 */
+S.usUnbind=()=>`<div class="page">${head('04 / US','我们','')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="pair-hero"><div class="pair-orbit"><div class="orbit"></div><span class="avatar">梅</span><span class="avatar second">然</span><div class="pair-center"><strong>梅 &amp; 然</strong><span>PAIRED · 128 DAYS</span></div></div></div>
+<div class="metrics"><div class="metric"><strong>128d</strong><span>绑定天数</span></div><div class="metric"><strong>86h</strong><span>累计同看</span></div><div class="metric"><strong>12</strong><span>共同完成</span></div></div>
+<div class="sheet-backdrop"></div>
+<div class="sheet"><div class="sheet-handle"></div><div class="sheet-title">解除绑定</div><p class="sheet-copy">解绑后你和然都会回到未绑定状态。请选择旧双人空间的处理方式，双方各自独立选择。</p>
+<div class="sheet-form">
+<div class="opt-row sel"><span class="opt-radio"></span><div><strong>归档保留旧空间</strong><p>片库、历史和日历会存进"旧空间归档"，随时可以回看，但不再更新。</p></div></div>
+<div class="opt-row"><span class="opt-radio"></span><div><strong>彻底删除旧空间</strong><p>清空这段关系里的片库与历史，不可恢复。</p></div></div>
+<button class="button danger full" style="margin-top:4px">${I.unlink}<span>确认解除绑定</span></button>
+<button class="button full">取消</button>
+</div></div>${nav('users')}</div>`;
+
+/* ---------- 观看页 ---------- */
+function playerBox(cls){return `<div class="player ${cls||''}"><div class="scene"></div><div class="sync-chip"><span class="dot"></span>同步误差 0.2 秒</div><div class="center-play">${I.play}</div><div class="video-cap">旅行纪录片 · 冰岛</div></div>`;}
+function wtools(){return `<div class="wtools"><div class="wtool">${I.danmaku}<span class="on">弹幕 开</span></div><div class="wtool">${I.speed}<span>1.0×</span></div><div class="wtool">${I.rotate}<span>横屏</span></div><div class="wtool">${I.full}<span>全屏</span></div></div>`;}
+function wtimeline(){return `<div class="wtimeline"><div class="time-row"><span>04:12</span><span>52:20</span></div><div class="track"><div class="fill" style="width:26%"></div><div class="knob" style="left:26%"></div></div></div>`;}
+function msgs(){return `<div class="msg-card"><div class="msg-scroll"><div class="msg-sys">然 加入了房间</div><div class="msg them">这个镜头也太好看了</div><div class="msg me">是吧，我等你一起看完</div><div class="msg them">同步一下进度～</div></div><div class="composer"><div class="say">说句话…</div><button class="send">${I.send}</button></div></div>`;}
+
+/* 竖屏观看 */
+S.watchPortrait=()=>`<div class="watch">
+<div class="watchbar"><button class="icon-btn">${I.back}</button><div class="room"><div class="room-title">和 然 一起看</div><div class="room-sub"><span class="dot"></span>双方在线 · 房间 774d1c</div></div><button class="icon-btn">${I.share}</button><button class="icon-btn">${I.dots}</button></div>
+${playerBox()}
+<div class="ready-note">已同步 · 你暂停时对方会一起停下</div>
+${wtimeline()}
+${wtools()}
+<div class="wmember"><span class="avatar second">然</span><div class="wmember-main"><div class="wmember-name">然 正在一起看</div><div class="wmember-sub">刚刚同步了你的播放进度</div></div><span class="status-word"><span class="dot"></span>在线</span></div>
+${msgs()}
+</div>`;
+
+/* 横屏观看 */
+S.watchLandscape=()=>`<div class="watch land">
+${playerBox('lplayer')}
+<div class="lside"><div class="watchbar"><button class="icon-btn">${I.back}</button><div class="room"><div class="room-title">和 然 一起看</div><div class="room-sub"><span class="dot"></span>双方在线</div></div><button class="icon-btn">${I.film}</button></div>
+${wtimeline()}
+<div class="wtools" style="grid-template-columns:1fr 1fr;margin-top:10px"><div class="wtool" style="flex-direction:row;height:44px">${I.danmaku}<span class="on">弹幕 开</span></div><div class="wtool" style="flex-direction:row;height:44px">${I.speed}<span>1.0×</span></div></div>
+${msgs()}
+</div></div>`;
+
+/* 房间内选择视频抽屉 (竖屏底部) */
+S.watchDrawer=()=>`<div class="watch">
+<div class="watchbar"><button class="icon-btn">${I.back}</button><div class="room"><div class="room-title">和 然 一起看</div><div class="room-sub"><span class="dot"></span>双方在线 · 房间 774d1c</div></div><button class="icon-btn">${I.share}</button><button class="icon-btn">${I.dots}</button></div>
+${playerBox()}${wtimeline()}${wtools()}
+<div class="drawer-scrim"></div>
+<div class="drawer-bottom"><div class="sheet-handle"></div><div class="drawer-title">换一个视频</div><div class="drawer-sub">从共同片库选择，切换后双方一起跳转 · 视频保持可见</div>
+<div class="search" style="margin-bottom:6px"><span class="field-icon">${I.search}</span><input placeholder="搜索片库"></div>
+<div class="media-list">
+${mediaRow('','星际穿越','诺兰 · 169 分钟','切换','plan')}
+${mediaRow('alt','旅行纪录片 · 冰岛','正在播放','当前','')}
+${mediaRow('soft','深海','动画电影 · 112 分钟','切换','plan')}
+</div>
+<div style="margin-top:10px;color:var(--muted);font-size:9.5px">找不到？<button class="text-btn" style="color:var(--accent)">粘贴链接手动播放</button></div>
+</div>
+</div>`;
+
+/* ---------- 通用状态 ---------- */
+S.stateOffline=()=>`<div class="page">${head('00 / STATE','片库','当前处于离线状态。')}<button class="icon-btn ghost">${I.sort}</button></div>
+<div class="search"><span class="field-icon">${I.search}</span><input placeholder="搜索片库里的视频"></div>${libFilters(0)}
+<div class="state-block"><div class="state-orb">${I.offline}</div><div class="state-title">当前离线</div><div class="state-copy">网络连接已断开。你仍可以浏览已缓存的片库，恢复网络后会自动同步。</div><button class="button" style="min-width:150px">${I.history}<span>重试连接</span></button></div>
+${nav('film')}</div>`;
+
+S.stateArchive=()=>`<div class="page">${head('04 / ARCHIVE','旧空间归档','解绑前的记录 · 只读')}<button class="icon-btn">${I.back}</button></div>
+<div class="panel" style="padding:13px 15px;display:flex;align-items:center;gap:11px;border-color:color-mix(in srgb,var(--muted) 26%,var(--line))"><span class="row-icon" style="color:var(--muted);background:color-mix(in srgb,var(--muted) 12%,transparent)">${I.lock}</span><div class="row-main"><div class="row-title">只读归档</div><div class="row-sub">与 云 的旧空间 · 无法添加或修改</div></div></div>
+<div class="label-row"><span class="section-label">曾经一起看</span><span class="section-meta">READ ONLY · 24</span></div>
+<div class="media-list" style="opacity:.82">
+${mediaRow('mono','爱在黎明破晓前','2025 · 已看完','已看完','done')}
+${mediaRow('warm','驾驶我的车','2025 · 已看完','已看完','done')}
+${mediaRow('soft','千与千寻','2025 · 已看完','已看完','done')}
+${mediaRow('alt','海边的曼彻斯特','2025 · 已看完','已看完','done')}
+</div>
+<div class="calendar-quiet"><span>${I.archive}</span><div><strong>归档只做保存</strong><p>这些记录不会再更新，也不影响你当前的双人空间。</p></div></div>
+${nav('users')}</div>`;
+
+S.stateSuccess=()=>`<div class="page">${head('01 / NOW','一起看','')}<button class="icon-btn ghost">${I.moon}</button></div>
+<div class="panel presence"><div class="presence-line"><span class="avatar">梅</span><span class="link-track"></span><span class="avatar second">然</span></div><div class="presence-copy"><span><span class="dot"></span>双方在线</span><strong>连接稳定 · 38 ms</strong></div></div>
+<div class="panel now-card"><div class="signal-orbit"><span></span><span></span><span></span></div><div class="now-top"><span class="now-code">ROOM / LIVE</span><span class="now-status"><span class="dot"></span>PUBLISHED</span></div><div class="now-title">房间已就绪，<br>正在通知然。</div><div class="now-sub">房间已发布到双人空间，然的首页会立即看到你在等她。</div><div class="button-row"><button class="button primary disabled"><span class="spinner"></span><span>正在进入</span></button><button class="button">${I.share}<span>分享</span></button></div></div>
+<div class="toast">${I.check}<span>房间已创建 · 已通知然</span></div>
+${nav('home')}</div>`;
+
+/* ==================== 画廊装配 ==================== */
+const SECTIONS=[
+ {idx:'A',title:'登录 · Auth',desc:'邮箱验证码登录闭环。保留匿名房间降级入口；账号服务不可用时不阻塞使用。',rows:[
+   ['loginDefault','登录首页','DEFAULT'],['loginCode','验证码已发送','CODE SENT'],['loginLoading','登录中','LOADING'],['loginError','验证码错误','ERROR'],['loginUnavailable','账号服务不可用','SERVICE DOWN']]},
+ {idx:'B',title:'首页 · Home',desc:'双人连接轨道 + 房间主舞台。未绑定 / 好友离线 / 好友等待 / 账号失败都有明确替代状态。',rows:[
+   ['homeBound','已绑定 · 房间就绪','BOUND'],['homeUnbound','未绑定好友','UNBOUND'],['homeOffline','好友离线','FRIEND OFFLINE'],['homeWaiting','好友正在等你','FRIEND WAITING'],['homeServiceErr','账号服务失败','ACCOUNT ERROR']]},
+ {idx:'C',title:'片库 · Library',desc:'分类 + 筛选 + 逐条识别的添加面板。覆盖 Content / Empty / Loading / Error。',rows:[
+   ['libContent','有数据','CONTENT'],['libEmpty','空片库','EMPTY'],['libLoading','加载中','LOADING'],['libError','加载失败','ERROR'],['libAddSheet','添加视频面板','ADD SHEET'],
+  ['libUnauth','未登录','UNAUTH'],['libUnbound','未绑定好友','UNBOUND'],['libConflict','重复冲突','CONFLICT']]},
+ {idx:'D',title:'日历 · Calendar',desc:'月历为主视觉，计划点用冷光蓝。日期必填，时间与备注可选。',rows:[
+   ['calendar','日历','CONTENT'],['calSheet','新建计划','CREATE PLAN']]},
+ {idx:'E',title:'我们 · Us / Pair',desc:'双头像连接轨道、共同数据、归档与账号。解绑用危险描边按钮 + 二次确认。',rows:[
+   ['us','双人空间','BOUND'],['usUnbind','解绑确认','UNBIND']]},
+ {idx:'F',title:'观看页 · Watch',desc:'Breath Tech 重绘的沉浸观看结构。竖屏消息卡在下半区，横屏用右侧栏，房间内换视频用抽屉。',rows:[
+   ['watchPortrait','竖屏观看','PORTRAIT'],['watchDrawer','房间内换视频','LIBRARY DRAWER'],['watchLandscape','横屏观看','LANDSCAPE',true]]},
+ {idx:'G',title:'通用状态 · Universal',desc:'离线、只读归档和成功反馈。开发落地时最需要这些非"正常态"。',rows:[
+   ['stateOffline','离线','OFFLINE'],['stateArchive','只读归档','READ ONLY'],['stateSuccess','成功 · Toast','SUCCESS']]},
+];
+function frame(fn,label,tag,land){
+  const inner=fn.startsWith('watch')||fn.startsWith('login')?S[fn]():`${S[fn]()}`;
+  return `<div class="frame ${land?'wide':''}"><div class="frame-meta"><strong>${label}</strong><span class="tag">${tag}</span></div><div class="device ${land?'land':''}"><div class="screen">${sb()}${inner}</div></div></div>`;
+}
+function render(){
+  let html=`<div class="studio-header"><div><div class="studio-code">TONGKAN · ALPHA 10 · BREATH TECH</div><h1>同看 高保真设计稿</h1><p>基于已选定的 Breath Tech 视觉真源 · 覆盖登录 / 首页 / 片库 / 日历 / 我们 / 观看页全部核心页面与状态。黑白双主题，冷光蓝仅用于焦点、连接与计划点。</p></div>
+  <div class="studio-controls"><div class="theme-toggle"><button id="tLight" class="active" onclick="setTheme(false)">白色</button><button id="tDark" onclick="setTheme(true)">黑色</button></div></div></div>`;
+  SECTIONS.forEach(sec=>{
+    html+=`<div class="section-block"><h2><span class="sec-idx">${sec.idx}</span>${sec.title}</h2><p class="sec-desc">${sec.desc}</p><div class="grid">`;
+    sec.rows.forEach(r=>{html+=frame(r[0],r[1],r[2],r[3]);});
+    html+=`</div></div>`;
+  });
+  html+=`<div class="legend"><b>设计说明 ·</b> 全部对齐 <code>design/alpha10-ui/breath-tech.css</code> 的 token 真源。
+  颜色：白色主题背景 <span class="swatch" style="background:#f7f8fa"></span><code>#F7F8FA</code>、主操作 <span class="swatch" style="background:#101218"></span><code>#101218</code>、冷光蓝 <span class="swatch" style="background:#637fff"></span><code>#637FFF</code>；黑色主题背景 <span class="swatch" style="background:#05070a"></span><code>#05070A</code>、冷光蓝 <span class="swatch" style="background:#91a7ff"></span><code>#91A7FF</code>。
+  几何：页面边距 21dp · 主按钮圆角 14dp / 面板 19dp · 触控目标 ≥44px · 封面统一 16:9。<br><b>落地约束 ·</b> 原生 Java View 实现，不依赖复杂模糊 / 粒子 / 实时渐变；上方所有效果均可用 <code>GradientDrawable</code> + <code>StateListDrawable</code> + Ripple 表达。<b>切换右上角"黑色"查看深色主题。</b></div>`;
+  document.getElementById('studio').innerHTML=html;
+}
+function setTheme(dark){
+  document.getElementById('studio').classList.toggle('dark',dark);
+  document.getElementById('tLight').classList.toggle('active',!dark);
+  document.getElementById('tDark').classList.toggle('active',dark);
+}
+render();
+</script>
+</body>
+</html>

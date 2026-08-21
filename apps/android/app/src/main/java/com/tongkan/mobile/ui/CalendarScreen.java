@@ -1,6 +1,6 @@
 package com.tongkan.mobile.ui;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -108,16 +108,36 @@ public final class CalendarScreen {
             showPlanEditor(items.get(0), null, date);
             return;
         }
-        String[] labels = new String[items.size()];
-        for (int index = 0; index < items.size(); index += 1) {
-            AccountModels.LibraryItem item = items.get(index);
-            labels[index] = item.title + (item.page > 1 ? " · P" + item.page : "");
+
+        LinearLayout content = components.column(0, 0, 0);
+        ScrollView scroll = new ScrollView(context);
+        LinearLayout list = components.column(0, 0, 0);
+        scroll.addView(list, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, components.dp(330)));
+        Button cancel = components.button("返回日历", false);
+        content.addView(cancel, components.margin(components.matchHeight(48), 0, 12, 0, 0));
+
+        Dialog[] holder = new Dialog[1];
+        for (AccountModels.LibraryItem item : items) {
+            Button choose = components.button(item.title + (item.page > 1 ? " · P" + item.page : ""), false);
+            choose.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            choose.setOnClickListener(view -> {
+                holder[0].dismiss();
+                showPlanEditor(item, null, date);
+            });
+            list.addView(choose, components.margin(components.matchHeight(50), 0, 0, 0, 8));
         }
-        new AlertDialog.Builder(context)
-            .setTitle("选择共同片库视频")
-            .setItems(labels, (dialog, index) -> showPlanEditor(items.get(index), null, date))
-            .setNegativeButton("取消", null)
-            .show();
+        Dialog dialog = BreathBottomSheet.create(
+            context,
+            theme,
+            "03 / CALENDAR · MEDIA",
+            "选择共同片库视频",
+            "计划只能从当前共同片库创建，保存后双方会看到相同内容。",
+            content
+        );
+        holder[0] = dialog;
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private View build() {
@@ -353,37 +373,55 @@ public final class CalendarScreen {
     }
 
     private void showPlanEditor(AccountModels.LibraryItem item, AccountModels.CalendarPlan plan, String initialDate) {
-        LinearLayout form = components.column(18, 4, 0);
-        String title = plan == null ? item.title : plan.media.title;
-        form.addView(components.body(title), components.matchWrap());
+        LinearLayout form = components.column(0, 0, 0);
+        String mediaTitle = plan == null ? item.title : plan.media.title;
+        TextView media = components.section(mediaTitle);
+        form.addView(media, components.matchWrap());
 
+        form.addView(components.code("日期 · 必填"), components.margin(components.matchWrap(), 0, 18, 0, 7));
         EditText dateInput = components.textInput("YYYY-MM-DD");
         dateInput.setInputType(InputType.TYPE_CLASS_DATETIME | InputType.TYPE_DATETIME_VARIATION_DATE);
         dateInput.setText(plan == null ? initialDate : plan.date);
-        form.addView(dateInput, components.margin(components.matchHeight(50), 0, 12, 0, 0));
+        form.addView(dateInput, components.matchHeight(50));
 
-        EditText timeInput = components.textInput("HH:mm（可选，留空表示当天）");
+        form.addView(components.code("开始时间 · 可选"), components.margin(components.matchWrap(), 0, 12, 0, 7));
+        EditText timeInput = components.textInput("HH:mm · 留空表示当天");
         timeInput.setInputType(InputType.TYPE_CLASS_DATETIME | InputType.TYPE_DATETIME_VARIATION_TIME);
         timeInput.setText(plan == null || plan.startTime == null ? "" : plan.startTime);
-        form.addView(timeInput, components.margin(components.matchHeight(50), 0, 10, 0, 0));
+        form.addView(timeInput, components.matchHeight(50));
 
-        EditText noteInput = components.input("备注（可选，最多 200 字）", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        form.addView(components.code("备注 · 可选"), components.margin(components.matchWrap(), 0, 12, 0, 7));
+        EditText noteInput = components.input("最多 200 字", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         noteInput.setSingleLine(false);
         noteInput.setGravity(Gravity.TOP | Gravity.START);
+        noteInput.setPadding(components.dp(14), components.dp(12), components.dp(14), components.dp(12));
         noteInput.setMinLines(3);
         noteInput.setMaxLines(5);
         noteInput.setText(plan == null || plan.note == null ? "" : plan.note);
-        form.addView(noteInput, components.margin(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, components.dp(94)), 0, 10, 0, 0));
+        form.addView(noteInput, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, components.dp(96)));
+
+        TextView errorText = components.text("", 11, BreathComponents.ROLE_MUTED_TEXT);
+        errorText.setVisibility(View.GONE);
+        form.addView(errorText, components.margin(components.matchWrap(), 0, 8, 0, 0));
+
+        LinearLayout actions = components.row();
+        Button close = components.button("返回", false);
+        actions.addView(close, components.weight(1));
+        Button save = components.button(plan == null ? "保存计划" : "保存修改", true);
+        actions.addView(save, components.margin(components.weight(1), 8, 0, 0, 0));
+        form.addView(actions, components.margin(components.matchHeight(50), 0, 14, 0, 0));
         components.applyTheme(form);
 
-        AlertDialog dialog = new AlertDialog.Builder(context)
-            .setTitle(plan == null ? "安排观看日期" : "编辑观看计划")
-            .setMessage("日期必填；开始时间和备注可以留空。")
-            .setView(form)
-            .setNegativeButton("取消", null)
-            .setPositiveButton("保存", null)
-            .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+        Dialog dialog = BreathBottomSheet.create(
+            context,
+            theme,
+            plan == null ? "03 / CALENDAR · CREATE" : "03 / CALENDAR · EDIT",
+            plan == null ? "安排观看日期" : "编辑观看计划",
+            "日期必填；开始时间和备注可以留空。",
+            form
+        );
+        close.setOnClickListener(view -> dialog.dismiss());
+        save.setOnClickListener(view -> {
             try {
                 State.Draft draft = State.normalizeDraft(
                     dateInput.getText().toString(),
@@ -394,19 +432,36 @@ public final class CalendarScreen {
                 if (plan == null) listener.onCreatePlan(item, draft.date, draft.startTime, draft.note);
                 else listener.onUpdatePlan(plan, draft.date, draft.startTime, draft.note);
             } catch (IllegalArgumentException error) {
-                Toast.makeText(context, error.getMessage(), Toast.LENGTH_LONG).show();
+                errorText.setText(error.getMessage());
+                errorText.setTextColor(theme.danger());
+                errorText.setVisibility(View.VISIBLE);
             }
-        }));
+        });
         dialog.show();
     }
 
     private void confirmCancel(AccountModels.CalendarPlan plan) {
-        new AlertDialog.Builder(context)
-            .setTitle("取消这个计划？")
-            .setMessage("“" + plan.media.title + "”会从双方日历中移除。")
-            .setNegativeButton("返回", null)
-            .setPositiveButton("确认取消", (dialog, which) -> listener.onCancelPlan(plan))
-            .show();
+        LinearLayout content = components.column(0, 0, 0);
+        LinearLayout actions = components.row();
+        Button back = components.button("返回", false);
+        actions.addView(back, components.weight(1));
+        Button confirm = components.dangerButton("确认取消");
+        actions.addView(confirm, components.margin(components.weight(1), 8, 0, 0, 0));
+        content.addView(actions, components.matchHeight(50));
+        Dialog dialog = BreathBottomSheet.create(
+            context,
+            theme,
+            "03 / CALENDAR · REMOVE",
+            "取消这个计划？",
+            "“" + plan.media.title + "”会从双方日历中移除。",
+            content
+        );
+        back.setOnClickListener(view -> dialog.dismiss());
+        confirm.setOnClickListener(view -> {
+            dialog.dismiss();
+            listener.onCancelPlan(plan);
+        });
+        dialog.show();
     }
 
     public static final class State {

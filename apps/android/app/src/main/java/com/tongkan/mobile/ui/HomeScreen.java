@@ -46,6 +46,9 @@ public final class HomeScreen {
     private final Button continueButton;
     private final ImageButton themeButton;
     private final TextView connectionText;
+    private final TextView ownAvatar;
+    private final TextView peerAvatar;
+    private final TextView presenceSummary;
     private final TextView modeText;
     private final TextView accountText;
     private final Button accountButton;
@@ -58,6 +61,15 @@ public final class HomeScreen {
     private final TextView todayStateText;
     private final Button todayRetryButton;
     private final LinearLayout joinPanel;
+    private final TextView roomCode;
+    private final TextView roomStatus;
+    private final TextView roomTitle;
+    private final TextView roomSubtitle;
+    private final TextView nicknameLabel;
+    private final Button roomPrimaryButton;
+    private final Button roomSecondaryButton;
+    private AccountModels.Pair currentPair;
+    private boolean accountMode;
 
     public HomeScreen(Context context, BreathTheme theme, String quote, String quoteSource, Listener listener) {
         this.theme = theme;
@@ -71,7 +83,7 @@ public final class HomeScreen {
         LinearLayout headerCopy = components.column(0, 0, 0);
         headerCopy.addView(components.code("01 / NOW"), components.matchWrap());
         headerCopy.addView(components.title("一起看", 32), components.margin(components.matchWrap(), 0, 7, 0, 0));
-        headerCopy.addView(components.body("连接状态、房间操作与今天想看都在这里。"), components.margin(components.matchWrap(), 0, 8, 0, 0));
+        headerCopy.addView(components.body("连接状态、今日计划与房间操作都在这里。"), components.margin(components.matchWrap(), 0, 8, 0, 0));
         header.addView(headerCopy, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         themeButton = components.iconButton(theme.isDark() ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon, theme.isDark() ? "切换浅色主题" : "切换深色主题");
         themeButton.setOnClickListener(view -> listener.onToggleTheme());
@@ -80,28 +92,28 @@ public final class HomeScreen {
 
         LinearLayout presence = components.panel(16);
         LinearLayout people = components.row();
-        TextView ownAvatar = components.avatar("我", false);
-        people.addView(ownAvatar, new LinearLayout.LayoutParams(components.dp(40), components.dp(40)));
+        ownAvatar = components.avatar("我", false);
+        people.addView(ownAvatar, new LinearLayout.LayoutParams(components.dp(44), components.dp(44)));
         View link = components.divider();
         LinearLayout.LayoutParams linkParams = new LinearLayout.LayoutParams(0, components.dp(1), 1f);
         linkParams.setMargins(components.dp(12), 0, components.dp(12), 0);
         people.addView(link, linkParams);
-        TextView peerAvatar = components.avatar("友", true);
-        people.addView(peerAvatar, new LinearLayout.LayoutParams(components.dp(40), components.dp(40)));
+        peerAvatar = components.avatar("友", true);
+        people.addView(peerAvatar, new LinearLayout.LayoutParams(components.dp(44), components.dp(44)));
         presence.addView(people, components.matchWrap());
         LinearLayout presenceCopy = components.row();
         modeText = components.text("● 匿名模式", 11, BreathComponents.ROLE_ACCENT_TEXT);
         presenceCopy.addView(modeText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView limit = components.text("最多 2 人", 11, BreathComponents.ROLE_MUTED_TEXT);
-        limit.setGravity(Gravity.END);
-        presenceCopy.addView(limit, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        presence.addView(presenceCopy, components.margin(components.matchWrap(), 0, 12, 0, 0));
+        presenceSummary = components.text("最多 2 人", 11, BreathComponents.ROLE_MUTED_TEXT);
+        presenceSummary.setGravity(Gravity.END);
+        presenceCopy.addView(presenceSummary, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        presence.addView(presenceCopy, components.margin(components.matchWrap(), 0, 13, 0, 0));
         accountText = components.text("房间功能无需登录即可使用", 11, BreathComponents.ROLE_MUTED_TEXT);
         presence.addView(accountText, components.margin(components.matchWrap(), 0, 7, 0, 0));
-        accountButton = components.button("登录账号", false);
+        accountButton = components.textButton("登录账号");
         accountButton.setOnClickListener(view -> listener.onAccountAction());
-        presence.addView(accountButton, components.margin(components.matchHeight(46), 0, 12, 0, 0));
-        content.addView(presence, components.margin(components.matchWrap(), 0, 22, 0, 0));
+        presence.addView(accountButton, components.margin(components.matchHeight(46), 0, 10, 0, 0));
+        content.addView(presence, components.margin(components.matchWrap(), 0, 18, 0, 0));
 
         activeRoomPanel = components.panel(18);
         activeRoomPanel.setVisibility(View.GONE);
@@ -117,40 +129,40 @@ public final class HomeScreen {
 
         LinearLayout roomCard = components.panel(18);
         LinearLayout roomTop = components.row();
-        roomTop.addView(components.code("ROOM / READY"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView signal = components.text("● LOCAL FIRST", 10, BreathComponents.ROLE_ACCENT_TEXT);
-        signal.setTypeface(Typeface.create("monospace", Typeface.BOLD));
-        roomTop.addView(signal, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        roomCode = components.code("ROOM / READY");
+        roomTop.addView(roomCode, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        roomStatus = components.text("● LOCAL FIRST", 10, BreathComponents.ROLE_ACCENT_TEXT);
+        roomStatus.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+        roomTop.addView(roomStatus, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         roomCard.addView(roomTop, components.matchWrap());
-        TextView quoteText = components.title(quote, 24);
-        quoteText.setLineSpacing(0, 1.08f);
-        roomCard.addView(quoteText, components.margin(components.matchWrap(), 0, 22, 0, 0));
-        TextView sourceText = components.text(quoteSource, 11, BreathComponents.ROLE_MUTED_TEXT);
-        roomCard.addView(sourceText, components.margin(components.matchWrap(), 0, 6, 0, 0));
-        TextView nicknameLabel = components.code("你的昵称");
-        roomCard.addView(nicknameLabel, components.margin(components.matchWrap(), 0, 20, 0, 8));
+        roomTitle = components.title("先找到一起看的人。", 25);
+        roomTitle.setLineSpacing(0, 1.08f);
+        roomCard.addView(roomTitle, components.margin(components.matchWrap(), 0, 20, 0, 0));
+        roomSubtitle = components.body("绑定唯一好友后，房间会自动出现在双方首页；现在也可以先用匿名房间。\n");
+        roomCard.addView(roomSubtitle, components.margin(components.matchWrap(), 0, 8, 0, 0));
+        nicknameLabel = components.code("你的昵称");
+        roomCard.addView(nicknameLabel, components.margin(components.matchWrap(), 0, 18, 0, 8));
         nicknameInput = components.textInput("你的昵称");
         roomCard.addView(nicknameInput, components.matchHeight(52));
         LinearLayout actions = components.row();
-        createButton = components.button("创建房间", true);
-        createButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_play, 0, 0, 0);
-        createButton.setCompoundDrawablePadding(components.dp(8));
-        createButton.setOnClickListener(view -> listener.onCreateRoom());
-        actions.addView(createButton, new LinearLayout.LayoutParams(0, components.dp(52), 1.25f));
-        Button openJoinButton = components.button("加入房间", false);
-        openJoinButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_link, 0, 0, 0);
-        openJoinButton.setCompoundDrawablePadding(components.dp(8));
-        openJoinButton.setOnClickListener(view -> showJoinPanel());
-        LinearLayout.LayoutParams joinActionParams = new LinearLayout.LayoutParams(0, components.dp(52), 0.9f);
-        joinActionParams.setMargins(components.dp(9), 0, 0, 0);
-        actions.addView(openJoinButton, joinActionParams);
+        roomPrimaryButton = components.button("管理好友", true);
+        createButton = roomPrimaryButton;
+        roomPrimaryButton.setOnClickListener(view -> listener.onAccountAction());
+        actions.addView(roomPrimaryButton, new LinearLayout.LayoutParams(0, components.dp(52), 1.25f));
+        roomSecondaryButton = components.button("创建匿名房间", false);
+        roomSecondaryButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_play, 0, 0, 0);
+        roomSecondaryButton.setCompoundDrawablePadding(components.dp(8));
+        roomSecondaryButton.setOnClickListener(view -> listener.onCreateRoom());
+        LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, components.dp(52), 0.9f);
+        secondaryParams.setMargins(components.dp(9), 0, 0, 0);
+        actions.addView(roomSecondaryButton, secondaryParams);
         roomCard.addView(actions, components.margin(components.matchWrap(), 0, 18, 0, 0));
         content.addView(roomCard, components.margin(components.matchWrap(), 0, 12, 0, 0));
 
         todayPanel = components.panel(16);
         todayPanel.setVisibility(View.GONE);
         LinearLayout todayHeader = components.row();
-        todayHeader.addView(components.section("今天想看"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        todayHeader.addView(components.section("今日轨道"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         Button openCalendar = components.button("查看日历", false);
         openCalendar.setOnClickListener(view -> listener.onOpenCalendar());
         todayHeader.addView(openCalendar, new LinearLayout.LayoutParams(components.dp(104), components.dp(44)));
@@ -164,8 +176,8 @@ public final class HomeScreen {
         todayRetryButton.setOnClickListener(view -> listener.onRefreshTodayPlans());
         todayPanel.addView(todayRetryButton, components.margin(components.matchHeight(46), 0, 10, 0, 0));
         content.addView(todayPanel, components.margin(components.matchWrap(), 0, 12, 0, 0));
-        joinPanel = components.panel(16);
 
+        joinPanel = components.panel(16);
         joinPanel.setVisibility(View.GONE);
         joinPanel.addView(components.section("加入朋友的房间"), components.matchWrap());
         joinPanel.addView(components.body("粘贴朋友发来的邀请链接，再确认加入。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
@@ -186,25 +198,51 @@ public final class HomeScreen {
         continueButton = components.button("继续上次房间", false);
         continueButton.setOnClickListener(view -> listener.onRestoreRoom());
         content.addView(continueButton, components.margin(components.matchHeight(50), 0, 10, 0, 0));
-
         connectionText = components.text("创建房间，或粘贴邀请链接加入", 12, BreathComponents.ROLE_MUTED_TEXT);
         connectionText.setGravity(Gravity.CENTER);
         content.addView(connectionText, components.margin(components.matchWrap(), 0, 16, 0, 0));
-
-        LinearLayout metrics = components.row();
-        addMetric(metrics, context, "0", "云端记录");
-        addMetric(metrics, context, "2", "房间上限");
-        addMetric(metrics, context, "0 秒", "等待播放");
-        content.addView(metrics, components.margin(components.matchWrap(), 0, 20, 0, 0));
         applyTheme();
+        updateRoomCard();
     }
 
-    private void addMetric(LinearLayout row, Context context, String value, String label) {
-        LinearLayout item = components.column(10, 13, 13);
-        item.addView(components.title(value, 18), components.matchWrap());
-        item.addView(components.text(label, 10, BreathComponents.ROLE_MUTED_TEXT), components.margin(components.matchWrap(), 0, 5, 0, 0));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        row.addView(item, params);
+    private void updateRoomCard() {
+        boolean bound = accountMode && currentPair != null;
+        boolean accountUnbound = accountMode && currentPair == null;
+        roomCode.setText(bound ? "ROOM / READY" : accountUnbound ? "PAIR / EMPTY" : "ROOM / READY");
+        roomStatus.setText(bound ? "● LIVE LINK" : accountUnbound ? "NO LINK" : "● LOCAL FIRST");
+        roomTitle.setText(bound ? "今晚，看一部好电影。" : accountUnbound ? "先找到一起看的人。" : "现在就开一场临时同看。");
+        roomSubtitle.setText(bound
+            ? "房间创建后自动发布到双人空间，视频停在 0 秒等待双方播放。"
+            : accountUnbound
+                ? "生成一次性邀请码绑定唯一好友；绑定后，房间和日历会自动出现在双方首页。"
+                : "无需登录即可创建房间，复制邀请链接发给朋友，最多两个人一起看。\n");
+        nicknameLabel.setVisibility(accountMode ? View.GONE : View.VISIBLE);
+        nicknameInput.setVisibility(accountMode ? View.GONE : View.VISIBLE);
+        if (bound) {
+            roomPrimaryButton.setText("创建房间");
+            roomPrimaryButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_play, 0, 0, 0);
+            roomPrimaryButton.setOnClickListener(view -> listener.onCreateRoom());
+            roomSecondaryButton.setText("加入房间");
+            roomSecondaryButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_link, 0, 0, 0);
+            roomSecondaryButton.setOnClickListener(view -> showJoinPanel());
+        } else if (accountUnbound) {
+            roomPrimaryButton.setText("管理账号与好友");
+            roomPrimaryButton.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
+            roomPrimaryButton.setOnClickListener(view -> listener.onAccountAction());
+            roomSecondaryButton.setText("匿名房间");
+            roomSecondaryButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_play, 0, 0, 0);
+            roomSecondaryButton.setOnClickListener(view -> listener.onCreateRoom());
+        } else {
+            roomPrimaryButton.setText("创建房间");
+            roomPrimaryButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_play, 0, 0, 0);
+            roomPrimaryButton.setOnClickListener(view -> listener.onCreateRoom());
+            roomSecondaryButton.setText("加入房间");
+            roomSecondaryButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_link, 0, 0, 0);
+            roomSecondaryButton.setOnClickListener(view -> showJoinPanel());
+        }
+        roomPrimaryButton.setCompoundDrawablePadding(components.dp(8));
+        roomSecondaryButton.setCompoundDrawablePadding(components.dp(8));
+        components.applyTheme(root);
     }
 
     public View getView() {
@@ -240,10 +278,32 @@ public final class HomeScreen {
     }
 
     public void setAccountState(String nickname, String email) {
+        accountMode = true;
+        ownAvatar.setText(initial(nickname));
         modeText.setText("● 已登录");
         accountText.setText(nickname + " · " + email);
         accountButton.setText("管理账号与好友");
         nicknameInput.setText(nickname);
+        updateRoomCard();
+    }
+
+    public void setPairState(AccountModels.Pair pair) {
+        currentPair = pair;
+        if (pair == null) {
+            peerAvatar.setText("友");
+            presenceSummary.setText("尚未绑定好友");
+            updateRoomCard();
+            return;
+        }
+        peerAvatar.setText(initial(pair.partner.nickname));
+        presenceSummary.setText("与 " + pair.partner.nickname + " 已连接");
+        modeText.setText("● 双人空间");
+        updateRoomCard();
+    }
+
+    private static String initial(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? "同" : normalized.substring(0, 1).toUpperCase(Locale.ROOT);
     }
 
     public void setAnonymousState() {
@@ -251,11 +311,17 @@ public final class HomeScreen {
     }
 
     public void setAnonymousState(boolean hasSavedAccount, String nickname) {
+        accountMode = false;
+        currentPair = null;
+        ownAvatar.setText("我");
+        peerAvatar.setText("友");
+        presenceSummary.setText("最多 2 人");
         modeText.setText("● 匿名模式");
         accountText.setText(hasSavedAccount ? "账号仍安全保留，可随时返回" : "房间功能无需登录即可使用");
         accountButton.setText(hasSavedAccount ? "返回 " + nickname + " 的账号" : "登录账号");
         setActiveRoom(null, false);
         clearTodayState();
+        updateRoomCard();
     }
 
     public void setTodayState(

@@ -27,6 +27,7 @@ public final class BreathComponents {
     public static final String ROLE_SECONDARY_BUTTON = "breathSecondaryButton";
     public static final String ROLE_DANGER_BUTTON = "breathDangerButton";
     public static final String ROLE_ICON_BUTTON = "breathIconButton";
+    public static final String ROLE_TEXT_BUTTON = "breathTextButton";
     public static final String ROLE_DIVIDER = "breathDivider";
 
     private final Context context;
@@ -82,7 +83,7 @@ public final class BreathComponents {
 
     public TextView body(String value) {
         TextView view = text(value, 13, ROLE_MUTED_TEXT);
-        view.setLineSpacing(0, 1.35f);
+        view.setLineSpacing(0, 1.45f);
         return view;
     }
 
@@ -151,6 +152,24 @@ public final class BreathComponents {
         view.setTag(ROLE_DANGER_BUTTON);
         view.setTextColor(theme.danger());
         view.setBackground(BreathDrawables.dangerButton(context, theme));
+        return view;
+    }
+
+    public Button textButton(String label) {
+        Button view = button(label, false);
+        view.setTag(ROLE_TEXT_BUTTON);
+        view.setTextColor(theme.ink());
+        view.setBackgroundColor(Color.TRANSPARENT);
+        view.setPadding(dp(6), 0, dp(6), 0);
+        return view;
+    }
+
+    public TextView statusChip(String label, boolean positive) {
+        TextView view = text(label, 10, positive ? ROLE_PRIMARY_TEXT : ROLE_ACCENT_TEXT);
+        view.setTypeface(Typeface.create("monospace", Typeface.BOLD));
+        view.setGravity(Gravity.CENTER);
+        view.setPadding(dp(10), dp(5), dp(10), dp(5));
+        view.setBackground(BreathDrawables.statusPill(context, theme, positive));
         return view;
     }
 
@@ -223,6 +242,11 @@ public final class BreathComponents {
             ImageButton button = (ImageButton) view;
             button.setColorFilter(theme.ink(), PorterDuff.Mode.SRC_IN);
             button.setBackground(BreathDrawables.iconButton(context, theme));
+        }
+        if (ROLE_TEXT_BUTTON.equals(role) && view instanceof Button) {
+            Button button = (Button) view;
+            button.setTextColor(theme.ink());
+            button.setBackgroundColor(Color.TRANSPARENT);
         }
         if (ROLE_DIVIDER.equals(role)) view.setBackgroundColor(theme.line());
         if (view instanceof ViewGroup) {

@@ -28,8 +28,8 @@ android {
         applicationId "com.tongkan.mobile"
         minSdk 26
         targetSdk 35
-        versionCode 40
-        versionName "1.0.0-alpha10.2.4"
+        versionCode 41
+        versionName "1.0.0-alpha10.3"
         buildConfigField "String", "ACCOUNT_API_BASE_URL", "\"${escapedAccountApiBaseUrl}\""
         buildConfigField "String", "ACCOUNT_TEST_ACCESS_TOKEN", "\"${escapedAccountTestAccessToken}\""
         buildConfigField "String", "FCM_API_KEY", "\"${escapedFcmApiKey}\""

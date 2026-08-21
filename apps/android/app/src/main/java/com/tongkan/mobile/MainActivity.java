@@ -51,6 +51,8 @@ import com.tongkan.mobile.account.FcmPushTokenProvider;
 import com.tongkan.mobile.account.PushTokenProvider;
 import com.tongkan.mobile.account.SessionStore;
 import com.tongkan.mobile.ui.AuthScreen;
+import com.tongkan.mobile.ui.BreathBottomSheet;
+import com.tongkan.mobile.ui.BreathComponents;
 import com.tongkan.mobile.ui.BreathTheme;
 import com.tongkan.mobile.ui.CalendarScreen;
 import com.tongkan.mobile.ui.HomeScreen;
@@ -2782,6 +2784,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         boolean changed = previousPairId == null ? nextPairId != null : !previousPairId.equals(nextPairId);
         currentPairState = pairState;
         currentPair = pairState.pair;
+        if (homeScreen != null && isAccountModeActive()) homeScreen.setPairState(currentPair);
         pairLoaded = true;
         pairLoading = false;
         if (changed) resetSharedSpaceState();
@@ -2926,22 +2929,35 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void showEditProfileDialog() {
         if (accountSession == null || pairLoading) return;
-        EditText input = new EditText(this);
+        BreathComponents components = new BreathComponents(this, breathTheme);
+        LinearLayout content = components.column(0, 0, 0);
+        EditText input = components.textInput("1–24 个字符");
         input.setSingleLine(true);
         input.setText(accountSession.user.nickname);
         input.setSelection(input.length());
-        input.setHint("1–24 个字符");
-        int padding = dp(18);
-        FrameLayout holder = new FrameLayout(this);
-        holder.setPadding(padding, dp(4), padding, 0);
-        holder.addView(input, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
-        new AlertDialog.Builder(this)
-            .setTitle("编辑昵称")
-            .setMessage("昵称会显示在双人空间和之后进入的房间消息中。")
-            .setView(holder)
-            .setNegativeButton("取消", null)
-            .setPositiveButton("保存", (dialog, which) -> updateAccountNickname(input.getText().toString()))
-            .show();
+        content.addView(input, components.matchHeight(52));
+
+        LinearLayout actions = components.row();
+        Button cancel = components.button("取消", false);
+        Button save = components.button("保存昵称", true);
+        actions.addView(cancel, components.weight(1));
+        actions.addView(save, components.margin(components.weight(1), 8, 0, 0, 0));
+        content.addView(actions, components.margin(components.matchHeight(48), 0, 12, 0, 0));
+
+        Dialog dialog = BreathBottomSheet.create(
+            this,
+            breathTheme,
+            "04 / US · PROFILE",
+            "编辑昵称",
+            "昵称会显示在双人空间和之后进入的房间消息中。",
+            content
+        );
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        save.setOnClickListener(view -> {
+            dialog.dismiss();
+            updateAccountNickname(input.getText().toString());
+        });
+        dialog.show();
     }
 
     private void updateAccountNickname(String value) {
@@ -3080,13 +3096,43 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void showUnbindRetentionChoice() {
         AccountModels.Pair pair = currentPair;
         if (accountSession == null || pair == null || pairLoading) return;
-        new AlertDialog.Builder(this)
-            .setTitle("解除与 " + pair.partner.nickname + " 的好友绑定？")
-            .setMessage("选择后会立即解除好友关系并释放名额。旧空间处理选择确认后不能修改。")
-            .setNeutralButton("取消", null)
-            .setNegativeButton("解除并删除旧空间", (dialog, which) -> submitPairRetention(pair.pairId, "delete", true))
-            .setPositiveButton("解除并保留旧空间", (dialog, which) -> submitPairRetention(pair.pairId, "keep", true))
-            .show();
+        BreathComponents components = new BreathComponents(this, breathTheme);
+        LinearLayout content = components.column(0, 0, 0);
+
+        LinearLayout keepPanel = components.panel(14);
+        keepPanel.addView(components.section("保留只读旧空间"), components.matchWrap());
+        keepPanel.addView(components.body("解除后仍可查看与 " + pair.partner.nickname + " 的旧片库和日历，但不能继续修改。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
+        Button keep = components.button("解除并保留旧空间", true);
+        keepPanel.addView(keep, components.margin(components.matchHeight(50), 0, 12, 0, 0));
+        content.addView(keepPanel, components.matchWrap());
+
+        LinearLayout deletePanel = components.panel(14);
+        deletePanel.addView(components.section("删除我的访问权"), components.matchWrap());
+        deletePanel.addView(components.body("解除后你将无法查看旧空间；另一方的保留选择不会被你改变。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
+        Button delete = components.dangerButton("解除并删除我的访问权");
+        deletePanel.addView(delete, components.margin(components.matchHeight(50), 0, 12, 0, 0));
+        content.addView(deletePanel, components.margin(components.matchWrap(), 0, 10, 0, 0));
+
+        Button cancel = components.textButton("暂不解除");
+        content.addView(cancel, components.margin(components.matchHeight(48), 0, 8, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(
+            this,
+            breathTheme,
+            "04 / US · UNBIND",
+            "解除与 " + pair.partner.nickname + " 的好友绑定？",
+            "好友关系会立即解除并释放名额。你的旧空间选择确认后不能修改。",
+            content
+        );
+        keep.setOnClickListener(view -> {
+            dialog.dismiss();
+            submitPairRetention(pair.pairId, "keep", true);
+        });
+        delete.setOnClickListener(view -> {
+            dialog.dismiss();
+            submitPairRetention(pair.pairId, "delete", true);
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void showArchiveRetentionChoice(AccountModels.PairArchive archive) {
@@ -3098,13 +3144,32 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         String message = unbind
             ? "请选择解除绑定后如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。"
             : "请选择如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。";
-        new AlertDialog.Builder(this)
-            .setTitle("选择旧空间处理方式")
-            .setMessage(message)
-            .setNeutralButton("取消", null)
-            .setNegativeButton("删除访问权", (dialog, which) -> confirmRetentionChoice(pairId, partnerNickname, unbind, "delete"))
-            .setPositiveButton("保留只读空间", (dialog, which) -> confirmRetentionChoice(pairId, partnerNickname, unbind, "keep"))
-            .show();
+        BreathComponents components = new BreathComponents(this, breathTheme);
+        LinearLayout content = components.column(0, 0, 0);
+        Button keep = components.button("保留只读空间", true);
+        Button delete = components.dangerButton("删除我的访问权");
+        Button cancel = components.textButton("取消");
+        content.addView(keep, components.matchHeight(50));
+        content.addView(delete, components.margin(components.matchHeight(50), 0, 8, 0, 0));
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 8, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(
+            this,
+            breathTheme,
+            "04 / US · ARCHIVE",
+            "选择旧空间处理方式",
+            message,
+            content
+        );
+        keep.setOnClickListener(view -> {
+            dialog.dismiss();
+            confirmRetentionChoice(pairId, partnerNickname, unbind, "keep");
+        });
+        delete.setOnClickListener(view -> {
+            dialog.dismiss();
+            confirmRetentionChoice(pairId, partnerNickname, unbind, "delete");
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void confirmRetentionChoice(String pairId, String partnerNickname, boolean unbind, String retention) {
@@ -3114,12 +3179,26 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             ? "你之后仍可查看与 " + partnerNickname + " 的只读旧空间。"
             : "你将无法再查看与 " + partnerNickname + " 的旧空间；只有双方都选择删除时，底层数据才会物理清理。";
         String prefix = unbind ? "好友绑定会立即解除。" : "这个选择确认后不能修改。";
-        new AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(prefix + effect)
-            .setNegativeButton("返回", null)
-            .setPositiveButton(keep ? "确认保留" : "确认删除", (dialog, which) -> submitPairRetention(pairId, retention, unbind))
-            .show();
+        BreathComponents components = new BreathComponents(this, breathTheme);
+        LinearLayout content = components.column(0, 0, 0);
+        Button confirm = keep ? components.button("确认保留", true) : components.dangerButton("确认删除");
+        Button back = components.textButton("返回");
+        content.addView(confirm, components.matchHeight(50));
+        content.addView(back, components.margin(components.matchHeight(46), 0, 8, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(
+            this,
+            breathTheme,
+            "04 / US · CONFIRM",
+            title,
+            prefix + effect,
+            content
+        );
+        confirm.setOnClickListener(view -> {
+            dialog.dismiss();
+            submitPairRetention(pairId, retention, unbind);
+        });
+        back.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void submitPairRetention(String pairId, String retention, boolean unbind) {
@@ -3408,6 +3487,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             return;
         }
         homeScreen.setAccountState(accountSession.user.nickname, accountSession.user.email);
+        homeScreen.setPairState(currentPair);
         nicknameInput.setText(accountSession.user.nickname);
         applyTodayStateToHome();
     }
@@ -3445,21 +3525,37 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void confirmSwitchAccount() {
-        new AlertDialog.Builder(this)
-            .setTitle("切换登录账号？")
-            .setMessage("本机将退出当前账号，然后可以使用其他邮箱重新登录。匿名房间不受影响。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("退出并切换", (dialog, which) -> logoutAccount())
-            .show();
+        showAccountExitConfirmation(
+            "04 / US · SWITCH",
+            "切换登录账号？",
+            "本机将退出当前账号，然后可以使用其他邮箱重新登录。匿名房间不受影响。",
+            "退出并切换"
+        );
     }
 
     private void confirmAccountLogout() {
-        new AlertDialog.Builder(this)
-            .setTitle("退出同看账号？")
-            .setMessage("退出后本机将清除登录状态，匿名房间仍然可以继续使用。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("退出", (dialog, which) -> logoutAccount())
-            .show();
+        showAccountExitConfirmation(
+            "04 / US · LOGOUT",
+            "退出同看账号？",
+            "退出后本机将清除登录状态，匿名房间仍然可以继续使用。",
+            "确认退出"
+        );
+    }
+
+    private void showAccountExitConfirmation(String code, String title, String description, String actionLabel) {
+        BreathComponents components = new BreathComponents(this, breathTheme);
+        LinearLayout content = components.column(0, 0, 0);
+        Button confirm = components.dangerButton(actionLabel);
+        Button cancel = components.textButton("取消");
+        content.addView(confirm, components.matchHeight(50));
+        content.addView(cancel, components.margin(components.matchHeight(46), 0, 8, 0, 0));
+        Dialog dialog = BreathBottomSheet.create(this, breathTheme, code, title, description, content);
+        confirm.setOnClickListener(view -> {
+            dialog.dismiss();
+            logoutAccount();
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        dialog.show();
     }
 
     private void logoutAccount() {
