@@ -1,5 +1,6 @@
 package com.tongkan.mobile;
 
+import org.json.JSONObject;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -20,5 +21,30 @@ public final class MainActivityHistoryLifecycleTest {
         assertFalse(MainActivity.historyLifecycleStateMatches(4, 4, true, false, true, true, true, true));
         assertFalse(MainActivity.historyLifecycleStateMatches(4, 4, true, true, true, false, true, true));
         assertFalse(MainActivity.historyLifecycleStateMatches(4, 4, true, true, true, true, false, true));
+    }
+
+    @Test
+    public void rejectsHistoryCallbacksFromReplacedRoomClient() {
+        RoomClient.Listener listener = new RoomClient.Listener() {
+            @Override public void onConnectionState(String state) {}
+            @Override public void onAuthenticated(String ownMemberId, JSONObject snapshot) {}
+            @Override public void onSnapshot(JSONObject snapshot) {}
+            @Override public void onAnchor(PlaybackAnchor anchor, String actorNickname) {}
+            @Override public void onError(String message) {}
+        };
+        RoomClient first = new RoomClient(id('a'), id('b'), "我", listener);
+        RoomClient second = new RoomClient(id('a'), id('b'), "我", listener);
+        try {
+            assertTrue(MainActivity.historyClientMatches(first, first));
+            assertFalse(MainActivity.historyClientMatches(first, second));
+            assertFalse(MainActivity.historyClientMatches(null, second));
+        } finally {
+            first.close();
+            second.close();
+        }
+    }
+
+    private static String id(char value) {
+        return String.valueOf(value).repeat(32);
     }
 }
