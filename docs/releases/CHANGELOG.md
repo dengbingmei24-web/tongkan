@@ -1,5 +1,27 @@
 # 更新记录
 
+## 1.0.0-alpha10.4（本地集成，未部署）
+
+### 新增
+
+- Account 增加短期账号房间历史授权、签名内部 ingest、`0008_watch_history.sql` 以及当前 pair/keep archive 的历史、月度摘要和日历实看 marker API。
+- Signaling Durable Object 增加双方严格有效播放重叠计时、区间幂等提交、重载恢复、stale/grant 到期边界和失败重试；历史故障不关闭房间或阻断播放、聊天与邀请。
+- Android 在现有“我们”页增加月度摘要、最近历史和分页，在“日历”区分计划与实际观看，并为 keep 旧空间提供只读历史入口；没有新增第五个主 tab。
+- 新增 `qa/watch-history` 14-case/13-tag 安全默认合同，覆盖 A/B/C、匿名排除、overlap matrix、重试幂等、时区、归档和敏感信息边界。
+
+### 技术与验证
+
+- W1 Account、W2 Signaling、W3 Android/QA 已按 Account → Signaling → Android 顺序无冲突集成；Reviewer 为 `history.bind` 增加独立低频限流，并修复 Android 分页顺序、旧回调、授权重试与归档清理。
+- Protocol 类型检查、13 项测试和构建通过；Account 类型检查、13 文件/93 项测试（含真实本地 D1）和 dry-run 通过；Signaling 类型检查、8 文件/67 项测试和 dry-run 通过。
+- Android 单元测试与 Lint、History QA PowerShell 解析、14 cases/13 tags ValidateOnly、JSON 解析和差异检查通过。
+- 全仓 Web/Extension/integration/build、依赖/链接/凭据门禁和 Android APK build 尚未运行，不能标记完整发布门禁通过。
+
+### 发布状态
+
+- migration `0008_watch_history.sql` 仅存在于本地分支；Preview 和生产 D1 仍停留在已部署的 0007 状态。
+- 未配置或部署 Preview/生产历史 Service Binding 与 Secrets，未运行 Live QA，未构建或发布 Alpha 10.4 APK，分支未 push。
+- Alpha 10.3 生产 Worker 与现有 Alpha 10.3 APK 保持不变；其双设备日历/日常使用矩阵继续延期，不视为已通过。
+
 ## 1.0.0-alpha10.3（未发布）
 
 ### 新增

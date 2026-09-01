@@ -3,7 +3,7 @@
 **Feature**: TK-005
 **Baseline Commit**: `9473dcdba18341169ad3e7e0ac976f9140cf65b5`
 **Branch**: `codex/TK-005-W2-signaling`
-**Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-005-W2-signaling`
+**Worktree**: `C:\Users\dengbingmei\AppData\Local\Temp\tongkan-worktrees\TK-005-W2-signaling`
 **Owner**: Signaling/Protocol execution task
 **Depends On**: PD-001..PD-005 frozen + clean planning baseline + frozen grant/ingest fixtures
 
@@ -80,8 +80,8 @@ git diff --check -- packages/protocol apps/signaling specs/TK-005-history-statis
 
 ## Done When
 
-- [ ] Contract goal is implemented without changing non-history room behavior.
-- [ ] Required validation passes deterministically without network access.
-- [ ] No full grant, secret, session token, room key, invite URL or email is logged or persisted.
-- [ ] Changes are committed on the assigned branch.
-- [ ] Handoff includes commit hash, changed files, protocol compatibility, timing matrix, retry/alarm evidence, security and rollback notes.
+- [x] Contract goal is implemented without changing non-history room behavior.
+- [x] Required validation passes deterministically without network access.
+- [x] No full grant, secret, session token, room key, invite URL or email is logged or persisted.
+- [x] Changes are committed on the assigned branch.
+- [x] Handoff includes commit hash, changed files, protocol compatibility, timing matrix, retry/alarm evidence, security and rollback notes.

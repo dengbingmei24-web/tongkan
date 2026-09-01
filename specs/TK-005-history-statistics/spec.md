@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-01
 
-**Status**: Ready for isolated implementation under D-092; deployment remains unauthorized
+**Status**: Locally implemented, reviewer-approved and integrated under D-092; Preview/production deployment remains unauthorized
 
 **Input**: 用户选择暂不执行 Alpha 10.3 剩余双设备验收，并要求继续规划开发。依据 D-069、D-079、D-091、账号与双人空间 PRD 和 Now/Next/Later 路线图，本阶段规划可信共同观看记录、历史列表、月度摘要、日历实看标记和 keep 归档只读。
 

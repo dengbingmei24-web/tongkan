@@ -1,6 +1,6 @@
 # 同看账号与双人空间 PRD
 
-> 状态：Alpha 10.0–10.2.4 已投入生产日常使用；Alpha 10.3 已本地实现并集成、尚未发布；Alpha 10.4 待开发
+> 状态：Alpha 10.0–10.2.4 已投入生产日常使用；Alpha 10.3 后端已上线、APK 候选未公开发布；Alpha 10.4 已本地实现并集成、尚未部署
 > 创建日期：2026-08-11
 > 目标里程碑：Alpha 10 起
 > 真源关系：账号、唯一好友、双人历史、日历计划和云端片库以本文为准；播放器与房间稳定性仍以 `docs/product/ANDROID_FOLLOWUP_PRD.md` 为准。
@@ -275,9 +275,9 @@ Alpha 10.3 第一版确定采用“日期必填 + 开始时间可选 + 备注可
 
 ### 9.4 历史与统计
 
-- `GET /api/history`
-- `GET /api/stats/monthly?month=YYYY-MM`
-- `GET /api/calendar/month?month=YYYY-MM`
+- `POST /api/history/grants`
+- `GET /api/history` / `GET /api/history/monthly` / `GET /api/history/calendar-markers`
+- `GET /api/pair/archives/{pairId}/history` / `monthly` / `calendar-markers`（keep 只读）
 
 ## 10. Android 实现建议
 
@@ -351,15 +351,15 @@ Alpha 10.3 第一版确定采用“日期必填 + 开始时间可选 + 备注可
 - 计划从当前共同片库选择视频并保存媒体快照；片库条目删除后，计划仍保留标题、封面、BVID、分P和规范链接。
 - Android 已实现七列月格、日期详情、计划编辑器、片库“安排日期”、首页“今天想看”和从计划开始同看。
 - 首页只显示当天 `planned` 计划；日期详情保留 `planned` 与 `completed`，keep 归档只读。
-- 自动提醒、重复计划、外部日历和实际观看历史仍后置；实际观看标记继续属于 Alpha 10.4。
+- 自动提醒、重复计划和外部日历仍后置；实际观看历史与日历实看标记已在 Alpha 10.4 本地集成，尚未进入 Preview 或生产。
 
 ### Alpha 10.4：历史与统计
 
-- 状态（2026-09-01）：用户选择暂不执行 Alpha 10.3 剩余双设备验收，并已授权按照 `specs/TK-005-history-statistics/` 使用隔离智能体继续本地实现；Preview/生产 migration、部署、APK 构建/发布和 push 仍未授权。
+- 状态（2026-09-01）：W1 Account/D1、W2 Signaling/Protocol、W3 Android/QA 已按合同完成、审查并无冲突集成；Reviewer 已补齐 `history.bind` 独立限流和 Android 生命周期修复。Preview/生产 migration 0008、服务绑定与 Secrets、部署、Live QA、APK 构建/发布和 push 仍未授权。
 - 服务端共同观看区间必须遵守 D-069：只有当前绑定双方在同一已授权房间中同时在线、媒体一致、准备完成、未暂停、未缓冲且实际播放时才累计自然时间；Seek 不增加时长，倍速仍按墙钟计算。
-- 建议由 Account Worker 签发 pair/user/room/slot 绑定的短期历史授权，Signaling Durable Object 验证授权并生成区间，Account D1 幂等保存历史和聚合结果；Android 不自行计算最终统计，统计服务失败也不得阻断观看。
-- P0 候选范围：B站房间的可信区间、历史列表、本月共同观看时长、观看次数、最近同看日期，以及 keep 归档只读。
-- P1 候选范围：日历计划点与实际观看点的区分、日期详情“一起看过”分组、完成数量和计划关联。
+- 已实现由 Account Worker 签发 pair/user/room/slot 绑定的短期历史授权，Signaling Durable Object 验证授权并生成区间，Account D1 幂等保存历史和聚合结果；Android 不自行计算最终统计，统计服务失败也不得阻断观看。
+- P0 本地已实现：B站房间可信区间、历史列表、本月共同观看时长、观看次数、最近同看日期，以及 keep 归档只读。
+- P1 本地已实现：日历计划点与实际观看点的区分、日期详情“一起看过”分组和 keep 归档历史；完成数量与计划关联继续后置。
 - 第一切片默认不统计匿名房间、屏幕共享、direct-video、只有一方授权或媒体不一致的房间；不提供历史编辑、删除、导出或排行榜。
 - D-092 已冻结首切片：同一 watch session 满 60 秒才公开；`completionState=unknown` 并隐藏完成数量；UTC 存储、查询使用当前设备 offset；实际记录不关联或自动完成计划；历史跟随 pair keep/delete，暂不提供单条删除、纠错或导出。
 
@@ -367,7 +367,7 @@ B站登录和画质选择在 Alpha 10 账号空间稳定后另行排期。
 
 ## 13. 本轮产品决策状态
 
-账号、唯一好友、解绑、共享片库、日历字段、内置头像和共同观看统计的基本边界已确认；D-092 已冻结 Alpha 10.4 首切片统计口径并授权隔离实现。Alpha 10.0–10.2.4 已进入生产日常使用；Alpha 10.3 日历已完成 Preview/生产 migration、Worker 部署、生产配置 Debug APK 构建和视觉真机验收，但尚未公开发布。Alpha 10.4 历史统计正在本地开发，正式内置头像资源仍待后续开发。双设备日历、片库、FCM、好友房间直达与完整播放矩阵的物理验收仍待逐项证据，不视为已通过。
+账号、唯一好友、解绑、共享片库、日历字段、内置头像和共同观看统计的基本边界已确认；D-092 已冻结 Alpha 10.4 首切片统计口径。Alpha 10.0–10.2.4 已进入生产日常使用；Alpha 10.3 日历已完成 Preview/生产 migration、Worker 部署、生产配置 Debug APK 构建和视觉真机验收，但尚未公开发布。Alpha 10.4 历史统计已完成本地实现、审查和集成，仍等待 Preview migration/部署/Live QA、APK 与生产授权。正式内置头像资源仍待后续开发；双设备日历、片库、FCM、好友房间直达、历史统计与完整播放矩阵的物理验收仍待逐项证据，不视为已通过。
 
 ## 14. 第一阶段验收标准
 

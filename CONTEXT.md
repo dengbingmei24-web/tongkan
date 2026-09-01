@@ -3,27 +3,31 @@
 > Current cross-conversation snapshot. Historical conversation logs are archived at `docs/archive/context/CONTEXT_HISTORY_2026-08.md`.
 
 ---
-last_updated: 2026-09-01T11:56:09+08:00
-current_version: 1.0.0-alpha10.3 production baseline committed locally; physical matrix deferred
-target_version: 1.0.0-alpha10.4 history and statistics implementation
-status: TK-005 planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` is committed locally on `codex/TK-005-history-statistics`, with D-092 and the five Alpha 10.4 first-slice defaults frozen. The user authorized the local planning commit and up to three isolated implementation worktrees; no Preview/production migration, deployment, APK build/publish, push or public release is authorized. Alpha 10.3 remains deployed and unchanged; its physical matrix is deferred, not passed.
+last_updated: 2026-09-01T17:00:24+08:00
+current_version: 1.0.0-alpha10.3 remains the production baseline; Alpha 10.4 is locally integrated and not deployed
+target_version: 1.0.0-alpha10.4 Preview integration and live validation
+status: TK-005 Alpha 10.4 history/statistics implementation is reviewer-approved and locally integrated through `c2c5373` on `codex/TK-005-history-statistics`. W1/W2/W3 and reviewer fixes pass their authorized local validation; migration 0008, Service Binding/Secrets, Preview/production deployment, Live QA, APK build/publish, push and public release remain unauthorized. Alpha 10.3 production remains unchanged and its two-device matrix is deferred, not passed.
 ---
 
 ## Current Baseline
 
-- Review branch: `codex/TK-005-history-statistics`; frozen TK-005 planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` is committed locally on top of Alpha 10.3 runtime baseline `8aee2c1b2047db7f059e91530cdef4b9d2419199`. The branch has not been pushed; the pre-existing untracked `合作方-透明.png` remains untouched and outside all project changes.
-- Approved isolated tips: W1 Account `51f6791`, W2 Android `89c213a`, W3 QA `46ea3c3`; all are locally integrated in W1 → W2 → W3 order. Safety stashes `safety-before-alpha10.3-commit-20260821-145157`, `safety-before-alpha10.3-continue-20260821-143911`, `safety-before-alpha10.3-physical-acceptance-20260821-141925`, `safety-before-breath-tech-html-ui-20260821`, `safety-before-tk004-t404-20260820`, `safety-before-tk004-cherry-pick-20260819-review-docs`, `safety-before-calendar-live-contract-fix-20260821-112108`, `safety-before-calendar-preview-docs-20260821-112820`, `safety-before-calendar-preview-qa-commit-20260821-113558`, `safety-before-alpha10.3-production-release-20260821-114248` and `safety-after-alpha10.3-production-build-20260821-115923` remain preserved and must not be dropped.
+- Review branch: `codex/TK-005-history-statistics`; planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` and runtime integration through `c2c5373` are local on top of Alpha 10.3 baseline `8aee2c1b2047db7f059e91530cdef4b9d2419199`. The branch has not been pushed; the pre-existing untracked `合作方-透明.png` remains untouched and outside all project changes.
+- Approved isolated tips: W1 Account `9b4dc12`, W2 Signaling `8eec1a3`, W3 Android/QA `a4bf5ad`; they were integrated in W1 → W2 → W3 order without conflicts. Reviewer fixes are `7146338` and `5fd5f47`, with W2 evidence update `eaa12dc`; all three temporary worktrees are clean. Safety stashes `safety-before-alpha10.3-commit-20260821-145157`, `safety-before-alpha10.3-continue-20260821-143911`, `safety-before-alpha10.3-physical-acceptance-20260821-141925`, `safety-before-breath-tech-html-ui-20260821`, `safety-before-tk004-t404-20260820`, `safety-before-tk004-cherry-pick-20260819-review-docs`, `safety-before-calendar-live-contract-fix-20260821-112108`, `safety-before-calendar-preview-docs-20260821-112820`, `safety-before-calendar-preview-qa-commit-20260821-113558`, `safety-before-alpha10.3-production-release-20260821-114248` and `safety-after-alpha10.3-production-build-20260821-115923` remain preserved and must not be dropped.
 - Accepted P0 baseline: portrait composer stays above the keyboard, continuous deletion works, keyboard/App send share one path, one local bubble is created, input clears and no composer remains after transitions.
 - Integrated P1 scope: unilateral unbind/archive Account code, Android bound/pending/archive UI, hardened QA contracts, FCM-ready invitation flow and the existing Beta playback/chat controls.
 - Production Account Worker: version `17a59403-98bb-4652-9ad1-32a5ff5882db`, 100% traffic, `AUTH_TEST_MODE=false`; production D1 migrations are current through `0007_calendar_plans.sql`.
 - Current delivery candidate APK: `release/tongkan-android-1.0.0-alpha10.3.apk` (versionCode 41, production API + FCM, Debug-signed, empty Preview token), SHA-256 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`.
 - Alpha 10.4 planning safety stash `safety-before-alpha10.4-planning-20260901-104911` includes and preserves the unrelated untracked partner asset; it must not be dropped.
 - TK-005 implementation safety stash `safety-before-tk005-implementation-20260901-114254` preserves the full frozen planning workspace and partner asset before branch creation; it must not be dropped.
+- TK-005 reviewer-closure safety stash `safety-before-tk005-review-close-20260901` preserves the three task-contract path edits. Additional pre-integration backup: `C:\Users\dengbingmei\AppData\Local\Temp\tongkan-tk005-root-preintegration-20260901.patch`; both remain available for rollback.
 - Previous Alpha 10.2.4 APK remains local as the pre-calendar production comparison build.
 - Previous Preview APK remains local for isolated QA only: `release/tongkan-android-1.0.0-alpha10.2-preview.apk`.
 
 ## Recently Completed
 
+- Completed and reviewed TK-005 W1 Account/D1, W2 Signaling/Protocol and W3 Android/QA, then integrated them locally in dependency order without conflicts. Account migration `0008_watch_history.sql`, trusted grants/ingest, strict overlap timing, Android history/monthly/calendar/archive UI and the safe-by-default History QA contract are now present on the review branch.
+- Added reviewer fixes: independent low-frequency `history.bind` rate limiting that does not consume playback-report quota or extend room activity; Android history pagination now follows `startedAt DESC, id DESC`, stale RoomClient callbacks are ignored, transient authorization retries recover, and removed archive access closes the old view.
+- Authorized local gates pass: Protocol typecheck/13 tests/build; Account typecheck/13 files and 93 tests including real local D1/dry-run; Signaling typecheck/8 files and 67 tests/dry-run; Android unit tests/Lint; History QA parser, 14 cases/13 tags ValidateOnly, JSON and diff checks. No APK, Preview/production request, migration, deployment, push or publication occurred.
 - With explicit user approval, committed the frozen TK-005 planning/product/design package as local baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5`; excluded `合作方-透明.png` and performed no push, deployment, migration, APK build or publication. The W1/W2/W3 contracts now pin this baseline for isolated implementation.
 - Accepted D-092 from the user's “继续开发” authorization: froze the 60-second visibility threshold, unknown/hidden completion, UTC + device offset, no plan association/auto-complete and pair-level keep/delete with no per-item management; authorized a local planning commit and up to three isolated agents while keeping deployment, APK and push separately gated.
 - Completed the Draft TK-005 Alpha 10.4 planning package under `specs/TK-005-history-statistics/`: trusted room grants, strict Signaling overlap timing, sourceRevision/interval idempotency, D1 source/interval/session model, history/monthly/calendar/archive APIs, implementation plan, quickstart, requirements checklist and disjoint W1 Account/W2 Signaling/W3 Android+QA contracts. OpenAPI structural/reference checks, required-file inventory, whitespace checks and cross-document consistency pass; no runtime code or environment changed.
@@ -97,12 +101,11 @@ status: TK-005 planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` is c
 
 ## In Progress
 
-- TK-004 implementation, review, local integration, T404 validation and T405 documentation closure are complete in the local TK-004 closure commit; the branch remains unpushed.
-- The Calendar QA runner/contract fixes and Preview evidence documentation are preserved in the authorized local checkpoint; the branch remains unpushed.
-- The Alpha 10.3 version bump, Breath Tech UI and production release evidence are committed in the current local HEAD; the canonical APK is local-only and has not been pushed or publicly published.
-- Alpha 10.3 shared-calendar and daily-use behavior still require the two-device physical matrix; the latest user confirmation is recorded against the already scoped visual acceptance gate, not as case-by-case evidence for this matrix.
-- The Breath Tech high-fidelity native UI adaptation is committed in the current local HEAD. The nav-v3 APK remains visual evidence only; use the production-configured canonical APK for any later device testing.
-- TK-005 Alpha 10.4 history/statistics planning is frozen under D-092 on `codex/TK-005-history-statistics`. Baseline `9473dcd` and its contract metadata are complete; isolated Account/D1, Signaling/Protocol and Android/QA worktree creation is next, and no runtime implementation has been integrated yet.
+- TK-005 local implementation, reviewer fixes and global documentation closure are complete on the review branch; the branch remains unpushed and the unrelated partner image remains untracked.
+- T405 remains open: local/Preview Account Service Binding and actual history Secrets are not configured; production configuration remains unchanged.
+- T406 remains partial: authorized component tests pass, but the remaining full-workspace gates and Android APK build have not run.
+- T407/T409 remain closed gates: no Preview/production migration, deployment, Live QA, APK build/publish, push or public release is authorized.
+- Alpha 10.3 shared-calendar and daily-use two-device matrix remains deferred, not passed; Alpha 10.4 work does not change that status.
 
 ## Known Issues
 
@@ -114,13 +117,15 @@ status: TK-005 planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` is c
 6. Basic friend unbinding is physically confirmed. The keep/delete retention matrix and App-home room discovery still require two-device production acceptance, currently deferred by the user.
 7. Calendar migration 0007 and Worker routes are active on Preview and production, but authenticated two-device Calendar behavior and the Android daily-use matrix have not received physical-device validation.
 8. Breath Tech visual acceptance passed for the current source; future UI source changes require another check in both themes, large-font mode, keyboard-open states and narrow screens.
-9. Alpha 10.4 product rules are frozen, but the cross-service grant/signature, Durable Object alarm/retry, D1 idempotency and Android lifecycle are not implemented or validated yet.
+9. Alpha 10.4 migration `0008_watch_history.sql` and runtime code are local only; Preview/production D1, Service Binding, Secrets, Live QA, APK and two-device evidence do not exist yet.
+10. Account B站 metadata lookup is best-effort but not cached; repeated ingest/session metadata misses may repeat the external query. This is non-blocking for local integration and should be reassessed before Preview.
+11. T406 is partial: Protocol/Account/Signaling/Android test/lint, local D1 and History QA passed, while Web/Extension/full integration/build, dependency/link/credential gates and Android APK build remain unrun.
 
 ## Next Steps
 
-1. Create W1/W2/W3 isolated worktrees from planning baseline `9473dcd` and dispatch the authorized agents under their disjoint contracts.
-2. Review and integrate only APPROVED commits, then run local Account/Protocol/Signaling/Android/QA validation without Preview/production actions or release APK publication.
-3. Update Context and request separate authorization before Preview migration/deployment, any APK build/publish, push or broader release; keep the Alpha 10.3 physical matrix deferred.
+1. If continuing locally without deployment, complete the remaining non-APK T406 workspace gates and record unrelated failures without widening TK-005 scope.
+2. Before Preview, reassess the uncached B站 metadata lookup and then request explicit authorization for T405/T407: Preview Service Binding/Secrets, migration 0008, Account/Signaling deployment and History Live QA.
+3. Only after Preview evidence, request separate authorization for production migration/deployment, Alpha 10.4 APK build/publish, push or broader release; keep the Alpha 10.3 physical matrix deferred.
 
 ## Primary References
 
@@ -133,11 +138,12 @@ status: TK-005 planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` is c
 - Release QA: `docs/quality/QA_CHECKLIST.md`
 - TK-001 specification: `specs/TK-001-unilateral-unbind/`
 - TK-004 calendar specification: `specs/TK-004-calendar/`
-- TK-005 history/statistics Draft specification: `specs/TK-005-history-statistics/`
+- TK-005 history/statistics locally integrated specification: `specs/TK-005-history-statistics/`
 - Multi-session workflow: `docs/development/MULTI_SESSION_WORKFLOW.md`
 
 ## Recent Conversation Log
 
+- 2026-09-01: Continued TK-005 reviewer closure without overwriting the three existing task-contract path edits or the untracked partner image. Integrated status is synchronized across tasks, contracts, spec, Account PRD, roadmap, selected design, QA, CHANGELOG and Context; T405/T407/T409 remain unauthorized and T406 remains partial. No push, Preview/production request, migration, deployment, APK build/publish or public release occurred.
 - 2026-09-01: User explicitly approved committing the TK-005 planning baseline while excluding `合作方-透明.png` and forbidding push, deployment, APK build or publication. Verified the clean tracked workspace, created local commit `9473dcdba18341169ad3e7e0ac976f9140cf65b5`, and pinned the W1/W2/W3 task contracts to that baseline; no runtime or environment action occurred.
 - 2026-09-01: User said “继续开发 你可以自己调用智能体”. Accepted D-092 and froze all five TK-005 first-slice defaults, created review branch `codex/TK-005-history-statistics`, and created/restored safety stash `safety-before-tk005-implementation-20260901-114254`. The authorization covers a local planning commit, isolated worktrees, agents, code and local tests; it does not cover migration, deployment, APK build/publish, push or public release.
 - 2026-09-01: Completed the Draft TK-005 history/statistics planning package and synchronized Context, roadmap and account PRD. The recommended architecture uses Account-issued room grants, Signaling-owned strict overlap timing, signed idempotent Account ingest, UTC interval storage, “我们” history/monthly UI and Calendar actual-watch markers. PD-001..PD-005 remain unaccepted; no implementation branch, migration, deployment, APK build, push or publication occurred.

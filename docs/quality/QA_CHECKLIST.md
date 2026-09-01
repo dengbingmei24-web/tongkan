@@ -91,6 +91,20 @@
 - [x] 用户确认 Breath Tech/nav-v3 真机视觉验收通过；当前视觉源包含首页状态卡、底部导航细线和可滚动贴底面板。
 - [ ] 两台真实设备验证月历同步、计划新增/改期/完成/取消、首页“今天想看”、从计划进入房间和 keep 归档只读；这项与旧版 Alpha 10.2.4 日常使用矩阵仍是下一道门槛。
 
+### Alpha 10.4 历史统计本地集成证据（2026-09-01，未部署）
+
+- [x] Protocol 类型检查、13 项测试和构建通过；`history.bind`/`history.bound`、兼容错误码及播放报告新增字段已覆盖。
+- [x] Account 类型检查、13 文件/93 项测试和 Wrangler dry-run 通过；真实本地 D1 覆盖 0001–0008 升级、幂等/乱序、UTC offset、解绑竞态、archive 和 pair 级联。
+- [x] Signaling 类型检查、8 文件/67 项测试和 Wrangler dry-run 通过；fake-clock overlap、reload、stale、grant expiry、retry/alarm 与 fail-open 已覆盖。
+- [x] Reviewer 为 `history.bind` 增加独立低频限流；该消息不消耗播放报告额度，也不延长房间活动时间。
+- [x] Android 单元测试与 Lint 通过；已复验授权重试、旧 RoomClient 回调隔离、5 秒报告清理、`startedAt DESC, id DESC` 分页顺序和归档状态清理。
+- [x] `qa/watch-history` PowerShell 解析、14 cases/13 tags ValidateOnly、JSON 解析与差异检查通过；runner 默认离线校验并拒绝生产地址，未包含凭据。
+- [ ] T406 剩余全仓 Web/Extension/integration/build、依赖、Markdown 链接和凭据扫描门禁尚未运行；不得据此标记完整发布门禁通过。
+- [ ] Android APK build 未获授权且未运行；不得复用旧 APK 作为 Alpha 10.4 证据。
+- [ ] 配置 Preview Account Service Binding 与历史 Secrets 后，再单独申请 migration 0008、Preview Account/Signaling 部署和 History Live QA 授权。
+- [ ] 生产 migration 0008、Account/Signaling 部署、APK build/publish、push 和公开发布必须分别获得授权。
+- [ ] 两台真实设备验证可信计时、暂停/缓冲/Seek/倍速/断线边界、历史/月度、日历双标记和 keep archive；Alpha 10.3 延期矩阵仍不能视为通过。
+
 ## 2. 房间与邀请
 
 - [ ] 房主创建房间后能复制访客邀请链接。

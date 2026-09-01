@@ -3,7 +3,7 @@
 **Feature**: TK-005
 **Baseline Commit**: `9473dcdba18341169ad3e7e0ac976f9140cf65b5`
 **Branch**: `codex/TK-005-W1-account`
-**Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-005-W1-account`
+**Worktree**: `C:\Users\dengbingmei\AppData\Local\Temp\tongkan-worktrees\TK-005-W1-account`
 **Owner**: Account/D1 execution task
 **Depends On**: PD-001..PD-005 frozen + clean planning baseline + frozen OpenAPI
 
@@ -79,8 +79,8 @@ git diff --check -- apps/account specs/TK-005-history-statistics/handoffs/TK-005
 
 ## Done When
 
-- [ ] Contract goal is implemented without expanding product scope.
-- [ ] Required validation passes.
-- [ ] No secret or sensitive identifier appears in source, fixture, logs, or handoff.
-- [ ] Changes are committed on the assigned branch.
-- [ ] Handoff includes commit hash, changed files, migration compatibility, tests, security, fail-open behavior and rollback notes.
+- [x] Contract goal is implemented without expanding product scope.
+- [x] Required validation passes.
+- [x] No secret or sensitive identifier appears in source, fixture, logs, or handoff.
+- [x] Changes are committed on the assigned branch.
+- [x] Handoff includes commit hash, changed files, migration compatibility, tests, security, fail-open behavior and rollback notes.

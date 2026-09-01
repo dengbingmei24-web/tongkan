@@ -3,7 +3,7 @@
 **Feature**: TK-005
 **Baseline Commit**: `9473dcdba18341169ad3e7e0ac976f9140cf65b5`
 **Branch**: `codex/TK-005-W3-android-qa`
-**Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-005-W3-android-qa`
+**Worktree**: `C:\Users\dengbingmei\AppData\Local\Temp\tongkan-worktrees\TK-005-W3-android-qa`
 **Owner**: Android/QA execution task
 **Depends On**: PD-001..PD-005 frozen + clean planning baseline + frozen OpenAPI/JSON/protocol fixtures
 
@@ -79,8 +79,8 @@ JVM/QA 必须覆盖：
 
 ## Done When
 
-- [ ] Contract goal is implemented without adding a tab or changing core room behavior.
-- [ ] Required validation passes without production access.
-- [ ] QA runner is safe-by-default and contains no credentials.
-- [ ] Changes are committed on the assigned branch.
-- [ ] Handoff includes commit hash, changed files, UI state inventory, lifecycle evidence, QA cases, security and rollback notes.
+- [x] Contract goal is implemented without adding a tab or changing core room behavior.
+- [x] All authorized non-APK validation passes without production access; APK build remains separately gated and was not run.
+- [x] QA runner is safe-by-default and contains no credentials.
+- [x] Changes are committed on the assigned branch.
+- [x] Handoff includes commit hash, changed files, UI state inventory, lifecycle evidence, QA cases, security and rollback notes.
