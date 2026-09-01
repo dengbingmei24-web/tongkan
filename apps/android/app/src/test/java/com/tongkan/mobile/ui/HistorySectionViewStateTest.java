@@ -14,9 +14,9 @@ public final class HistorySectionViewStateTest {
     @Test
     public void mergesPagesWithoutDuplicatingSessions() {
         AccountModels.HistoryPage first = new AccountModels.HistoryPage(
-            id('a'), false, "next", Arrays.asList(item(id('b'), 200), item(id('c'), 100)));
+            id('a'), false, "next", Arrays.asList(item(id('b'), 300, 60), item(id('c'), 200, 600)));
         AccountModels.HistoryPage next = new AccountModels.HistoryPage(
-            id('a'), false, null, Arrays.asList(item(id('c'), 100), item(id('d'), 50)));
+            id('a'), false, null, Arrays.asList(item(id('c'), 200, 600), item(id('d'), 100, 60)));
         AccountModels.HistoryPage merged = HistorySectionView.State.mergePages(first, next);
         assertEquals(3, merged.items.size());
         assertEquals(id('b'), merged.items.get(0).id);
@@ -31,12 +31,13 @@ public final class HistorySectionViewStateTest {
         assertEquals("09 月 01 日", HistorySectionView.State.dateLabel("2026-09-01"));
     }
 
-    private static AccountModels.HistoryItem item(String id, int seconds) {
+    private static AccountModels.HistoryItem item(String id, int startedAfterSeconds, int seconds) {
+        long startedAt = 1_800_000_000_000L + startedAfterSeconds * 1_000L;
         return new AccountModels.HistoryItem(
             id,
             id('e'),
-            1_800_000_000_000L,
-            1_800_000_000_000L + seconds * 1_000L,
+            startedAt,
+            startedAt + seconds * 1_000L,
             seconds,
             "unknown",
             new AccountModels.HistoryMedia(

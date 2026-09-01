@@ -32,8 +32,8 @@ public final class RoomClient {
         void onSnapshot(JSONObject snapshot);
         void onAnchor(PlaybackAnchor anchor, String actorNickname);
         default void onChatMessage(String messageId, String memberId, String nickname, String text, long serverSentAtMs) {}
-        default void onHistoryBound(long expiresAt) {}
-        default void onHistoryDisabled(String code, String message) {}
+        default void onHistoryBound(RoomClient client, long expiresAt) {}
+        default void onHistoryDisabled(RoomClient client, String code, String message) {}
         void onError(String message);
     }
 
@@ -248,7 +248,7 @@ public final class RoomClient {
             send(RoomProtocol.historyBind(current));
         } catch (JSONException error) {
             historyGrant = null;
-            listener.onHistoryDisabled("INVALID_HISTORY_GRANT", "共同历史授权无效，房间仍可继续使用。");
+            listener.onHistoryDisabled(this, "INVALID_HISTORY_GRANT", "共同历史授权无效，房间仍可继续使用。");
         }
     }
 
@@ -406,7 +406,7 @@ public final class RoomClient {
             if ("history.bound".equals(type)) {
                 long expiresAt = event.getLong("expiresAt");
                 if (expiresAt <= 0) throw new JSONException("Invalid history bound response");
-                listener.onHistoryBound(expiresAt);
+                listener.onHistoryBound(this, expiresAt);
                 return;
             }
             if ("member.updated".equals(type)) {
@@ -419,7 +419,7 @@ public final class RoomClient {
                 String message = event.optString("message", "房间服务返回错误");
                 if ("INVALID_HISTORY_GRANT".equals(code) || "HISTORY_GRANT_EXPIRED".equals(code) || "HISTORY_BIND_CONFLICT".equals(code)) {
                     clearHistoryBinding();
-                    listener.onHistoryDisabled(code, message);
+                    listener.onHistoryDisabled(this, code, message);
                     return;
                 }
                 listener.onError(message);

@@ -247,8 +247,8 @@ public final class AccountModels {
 
     public static final class HistoryItem {
         public static final Comparator<HistoryItem> DISPLAY_ORDER = (left, right) -> {
-            int endedOrder = Long.compare(right.endedAt, left.endedAt);
-            return endedOrder != 0 ? endedOrder : left.id.compareTo(right.id);
+            int startedOrder = Long.compare(right.startedAt, left.startedAt);
+            return startedOrder != 0 ? startedOrder : right.id.compareTo(left.id);
         };
 
         public final String id;

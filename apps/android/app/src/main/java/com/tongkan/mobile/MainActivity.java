@@ -224,7 +224,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean historyActiveRoomConfirmed;
     private boolean activityResumed;
     private long historyLifecycleGeneration;
-    private final Runnable historyGrantRefresh = () -> requestHistoryGrant(true);
+    private final Runnable historyGrantRefresh = this::refreshHistoryGrant;
     private final Runnable historyGrantExpiry = this::expireHistoryGrant;
     private BilibiliMedia pendingLibraryMedia;
     private boolean darkMode;
@@ -1497,8 +1497,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     @Override
-    public void onHistoryBound(long expiresAt) {
+    public void onHistoryBound(RoomClient client, long expiresAt) {
         runOnUiThread(() -> {
+            if (!historyClientMatches(client, roomClient)) return;
             AccountModels.HistoryGrant grant = roomHistoryGrant;
             if (grant == null) return;
             roomHistoryGrant = grant.withServerExpiry(expiresAt);
@@ -1508,8 +1509,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     @Override
-    public void onHistoryDisabled(String code, String message) {
+    public void onHistoryDisabled(RoomClient client, String code, String message) {
         runOnUiThread(() -> {
+            if (!historyClientMatches(client, roomClient)) return;
             roomHistoryGrant = null;
             historyGrantRequesting = false;
             mainHandler.removeCallbacks(historyGrantRefresh);
@@ -3158,6 +3160,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         }
         if (currentArchivePairId != null && !hasArchive(pairState.archives, currentArchivePairId)) resetLibraryState();
         if (currentArchiveCalendarPairId != null && !hasArchive(pairState.archives, currentArchiveCalendarPairId)) resetCalendarState();
+        if (currentWatchArchivePairId != null && !hasArchive(pairState.archives, currentWatchArchivePairId)) resetWatchHistoryState();
         if (currentPair != null) maybeStartHistoryGrant();
     }
 
@@ -3711,6 +3714,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             });
     }
 
+    private void refreshHistoryGrant() {
+        if (currentPair == null) maybeStartHistoryGrant();
+        else requestHistoryGrant(true);
+    }
+
     private void maybeStartHistoryGrant() {
         AccountModels.Session session = accountSession;
         if (!isAccountModeActive() || session == null || !authenticated || !historyActiveRoomConfirmed
@@ -3735,8 +3743,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
             @Override public void onFailure(AccountClient.Failure failure) {
                 runOnUiThread(() -> {
-                    if (generation != historyLifecycleGeneration) return;
+                    if (generation != historyLifecycleGeneration || !isCurrentSession(token)) return;
                     historyPairRequesting = false;
+                    if (failure.isAuthenticationFailure()) {
+                        handleAccountRestoreFailure(failure);
+                        return;
+                    }
+                    mainHandler.removeCallbacks(historyGrantRefresh);
+                    mainHandler.postDelayed(historyGrantRefresh, HISTORY_GRANT_RETRY_MS);
                 });
             }
         });
@@ -3781,6 +3795,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 runOnUiThread(() -> {
                     if (!isCurrentHistoryLifecycle(generation, token, pairId, roomId, slot)) return;
                     historyGrantRequesting = false;
+                    if (failure.isAuthenticationFailure()) {
+                        handleAccountRestoreFailure(failure);
+                        return;
+                    }
                     long retryDelay = HISTORY_GRANT_RETRY_MS;
                     if (roomHistoryGrant != null) retryDelay = Math.min(retryDelay, Math.max(1_000L, roomHistoryGrant.expiresAt - System.currentTimeMillis()));
                     mainHandler.removeCallbacks(historyGrantRefresh);
@@ -3844,6 +3862,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         return expectedGeneration == currentGeneration
             && currentSession && currentPair && currentRoom && currentSlot
             && activeRoomConfirmed && authenticated;
+    }
+
+    static boolean historyClientMatches(RoomClient callbackClient, RoomClient currentClient) {
+        return callbackClient != null && callbackClient == currentClient;
     }
 
     private void clearRoomHistoryLifecycle() {
