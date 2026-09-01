@@ -156,15 +156,15 @@ export class RoomDurableObject implements DurableObject {
     const slot = attachment.slot;
     if (!slot) return;
     const nowMs = Date.now();
+    if (!this.messageRateLimiter.allow(slot, message, nowMs)) {
+      send(socket, { type: "error", code: "RATE_LIMITED", message: "消息发送过于频繁，请稍后重试。" });
+      return;
+    }
     if (message.type === "history.bind") {
       await this.handleHistoryBind(socket, slot, attachment, message, nowMs);
       return;
     }
     const coreMessage: ClientMessage = message;
-    if (!this.messageRateLimiter.allow(slot, coreMessage, nowMs)) {
-      send(socket, { type: "error", code: "RATE_LIMITED", message: "消息发送过于频繁，请稍后重试。" });
-      return;
-    }
     this.session.touch(slot, nowMs);
 
     switch (message.type) {

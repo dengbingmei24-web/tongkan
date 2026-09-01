@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ChatMessage, ClientMessage, PingMessage, RtcSignalMessage } from "@tongkan/protocol";
+import type { ChatMessage, ClientMessage, HistoryBindMessage, PingMessage, RtcSignalMessage } from "@tongkan/protocol";
 import { MemberMessageRateLimiter, MESSAGE_RATE_LIMIT_POLICIES } from "./message-rate-limit";
 import { RoomSession } from "./room-session";
 import { RoomDurableObject } from "./worker";
@@ -13,6 +13,7 @@ function chat(index: number): ChatMessage {
 }
 
 const ping: PingMessage = { type: "ping", clientSentAtMs: 1_000 };
+const historyBind: HistoryBindMessage = { type: "history.bind", grant: "x".repeat(20) };
 const candidate: RtcSignalMessage = {
   type: "rtc.signal",
   shareId: "share-1",
@@ -65,6 +66,17 @@ describe("MemberMessageRateLimiter", () => {
     expect(limiter.allow("guest", candidate, 1_000)).toBe(false);
     expect(limiter.allow("guest", candidate, 1_100)).toBe(true);
   });
+
+  it("limits history grants without consuming playback capacity", () => {
+    const limiter = new MemberMessageRateLimiter();
+    const capacity = MESSAGE_RATE_LIMIT_POLICIES["history.bind"].capacity;
+    for (let index = 0; index < capacity; index += 1) {
+      expect(limiter.allow("host", historyBind, 1_000)).toBe(true);
+    }
+    expect(limiter.allow("host", historyBind, 1_000)).toBe(false);
+    expect(limiter.allow("host", playback, 1_000)).toBe(true);
+    expect(limiter.allow("host", historyBind, 6_000)).toBe(true);
+  });
 });
 
 describe("RoomDurableObject message rate limit", () => {
@@ -115,5 +127,15 @@ describe("RoomDurableObject message rate limit", () => {
 
     expect(sent).toHaveLength(capacity + 1);
     expect(JSON.parse(sent.at(-1) ?? "{}")).toMatchObject({ type: "error", code: "RATE_LIMITED" });
+
+    const historyStart = sent.length;
+    const historyCapacity = MESSAGE_RATE_LIMIT_POLICIES["history.bind"].capacity;
+    for (let index = 0; index <= historyCapacity; index += 1) {
+      await room.webSocketMessage(socket, JSON.stringify(historyBind));
+    }
+    const historyResponses = sent.slice(historyStart).map((value) => JSON.parse(value));
+    expect(historyResponses).toHaveLength(historyCapacity + 1);
+    expect(historyResponses[0]).toMatchObject({ type: "error", code: "INVALID_HISTORY_GRANT" });
+    expect(historyResponses.at(-1)).toMatchObject({ type: "error", code: "RATE_LIMITED" });
   });
 });
