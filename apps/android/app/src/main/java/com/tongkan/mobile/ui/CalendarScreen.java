@@ -60,6 +60,7 @@ public final class CalendarScreen {
     private final Listener listener;
     private PageState pageState = PageState.LOADING;
     private AccountModels.CalendarSnapshot snapshot;
+    private AccountModels.CalendarMarkers watchMarkers;
     private List<AccountModels.PairArchive> archives = Collections.emptyList();
     private String month;
     private String selectedDate;
@@ -77,6 +78,7 @@ public final class CalendarScreen {
     public View render(
         PageState state,
         AccountModels.CalendarSnapshot snapshot,
+        AccountModels.CalendarMarkers watchMarkers,
         List<AccountModels.PairArchive> archives,
         String month,
         String selectedDate,
@@ -85,6 +87,7 @@ public final class CalendarScreen {
     ) {
         this.pageState = state;
         this.snapshot = snapshot;
+        this.watchMarkers = watchMarkers;
         this.archives = archives == null ? Collections.emptyList() : archives;
         this.month = AccountModels.isCalendarMonth(month) ? month : State.monthOf(LocalDate.now().toString());
         this.selectedDate = State.selectedDateForMonth(this.month, selectedDate, LocalDate.now().toString());
@@ -231,6 +234,7 @@ public final class CalendarScreen {
         int leading = State.leadingBlankCount(month);
         int days = State.daysInMonth(month);
         Set<String> plannedDates = State.planDates(snapshot);
+        Set<String> watchedDates = State.watchDates(watchMarkers);
         for (int index = 0; index < leading; index += 1) {
             dates.addView(new View(context), cellParams(index, components.dp(52)));
         }
@@ -238,14 +242,15 @@ public final class CalendarScreen {
             String date = String.format(Locale.ROOT, "%s-%02d", month, day);
             boolean selected = date.equals(selectedDate);
             boolean planned = plannedDates.contains(date);
+            boolean watched = watchedDates.contains(date);
             TextView cell = new TextView(context);
-            cell.setText(planned ? day + "\n•" : String.valueOf(day));
-            cell.setTextSize(planned ? 11 : 12);
+            cell.setText(State.dayCellLabel(day, planned, watched));
+            cell.setTextSize(planned || watched ? 11 : 12);
             cell.setTypeface(Typeface.create("sans-serif", selected ? Typeface.BOLD : Typeface.NORMAL));
             cell.setGravity(Gravity.CENTER);
-            cell.setTextColor(selected ? Color.WHITE : (planned ? theme.accent() : theme.ink()));
-            cell.setBackground(dateBackground(selected, planned));
-            cell.setContentDescription(date + (planned ? "，有计划" : "") + (selected ? "，已选择" : ""));
+            cell.setTextColor(selected ? Color.WHITE : (watched ? theme.ink() : (planned ? theme.accent() : theme.ink())));
+            cell.setBackground(dateBackground(selected, planned, watched));
+            cell.setContentDescription(date + (planned ? "，有计划" : "") + (watched ? "，一起看过" : "") + (selected ? "，已选择" : ""));
             cell.setOnClickListener(view -> listener.onDateSelected(date));
             dates.addView(cell, cellParams(leading + day - 1, components.dp(52)));
         }
@@ -264,23 +269,25 @@ public final class CalendarScreen {
         return params;
     }
 
-    private GradientDrawable dateBackground(boolean selected, boolean planned) {
+    private GradientDrawable dateBackground(boolean selected, boolean planned, boolean watched) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setCornerRadius(components.dp(13));
         drawable.setColor(selected ? theme.accent() : Color.TRANSPARENT);
-        if (!selected && planned) drawable.setStroke(components.dp(1), theme.accentSoft());
+        if (!selected && (planned || watched)) drawable.setStroke(components.dp(watched ? 2 : 1), watched ? theme.ink() : theme.accentSoft());
         return drawable;
     }
 
     private void addDateDetails(LinearLayout content) {
         List<AccountModels.CalendarPlan> plans = State.plansForDate(snapshot, selectedDate);
+        AccountModels.CalendarMarker marker = State.markerForDate(watchMarkers, selectedDate);
         LinearLayout heading = components.row();
         heading.addView(components.section(State.dateLabel(selectedDate)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView count = components.code(plans.size() + (plans.size() == 1 ? " PLAN" : " PLANS"));
+        TextView count = components.code(plans.size() + " PLAN · " + (marker == null ? 0 : marker.sessionCount) + " WATCH");
         count.setGravity(Gravity.END);
         heading.addView(count, new LinearLayout.LayoutParams(components.dp(96), ViewGroup.LayoutParams.WRAP_CONTENT));
         content.addView(heading, components.margin(components.matchWrap(), 0, 22, 0, 8));
 
+        content.addView(components.code("PLAN / SCHEDULED"), components.margin(components.matchWrap(), 0, 8, 0, 0));
         if (snapshot != null && !snapshot.readOnly) {
             Button add = components.button(loading ? "正在处理…" : "＋ 为这一天安排视频", false);
             add.setEnabled(!loading);
@@ -292,10 +299,21 @@ public final class CalendarScreen {
             content.addView(statePanel("这一天还没有安排", snapshot != null && snapshot.readOnly
                 ? "旧空间在这一天没有保存计划。"
                 : "可以从共同片库选择一个视频，时间和备注都可以稍后补充。", null, null), components.matchWrap());
-            return;
+        } else {
+            for (AccountModels.CalendarPlan plan : plans) {
+                content.addView(planPanel(plan), components.margin(components.matchWrap(), 0, 0, 0, 10));
+            }
         }
-        for (AccountModels.CalendarPlan plan : plans) {
-            content.addView(planPanel(plan), components.margin(components.matchWrap(), 0, 0, 0, 10));
+
+        content.addView(components.code("ACTUAL / WATCHED"), components.margin(components.matchWrap(), 0, 18, 0, 0));
+        if (marker == null) {
+            content.addView(statePanel("这一天还没有一起看过", "实际观看只按日期展示，不会自动完成或修改计划。", null, null), components.matchWrap());
+        } else {
+            LinearLayout watched = components.panel(15);
+            watched.addView(components.section("一起看过 " + marker.sessionCount + " 次"), components.matchWrap());
+            watched.addView(components.body("共同观看 " + State.durationLabel(marker.watchedSeconds) + " · 不关联计划状态"),
+                components.margin(components.matchWrap(), 0, 6, 0, 0));
+            content.addView(watched, components.matchWrap());
         }
     }
 
@@ -526,6 +544,32 @@ public final class CalendarScreen {
             Set<String> result = new HashSet<>();
             for (AccountModels.CalendarPlan plan : snapshot.plans) result.add(plan.date);
             return result;
+        }
+
+        public static Set<String> watchDates(AccountModels.CalendarMarkers markers) {
+            if (markers == null) return Collections.emptySet();
+            Set<String> result = new HashSet<>();
+            for (AccountModels.CalendarMarker marker : markers.markers) result.add(marker.date);
+            return result;
+        }
+
+        public static AccountModels.CalendarMarker markerForDate(AccountModels.CalendarMarkers markers, String date) {
+            return markers == null || !AccountModels.isCalendarDate(date) ? null : markers.markerForDate(date);
+        }
+
+        public static String dayCellLabel(int day, boolean planned, boolean watched) {
+            if (planned && watched) return day + "\n• ◆";
+            if (planned) return day + "\n•";
+            if (watched) return day + "\n◆";
+            return String.valueOf(day);
+        }
+
+        public static String durationLabel(int seconds) {
+            int safe = Math.max(0, seconds);
+            int hours = safe / 3600;
+            int minutes = (safe % 3600) / 60;
+            if (hours > 0) return minutes > 0 ? hours + " 小时 " + minutes + " 分钟" : hours + " 小时";
+            return Math.max(1, minutes) + " 分钟";
         }
 
         public static String timeLabel(String startTime) {

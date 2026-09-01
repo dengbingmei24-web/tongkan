@@ -76,6 +76,22 @@ public class CalendarScreenStateTest {
         assertEquals("8 月 20 日", CalendarScreen.State.dateLabel("2026-08-20"));
     }
 
+    @Test
+    public void keepsPlanAndActualWatchMarkersIndependent() {
+        AccountModels.CalendarMarkers markers = new AccountModels.CalendarMarkers(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            false,
+            "2026-09",
+            480,
+            Arrays.asList(new AccountModels.CalendarMarker("2026-09-01", 3_900, 2))
+        );
+        assertTrue(CalendarScreen.State.watchDates(markers).contains("2026-09-01"));
+        assertEquals(2, CalendarScreen.State.markerForDate(markers, "2026-09-01").sessionCount);
+        assertEquals("1\n• ◆", CalendarScreen.State.dayCellLabel(1, true, true));
+        assertEquals("1 小时 5 分钟", CalendarScreen.State.durationLabel(3_900));
+        assertFalse(CalendarScreen.State.watchDates(markers).contains("2026-09-02"));
+    }
+
     private static AccountModels.CalendarSnapshot snapshot(AccountModels.CalendarPlan... plans) {
         return new AccountModels.CalendarSnapshot(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

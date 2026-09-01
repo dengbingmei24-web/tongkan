@@ -36,6 +36,7 @@ public final class MainNavigationView {
         void onEditProfile();
         void onRequestUnbind();
         void onChooseArchiveRetention(AccountModels.PairArchive archive);
+        void onOpenArchiveHistory(AccountModels.PairArchive archive);
         void onUseAnonymous();
         void onSwitchAccount();
         void onLogout();
@@ -142,6 +143,7 @@ public final class MainNavigationView {
         AccountModels.PairInvite invite,
         String message,
         boolean loading,
+        View historySection,
         PairActions actions
     ) {
         AccountModels.Pair pair = pairState == null ? null : pairState.pair;
@@ -230,6 +232,11 @@ public final class MainNavigationView {
             content.addView(pairPanel, components.margin(components.matchWrap(), 0, 16, 0, 0));
         }
 
+        if (historySection != null) {
+            if (historySection.getParent() instanceof ViewGroup) ((ViewGroup) historySection.getParent()).removeView(historySection);
+            content.addView(historySection, components.margin(components.matchWrap(), 0, 22, 0, 0));
+        }
+
         if (pairState != null && !pairState.pendingArchives.isEmpty()) {
             content.addView(components.code("ARCHIVE / ACTION REQUIRED"), components.margin(components.matchWrap(), 0, 22, 0, 0));
             content.addView(components.section("待处理的旧空间"), components.margin(components.matchWrap(), 0, 10, 0, 0));
@@ -287,6 +294,10 @@ public final class MainNavigationView {
             panel.addView(choose, components.margin(components.matchHeight(50), 0, 15, 0, 0));
         } else {
             panel.addView(components.body("只读归档 · 不参与当前好友关系和新的双人空间"), components.margin(components.matchWrap(), 0, 8, 0, 0));
+            Button history = components.button("查看旧共同历史", false);
+            history.setEnabled(!loading);
+            history.setOnClickListener(view -> actions.onOpenArchiveHistory(archive));
+            panel.addView(history, components.margin(components.matchHeight(48), 0, 12, 0, 0));
         }
         return panel;
     }
