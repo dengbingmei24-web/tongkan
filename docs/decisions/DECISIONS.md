@@ -112,6 +112,8 @@ Select-String -Path docs/decisions/DECISIONS.md -Pattern "片单|主题|全屏|�
 | D-088 | Alpha 10.2.3 补齐账号模式、解绑、邀请和片库日常操作 | 已接受 | 2026-08-19 |
 | D-089 | 绑定好友房间以 App 内短期可发现为主 | 已接受 | 2026-08-19 |
 | D-090 | Alpha 10.3 采用独立共享日历版本与媒体快照 | 已接受 | 2026-08-20 |
+| D-091 | Alpha 10.3 物理验收延期但不阻塞 Alpha 10.4 规划 | 已接受 | 2026-09-01 |
+| D-092 | Alpha 10.4 冻结历史统计首切片并授权隔离实现 | 已接受 | 2026-09-01 |
 
 ## D-001 房间固定最多两人
 
@@ -962,3 +964,22 @@ Select-String -Path docs/decisions/DECISIONS.md -Pattern "片单|主题|全屏|�
 - 非目标：Alpha 10.3 不加入自动提醒、重复计划、外部日历、多人/私密计划或实际共同观看历史。月历真实观看实心点、双标记和“实际观看”分组继续属于 Alpha 10.4。
 - 原因：独立 revision 避免片库排序或元数据更新与日历编辑互相制造冲突；媒体快照保证条目删除、解绑归档和后续元数据变化时仍能解释原计划；planned/completed 与 planned-only today 查询形成最小闭环，不需要提前引入统计系统。
 - 影响：新增 `0007_calendar_plans.sql`、日历 API、Account/D1 测试、Android 日历/首页/片库入口和 16-case QA 合同。当前仅在 `codex/TK-004-calendar` 本地集成；Preview/生产 migration、Worker 部署和 APK 发布仍需分别授权。
+
+## D-091 Alpha 10.3 物理验收延期但不阻塞 Alpha 10.4 规划
+
+- 日期：2026-09-01
+- 状态：已接受
+- 范围：产品路线图、QA、发布门槛、Alpha 10.4 规划
+- 决策：用户当前不执行 Alpha 10.3 双设备日历/日常使用验收，但允许继续规划下一阶段开发。Alpha 10.3 未完成的物理矩阵继续保留为明确风险和后续发布门槛，不得被自动标记通过；Alpha 10.4 先进入规格、数据合同、任务拆分和风险评审，不因此自动获得实现、迁移、部署、APK 构建、push 或公开发布授权。
+- 原因：用户希望把当前时间投入下一阶段产品规划，而不是立即组织双设备测试；规划工作可以独立推进，但真实设备证据仍不能被自动化或文档替代。
+- 影响：`docs/product/ROADMAP.md` 将共同观看历史与统计提升为 Next 规划目标，创建 `specs/TK-005-history-statistics/`；`CONTEXT.md` 记录验收延期和新的规划目标。任何生产发布仍必须显式说明延期验收风险并单独获得授权。
+
+## D-092 Alpha 10.4 冻结历史统计首切片并授权隔离实现
+
+- 日期：2026-09-01
+- 状态：已接受
+- 范围：Alpha 10.4 产品口径、TK-005 实现和多智能体执行边界
+- 决策：用户在看到五项建议默认后明确要求“继续开发”，并允许审查任务自行调用智能体。首切片冻结为：同一 watch session 满 60 秒才进入可见历史/统计；完成状态保持 `unknown` 且暂不展示完成数量；D1 存 UTC、查询使用 Android 当前 `tzOffsetMinutes`；实际观看只按日期展示且不关联或自动完成计划；历史跟随 pair keep/delete，首切片不提供单条删除、纠错或导出。
+- 执行授权：审查任务可提交 TK-005 规划基线，创建最多三个 D-079 隔离 worktree/智能体，并执行合同范围内的本地代码、测试和审查。该授权不包含 Preview/生产 migration、Account/Signaling deployment、APK build/publish、push、merge 到其他长期分支或公开发布。
+- 原因：上述默认形成最小可信闭环，避免 completion、计划匹配和单条管理拖慢核心服务端记账；并行拆分 Account/D1、Signaling/Protocol、Android/QA 可以保持写入范围独立。
+- 影响：`specs/TK-005-history-statistics/` 从 Draft 转为可实现，requirements checklist 通过；Alpha 10.3 双设备物理矩阵继续 deferred/not passed，任何后续发布仍需单独评估该风险。
