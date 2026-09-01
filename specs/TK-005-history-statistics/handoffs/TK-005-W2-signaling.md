@@ -4,6 +4,7 @@
 **Branch**: `codex/TK-005-W2-signaling`
 **Baseline**: `9473dcdba18341169ad3e7e0ac976f9140cf65b5`
 **Implementation Commit**: `189d11b2aa96731f51772102fbb2669104c57bb0`
+**Reviewer Fix Commit**: `7146338c79d0bf0c7ba6c59ca5ef790757afc517`
 **Verdict Requested**: Reviewer approval for W2 integration
 
 ## Completed Tasks
@@ -24,6 +25,8 @@
 - `apps/signaling/src/env.ts`
 - `apps/signaling/src/message-validation.ts`
 - `apps/signaling/src/message-validation.test.ts`
+- `apps/signaling/src/message-rate-limit.ts` (reviewer fix)
+- `apps/signaling/src/message-rate-limit.test.ts` (reviewer fix)
 - `apps/signaling/src/history-tracker.ts`
 - `apps/signaling/src/history-tracker.test.ts`
 - `apps/signaling/src/history-ingest-client.ts`
@@ -60,6 +63,7 @@
 
 ## Security
 
+- Reviewer integration moved `history.bind` behind a dedicated low-frequency message-rate-limit bucket, preventing authenticated grant-verification floods without consuming playback-report capacity or extending room activity.
 - Grant verification checks version, HMAC signature, exact payload keys, `iat`/`exp`, source, pair, user, room and slot; host and guest must be different users.
 - Full grant strings and HMAC secrets are never written to Durable Object storage, logs, errors or handoff evidence; tests assert token and secret absence from persisted state.
 - Stored state contains only signed grant summaries needed for timing and retry recovery.
@@ -71,20 +75,21 @@
 - `pnpm --filter @tongkan/protocol typecheck` — PASS.
 - `pnpm --filter @tongkan/protocol test` — PASS, 2 files / 13 tests.
 - `pnpm --filter @tongkan/signaling typecheck` — PASS.
-- `pnpm --filter @tongkan/signaling test` — PASS, 8 files / 66 tests.
+- `pnpm --filter @tongkan/signaling test` — PASS after reviewer fix, 8 files / 67 tests.
 - `pnpm --filter @tongkan/protocol build` — PASS; generated local protocol `dist` required by workspace package exports.
 - `pnpm --filter @tongkan/signaling build` — PASS, Wrangler dry-run only; no deployment.
 - `git diff --check -- packages/protocol apps/signaling specs/TK-005-history-statistics/handoffs/TK-005-W2-signaling.md` — PASS before handoff creation and must be rerun after this file is staged.
 
 ## Integration Notes
 
+- Reviewer correction `7146338c79d0bf0c7ba6c59ca5ef790757afc517` is required with the W2 implementation; it rate-limits `history.bind` before HMAC verification while preserving the existing optional/fail-open behavior.
 - Reviewer must configure the real `ACCOUNT_HISTORY` Service Binding and the two history secret values outside this branch; production configuration was intentionally untouched.
 - W1 and reviewer should confirm the frozen internal signature encoding is lowercase hex HMAC-SHA256 over `timestamp + "\n" + rawBody`; if W1 selected a different encoding, align the shared fixture during reviewer integration before Preview.
 - The Worker dry-run correctly shows no `ACCOUNT_HISTORY` binding because this task was forbidden from changing `wrangler.toml`.
 
 ## Rollback
 
-- Revert implementation commit `189d11b2aa96731f51772102fbb2669104c57bb0` and the later handoff-only commit.
+- Revert implementation commit `189d11b2aa96731f51772102fbb2669104c57bb0`, reviewer fix `7146338c79d0bf0c7ba6c59ca5ef790757afc517` and the handoff commits.
 - No migration, remote state, deployment, APK, production configuration or public contract endpoint was changed, so rollback is code-only.
 
 ## Blockers
