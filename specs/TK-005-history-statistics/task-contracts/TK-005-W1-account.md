@@ -1,7 +1,7 @@
 # Worker Task Contract: TK-005-W1 Account History
 
 **Feature**: TK-005
-**Baseline Commit**: `TBD_TK005_PLANNING_BASELINE`
+**Baseline Commit**: `9473dcdba18341169ad3e7e0ac976f9140cf65b5`
 **Branch**: `codex/TK-005-W1-account`
 **Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-005-W1-account`
 **Owner**: Account/D1 execution task

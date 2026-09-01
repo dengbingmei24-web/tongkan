@@ -34,10 +34,11 @@
 ## Current Baseline and Gates
 
 - 当前审查分支：`codex/TK-005-history-statistics`
-- 当前代码基线 HEAD：`8aee2c1 chore: close Alpha 10.3 production baseline`
-- 未提交规划文件与无关 `合作方-透明.png` 共存；图片不得纳入 TK-005。
+- 当前运行时代码基线：`8aee2c1 chore: close Alpha 10.3 production baseline`
+- 已批准规划 baseline：`9473dcdba18341169ad3e7e0ac976f9140cf65b5`
+- 无关 `合作方-透明.png` 保持未跟踪并排除在 TK-005 之外。
 - 安全备份：`safety-before-alpha10.4-planning-20260901-104911`
-- 合同中的 baseline 使用 `TBD_TK005_PLANNING_BASELINE`，待本轮规划提交后替换为真实 commit hash。
+- W1/W2/W3 合同统一固定到规划 baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5`。
 - 当前没有 TK-005 实现分支或 worktree。
 
 ### Implementation Gate

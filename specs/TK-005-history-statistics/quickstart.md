@@ -4,7 +4,7 @@
 
 - PD-001..PD-005 已被用户接受或明确后置。
 - 用户已批准提交 TK-005 规划 baseline，并另行授权开始实现。
-- `TBD_TK005_PLANNING_BASELINE` 已替换为真实 commit hash。
+- W1/W2/W3 合同 baseline 已固定为 `9473dcdba18341169ad3e7e0ac976f9140cf65b5`。
 - W1/W2/W3 worktree 从同一 clean baseline 创建。
 - `合作方-透明.png` 保持排除。
 - 未获得单独授权时，不运行 Preview/Production migration、部署或 APK 发布。

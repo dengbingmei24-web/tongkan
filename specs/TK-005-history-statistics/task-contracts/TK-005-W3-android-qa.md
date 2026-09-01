@@ -1,7 +1,7 @@
 # Worker Task Contract: TK-005-W3 Android History and QA
 
 **Feature**: TK-005
-**Baseline Commit**: `TBD_TK005_PLANNING_BASELINE`
+**Baseline Commit**: `9473dcdba18341169ad3e7e0ac976f9140cf65b5`
 **Branch**: `codex/TK-005-W3-android-qa`
 **Worktree**: `C:\Users\dengbingmei\Documents\tongkan-worktrees\TK-005-W3-android-qa`
 **Owner**: Android/QA execution task

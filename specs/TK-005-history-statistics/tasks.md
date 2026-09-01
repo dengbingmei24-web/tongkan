@@ -6,8 +6,8 @@
 - [x] T002 [REVIEW] 创建并恢复安全 stash `safety-before-alpha10.4-planning-20260901-104911`，保留无关未跟踪资产。
 - [x] T003 [REVIEW] 完成 spec、research、data model、OpenAPI、plan、tasks、quickstart、requirements checklist 和 W1/W2/W3 合同，并通过文件清单、OpenAPI 结构、引用、空白与跨文档一致性校验。
 - [x] T004 [REVIEW] 用户于 2026-09-01 以“继续开发”接受 PD-001..PD-005：60 秒、completion 后置、UTC+设备 offset、无自动计划关联、pair 级 keep/delete 且无单条管理。
-- [ ] T005 [REVIEW] 获得用户明确授权，将 TK-005 规划包提交为干净 baseline；排除 `合作方-透明.png`，不 push、不部署、不构建 APK。
-- [ ] T006 [REVIEW] 用 T005 commit hash 替换所有 `TBD_TK005_PLANNING_BASELINE`，并在用户授权开始实现后创建 TK-005 review branch 与三个独立 worktree。
+- [x] T005 [REVIEW] 用户明确授权后，将 TK-005 规划包提交为干净 baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5`；已排除 `合作方-透明.png`，未 push、部署或构建 APK。
+- [ ] T006 [REVIEW] 从 T005 baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` 创建三个独立 worktree，并按 W1/W2/W3 合同分派实现任务。
 
 ## Phase 1: W1 Account Worker and D1
 
