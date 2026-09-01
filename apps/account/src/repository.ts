@@ -332,6 +332,9 @@ export class AccountRepository {
   }
 
   async unbindPair(pairId: string, userId: string, retention: PairRetentionDecision, now: number): Promise<boolean> {
+    const historyEnabled = Boolean(await this.db.prepare(
+      "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'watch_room_sources' LIMIT 1",
+    ).first<{ present: number }>());
     const results = await this.db.batch([
       this.db.prepare(
         `UPDATE pairs
@@ -364,6 +367,15 @@ export class AccountRepository {
            AND p.unbound_by_user_id = ? AND p.unbound_at = ?
            AND EXISTS (SELECT 1 FROM active_pair_members ap WHERE ap.pair_id = p.id)`,
       ).bind(userId, retention, userId, now, now, pairId, userId, now),
+      ...(historyEnabled ? [this.db.prepare(
+        `UPDATE watch_room_sources
+         SET status = 'revoked', revoked_at = ?, updated_at = ?
+         WHERE pair_id = ? AND status = 'active' AND EXISTS (
+           SELECT 1 FROM pairs p
+           WHERE p.id = ? AND p.status = 'unbound'
+             AND p.unbound_by_user_id = ? AND p.unbound_at = ?
+         )`,
+      ).bind(now, now, pairId, pairId, userId, now)] : []),
       this.db.prepare(
         `INSERT INTO pair_archive_members (
            pair_id, user_id, partner_user_id,

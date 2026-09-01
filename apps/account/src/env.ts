@@ -5,6 +5,8 @@ export interface Env {
   EMAIL_HMAC_SECRET: string;
   AUTH_SECRET: string;
   SESSION_SECRET: string;
+  HISTORY_GRANT_SECRET?: string;
+  HISTORY_INGEST_SECRET?: string;
   TEST_ACCESS_TOKEN?: string;
   SMTP_HOST?: string;
   SMTP_PORT?: string;
