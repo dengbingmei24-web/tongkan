@@ -6,6 +6,8 @@ import { CalendarService } from "./calendar-service";
 import { isTestMode, requireSecrets } from "./config";
 import type { Env } from "./env";
 import { AuthError } from "./errors";
+import { D1HistoryRepository } from "./history-repository";
+import { HistoryService } from "./history-service";
 import { allowedOrigin, bearerToken, errorResponse, json, preflight, readObject, stringField } from "./http";
 import { D1LibraryRepository } from "./library-repository";
 import { LibraryService } from "./library-service";
@@ -25,6 +27,11 @@ export default {
       if (url.pathname === "/health" && request.method === "GET") {
         return json({ ok: true, service: "tongkan-account", testMode: isTestMode(env) }, 200, origin);
       }
+      const internalHistoryMatch = url.pathname.match(/^\/internal\/history\/sources\/([^/]+)\/snapshot$/);
+      if (internalHistoryMatch && request.method === "POST") {
+        const historyService = new HistoryService(env, new D1HistoryRepository(env.DB));
+        return json(await historyService.ingestInternal(request, decodeURIComponent(internalHistoryMatch[1] ?? "")), 200, origin);
+      }
       if (!hasTestAccess(request, env)) {
         return json({ error: "TEST_ACCESS_REQUIRED", message: "测试账号服务需要访问令牌。" }, 401, origin);
       }
@@ -37,6 +44,7 @@ export default {
       const pushService = new PushService(env, repository);
       const libraryService = new LibraryService(new D1LibraryRepository(env.DB));
       const calendarService = new CalendarService(new D1CalendarRepository(env.DB));
+      const historyService = new HistoryService(env, new D1HistoryRepository(env.DB));
       if (url.pathname === "/api/auth/send-code" && request.method === "POST") {
         const body = await readObject(request);
         const result = await service.sendCode(stringField(body, "email") ?? "", request.headers.get("cf-connecting-ip"));
@@ -89,6 +97,10 @@ export default {
           stringField(body, "retention") ?? "",
         ), 200, origin);
       }
+      if (url.pathname === "/api/history/grants" && request.method === "POST") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.issueGrant(authenticated.user, await readObject(request)), 200, origin);
+      }
       if (url.pathname === "/api/pair" && request.method === "GET") {
         const authenticated = await service.authenticate(bearerToken(request));
         return json(await pairService.getPairState(authenticated.user), 200, origin);
@@ -113,6 +125,36 @@ export default {
         await activeRoomService.clear(authenticated.user);
         return json({ ok: true }, 200, origin);
       }
+      const archiveHistoryMarkersMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/history\/calendar-markers$/);
+      if (archiveHistoryMarkersMatch && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.getArchiveCalendarMarkers(
+          authenticated.user,
+          decodeURIComponent(archiveHistoryMarkersMatch[1] ?? ""),
+          url.searchParams.get("month"),
+          url.searchParams.get("tzOffsetMinutes"),
+        ), 200, origin);
+      }
+      const archiveHistoryMonthlyMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/history\/monthly$/);
+      if (archiveHistoryMonthlyMatch && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.getArchiveMonthly(
+          authenticated.user,
+          decodeURIComponent(archiveHistoryMonthlyMatch[1] ?? ""),
+          url.searchParams.get("month"),
+          url.searchParams.get("tzOffsetMinutes"),
+        ), 200, origin);
+      }
+      const archiveHistoryMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/history$/);
+      if (archiveHistoryMatch && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.getArchiveHistory(
+          authenticated.user,
+          decodeURIComponent(archiveHistoryMatch[1] ?? ""),
+          url.searchParams.get("cursor"),
+          url.searchParams.get("limit"),
+        ), 200, origin);
+      }
       const archiveLibraryMatch = url.pathname.match(/^\/api\/pair\/archives\/([^/]+)\/library$/);
       if (archiveLibraryMatch && request.method === "GET") {
         const authenticated = await service.authenticate(bearerToken(request));
@@ -126,6 +168,30 @@ export default {
           authenticated.user,
           decodeURIComponent(retentionMatch[1] ?? ""),
           stringField(body, "retention") ?? "",
+        ), 200, origin);
+      }
+      if (url.pathname === "/api/history/monthly" && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.getMonthly(
+          authenticated.user,
+          url.searchParams.get("month"),
+          url.searchParams.get("tzOffsetMinutes"),
+        ), 200, origin);
+      }
+      if (url.pathname === "/api/history/calendar-markers" && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.getCalendarMarkers(
+          authenticated.user,
+          url.searchParams.get("month"),
+          url.searchParams.get("tzOffsetMinutes"),
+        ), 200, origin);
+      }
+      if (url.pathname === "/api/history" && request.method === "GET") {
+        const authenticated = await service.authenticate(bearerToken(request));
+        return json(await historyService.getHistory(
+          authenticated.user,
+          url.searchParams.get("cursor"),
+          url.searchParams.get("limit"),
         ), 200, origin);
       }
       if (url.pathname === "/api/library" && request.method === "GET") {

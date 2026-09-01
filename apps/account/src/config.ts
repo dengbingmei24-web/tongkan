@@ -26,3 +26,15 @@ export function requireSecrets(env: Env): void {
     throw new Error("Account cryptographic secrets are not configured.");
   }
 }
+
+export function historyGrantSecret(env: Env): string {
+  const secret = env.HISTORY_GRANT_SECRET?.trim();
+  if (!secret) throw new Error("History grant secret is not configured.");
+  return secret;
+}
+
+export function historyIngestSecret(env: Env): string {
+  const secret = env.HISTORY_INGEST_SECRET?.trim();
+  if (!secret) throw new Error("History ingest secret is not configured.");
+  return secret;
+}
