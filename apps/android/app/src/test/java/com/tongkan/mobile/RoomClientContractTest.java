@@ -53,6 +53,24 @@ public class RoomClientContractTest {
     }
 
     @Test
+    public void extendedPlaybackReportCarriesHistoryTimingFields() throws Exception {
+        JSONObject actual = RoomProtocol.playbackReport(
+            10, 52.5, false, 4, false, MEDIA, true, 360.0, 1_700_000_000_300L);
+        JSONObject report = actual.getJSONObject("report");
+        assertTrue(report.getBoolean("ended"));
+        assertEquals(360.0, report.getDouble("durationSeconds"), 0.001);
+        assertEquals(9, report.length());
+    }
+
+    @Test
+    public void historyBindCarriesOnlyOpaqueGrant() throws Exception {
+        JSONObject actual = RoomProtocol.historyBind("opaque-history-grant-value");
+        assertEquals("history.bind", actual.getString("type"));
+        assertEquals("opaque-history-grant-value", actual.getString("grant"));
+        assertEquals(2, actual.length());
+    }
+
+    @Test
     public void chatMessageMatchesSharedServerContract() throws Exception {
         long before = System.currentTimeMillis();
         JSONObject actual = RoomProtocol.chatMessage("android-message-1", "你好 👋");

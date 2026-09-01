@@ -68,6 +68,15 @@ public class AccountClientTest {
         assertEquals("INVALID_RESPONSE", unexpectedRevision.code);
     }
 
+    @Test
+    public void buildsEncodedHistoryPaginationPaths() {
+        assertEquals("/api/history?limit=20", AccountClient.historyPagePath("/api/history", "", 20));
+        assertEquals(
+            "/api/history?limit=20&cursor=endedAt%3A1800%2Bid%3Aabc",
+            AccountClient.historyPagePath("/api/history", "endedAt:1800+id:abc", 20)
+        );
+    }
+
     private static void expectIllegalArgument(ThrowingRunnable action) throws Exception {
         try {
             action.run();

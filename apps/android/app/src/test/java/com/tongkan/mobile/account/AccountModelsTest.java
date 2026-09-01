@@ -59,6 +59,93 @@ public class AccountModelsTest {
     }
 
     @Test
+    public void parsesHistoryGrantPageMonthlyAndMarkers() throws Exception {
+        String pairId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        String roomId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        AccountModels.HistoryGrant grant = AccountModels.HistoryGrant.fromJson(new JSONObject()
+            .put("sourceId", "cccccccccccccccccccccccccccccccc")
+            .put("pairId", pairId)
+            .put("roomId", roomId)
+            .put("slot", "host")
+            .put("grant", "opaque-history-grant-value")
+            .put("expiresAt", 1_800_000_600_000L)
+            .put("refreshAfter", 1_800_000_300_000L));
+        assertEquals("host", grant.slot);
+        assertEquals(roomId, grant.roomId);
+        assertTrue(grant.matches(pairId, roomId, "host"));
+        assertFalse(grant.matches(pairId, roomId, "guest"));
+        AccountModels.HistoryGrant boundedGrant = grant.withServerExpiry(1_800_000_500_000L);
+        assertEquals(1_800_000_500_000L, boundedGrant.expiresAt);
+        assertTrue(boundedGrant.refreshAfter <= boundedGrant.expiresAt);
+
+        JSONObject media = new JSONObject()
+            .put("bvid", "BV1Qxuc62E1y")
+            .put("page", 1)
+            .put("canonicalUrl", "https://www.bilibili.com/video/BV1Qxuc62E1y")
+            .put("title", "共同观看")
+            .put("coverUrl", JSONObject.NULL);
+        AccountModels.HistoryPage page = AccountModels.HistoryPage.fromJson(new JSONObject()
+            .put("pairId", pairId)
+            .put("readOnly", false)
+            .put("nextCursor", "cursor-2")
+            .put("items", new JSONArray().put(new JSONObject()
+                .put("id", "dddddddddddddddddddddddddddddddd")
+                .put("roomId", roomId)
+                .put("startedAt", 1_800_000_000_000L)
+                .put("endedAt", 1_800_000_120_000L)
+                .put("watchedSeconds", 120)
+                .put("completionState", "unknown")
+                .put("media", media))));
+        assertEquals(1, page.items.size());
+        assertEquals("unknown", page.items.get(0).completionState);
+
+        AccountModels.MonthlySummary monthly = AccountModels.MonthlySummary.fromJson(new JSONObject()
+            .put("pairId", pairId)
+            .put("readOnly", false)
+            .put("month", "2026-09")
+            .put("tzOffsetMinutes", 480)
+            .put("totalWatchedSeconds", 120)
+            .put("sessionCount", 1)
+            .put("distinctVideoCount", 1)
+            .put("completedCount", JSONObject.NULL)
+            .put("lastWatchedDate", "2026-09-01")
+            .put("days", new JSONArray().put(new JSONObject()
+                .put("date", "2026-09-01")
+                .put("watchedSeconds", 120)
+                .put("sessionCount", 1))));
+        assertNull(monthly.completedCount);
+        assertEquals(480, monthly.tzOffsetMinutes);
+
+        AccountModels.CalendarMarkers markers = AccountModels.CalendarMarkers.fromJson(new JSONObject()
+            .put("pairId", pairId)
+            .put("readOnly", false)
+            .put("month", "2026-09")
+            .put("tzOffsetMinutes", 480)
+            .put("markers", new JSONArray().put(new JSONObject()
+                .put("date", "2026-09-01")
+                .put("watchedSeconds", 120)
+                .put("sessionCount", 1))));
+        assertEquals(120, markers.markerForDate("2026-09-01").watchedSeconds);
+    }
+
+    @Test
+    public void rejectsHistoryResponsesWithInvalidIdentityOrMonth() throws Exception {
+        try {
+            AccountModels.HistoryGrant.fromJson(new JSONObject()
+                .put("sourceId", "cccccccccccccccccccccccccccccccc")
+                .put("pairId", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .put("roomId", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .put("slot", "third-party")
+                .put("grant", "opaque-history-grant-value")
+                .put("expiresAt", 1_800_000_600_000L)
+                .put("refreshAfter", 1_800_000_300_000L));
+            fail("Expected invalid history slot");
+        } catch (org.json.JSONException expected) {
+            assertFalse(expected.getMessage().isEmpty());
+        }
+    }
+
+    @Test
     public void rejectsActiveRoomUrlsOutsideTongkan() throws Exception {
         JSONObject response = new JSONObject()
             .put("room", new JSONObject()

@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "previewOnly": true,
+  "requiredCoverage": [
+    "a-b-c",
+    "anonymous",
+    "grant-lifecycle",
+    "report-cadence",
+    "overlap-matrix",
+    "retry-idempotency",
+    "history-pagination",
+    "monthly-offset",
+    "calendar-markers",
+    "archive-keep",
+    "archive-forbidden",
+    "cascade",
+    "sensitive-output"
+  ],
+  "cases": [
+    {
+      "id": "grant-host-a",
+      "title": "A 作为已发布 active-room host 获取授权",
+      "kind": "http",
+      "actor": "A",
+      "coverage": ["a-b-c", "grant-lifecycle"],
+      "request": {"method": "POST", "path": "/api/history/grants", "body": {"roomId": "{{ACTIVE_ROOM_ID}}", "slot": "host"}},
+      "expect": {"statuses": [200], "required": ["sourceId", "pairId", "roomId", "slot", "grant", "expiresAt", "refreshAfter"]}
+    },
+    {
+      "id": "grant-guest-b",
+      "title": "B 作为 active-room guest 获取并刷新授权",
+      "kind": "http",
+      "actor": "B",
+      "coverage": ["a-b-c", "grant-lifecycle"],
+      "request": {"method": "POST", "path": "/api/history/grants", "body": {"roomId": "{{ACTIVE_ROOM_ID}}", "slot": "guest"}},
+      "expect": {"statuses": [200], "required": ["sourceId", "pairId", "grant", "expiresAt", "refreshAfter"]}
+    },
+    {
+      "id": "grant-third-account-c",
+      "title": "C 无法为 A-B active-room 获取授权",
+      "kind": "http",
+      "actor": "C",
+      "coverage": ["a-b-c"],
+      "request": {"method": "POST", "path": "/api/history/grants", "body": {"roomId": "{{ACTIVE_ROOM_ID}}", "slot": "guest"}},
+      "expect": {"statuses": [403, 409], "errors": ["HISTORY_GRANT_FORBIDDEN", "HISTORY_SOURCE_CONFLICT", "PAIR_REQUIRED"]}
+    },
+    {
+      "id": "anonymous-excluded",
+      "title": "匿名请求不能读取或创建账号历史",
+      "kind": "http",
+      "actor": "none",
+      "coverage": ["anonymous"],
+      "request": {"method": "GET", "path": "/api/history?limit=20"},
+      "expect": {"statuses": [401], "errors": ["AUTH_REQUIRED"]}
+    },
+    {
+      "id": "report-cadence-and-cleanup",
+      "title": "Android 每 5 秒与关键状态变化报告，离房后无残留任务",
+      "kind": "android-jvm",
+      "coverage": ["report-cadence", "grant-lifecycle"],
+      "assertions": ["periodic=5000ms", "immediate=play,pause,ready,buffering,ended,media,sequence", "cleanup=pause,disconnect,leave,logout,anonymous,account-switch"]
+    },
+    {
+      "id": "strict-overlap-matrix",
+      "title": "只有双方 fresh/ready/playing/同媒体/同 sequence/有效 grant 才计时",
+      "kind": "signaling-contract",
+      "coverage": ["overlap-matrix"],
+      "assertions": ["both-valid=count", "single-side=stop", "pause=stop", "buffering=stop", "stale=stop", "disconnect=stop", "media-change=stop", "sequence-mismatch=stop", "ended=stop", "grant-expired=stop", "seek=no-jump-credit", "rate=wall-clock"]
+    },
+    {
+      "id": "retry-and-reorder",
+      "title": "重复 interval 与旧 sourceRevision 不重复累计",
+      "kind": "integration-contract",
+      "coverage": ["retry-idempotency"],
+      "assertions": ["same-interval-replay=idempotent", "older-revision=stale", "conflicting-interval=409", "20-retries=no-double-count"]
+    },
+    {
+      "id": "active-history-pagination",
+      "title": "A/B 读取相同倒序历史并安全分页",
+      "kind": "http",
+      "actor": "A",
+      "coverage": ["history-pagination", "a-b-c"],
+      "request": {"method": "GET", "path": "/api/history?limit=20"},
+      "expect": {"statuses": [200], "required": ["pairId", "readOnly", "items"], "present": ["nextCursor"]}
+    },
+    {
+      "id": "monthly-current-offset",
+      "title": "月度摘要按 Android 当前 offset 聚合且 completedCount 隐藏",
+      "kind": "http",
+      "actor": "A",
+      "coverage": ["monthly-offset"],
+      "request": {"method": "GET", "path": "/api/history/monthly?month={{MONTH}}&tzOffsetMinutes={{TZ_OFFSET_MINUTES}}"},
+      "expect": {"statuses": [200], "required": ["month", "tzOffsetMinutes", "totalWatchedSeconds", "sessionCount", "distinctVideoCount", "completedCount", "days"], "values": {"completedCount": null}}
+    },
+    {
+      "id": "calendar-plan-actual-independent",
+      "title": "实看 marker 不修改 calendar revision/status",
+      "kind": "integration-contract",
+      "coverage": ["calendar-markers"],
+      "assertions": ["plan-only=plan-marker", "actual-only=watch-marker", "both=distinct-markers", "actual-write=no-calendar-revision", "actual-write=no-plan-status-change"]
+    },
+    {
+      "id": "archive-keep-readonly",
+      "title": "keep 用户只读读取旧历史、月度和 markers",
+      "kind": "http",
+      "actor": "A",
+      "coverage": ["archive-keep"],
+      "request": {"method": "GET", "path": "/api/pair/archives/{{KEEP_PAIR_ID}}/history?limit=20"},
+      "expect": {"statuses": [200], "values": {"readOnly": true}}
+    },
+    {
+      "id": "archive-pending-delete-third-forbidden",
+      "title": "pending/delete/第三方没有旧历史入口",
+      "kind": "integration-contract",
+      "coverage": ["archive-forbidden", "a-b-c"],
+      "assertions": ["pending=403", "delete=403", "third-account=403", "android-entry=hidden"]
+    },
+    {
+      "id": "both-delete-cascade",
+      "title": "双方 delete 后 API 与 D1 source/interval/session 均无残留",
+      "kind": "integration-contract",
+      "coverage": ["cascade"],
+      "assertions": ["history-api=404", "monthly-api=404", "markers-api=404", "source-count=0", "interval-count=0", "session-count=0"]
+    },
+    {
+      "id": "sensitive-output-scan",
+      "title": "日志、错误和 QA 输出不含敏感值",
+      "kind": "security-scan",
+      "coverage": ["sensitive-output"],
+      "assertions": ["no-session-token", "no-full-email", "no-room-key", "no-invite-url", "no-grant", "no-internal-signature"]
+    }
+  ]
+}

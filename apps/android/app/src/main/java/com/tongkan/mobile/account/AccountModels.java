@@ -169,6 +169,272 @@ public final class AccountModels {
         }
     }
 
+    public static final class HistoryGrant {
+        public final String sourceId;
+        public final String pairId;
+        public final String roomId;
+        public final String slot;
+        public final String grant;
+        public final long expiresAt;
+        public final long refreshAfter;
+
+        public HistoryGrant(String sourceId, String pairId, String roomId, String slot, String grant, long expiresAt, long refreshAfter) {
+            this.sourceId = sourceId;
+            this.pairId = pairId;
+            this.roomId = roomId;
+            this.slot = slot;
+            this.grant = grant;
+            this.expiresAt = expiresAt;
+            this.refreshAfter = refreshAfter;
+        }
+
+        public static HistoryGrant fromJson(JSONObject json) throws JSONException {
+            String grant = requiredText(json, "grant", 4096);
+            long expiresAt = positiveLong(json, "expiresAt");
+            long refreshAfter = positiveLong(json, "refreshAfter");
+            if (grant.length() < 20 || refreshAfter > expiresAt) throw new JSONException("Invalid history grant response");
+            return new HistoryGrant(
+                requiredId(json, "sourceId"),
+                requiredId(json, "pairId"),
+                requiredId(json, "roomId"),
+                requiredEnum(json, "slot", "host", "guest"),
+                grant,
+                expiresAt,
+                refreshAfter
+            );
+        }
+
+        public boolean matches(String pairId, String roomId, String slot) {
+            return this.pairId.equals(pairId) && this.roomId.equals(roomId) && this.slot.equals(slot);
+        }
+
+        public HistoryGrant withServerExpiry(long serverExpiresAt) {
+            if (serverExpiresAt <= 0 || serverExpiresAt >= expiresAt) return this;
+            return new HistoryGrant(
+                sourceId, pairId, roomId, slot, grant,
+                serverExpiresAt, Math.min(refreshAfter, serverExpiresAt)
+            );
+        }
+    }
+
+    public static final class HistoryMedia {
+        public final String bvid;
+        public final int page;
+        public final String canonicalUrl;
+        public final String title;
+        public final String coverUrl;
+
+        public HistoryMedia(String bvid, int page, String canonicalUrl, String title, String coverUrl) {
+            this.bvid = bvid;
+            this.page = page;
+            this.canonicalUrl = canonicalUrl;
+            this.title = title;
+            this.coverUrl = coverUrl;
+        }
+
+        public static HistoryMedia fromJson(JSONObject json) throws JSONException {
+            String bvid = requiredText(json, "bvid", 32);
+            if (bvid.codePointCount(0, bvid.length()) < 3) throw new JSONException("Invalid history media identity");
+            return new HistoryMedia(
+                bvid,
+                positiveInt(json, "page"),
+                requiredHttpsUrl(json, "canonicalUrl", 1000),
+                requiredText(json, "title", 160),
+                nullableHttpsUrl(json, "coverUrl", 1000)
+            );
+        }
+    }
+
+    public static final class HistoryItem {
+        public static final Comparator<HistoryItem> DISPLAY_ORDER = (left, right) -> {
+            int endedOrder = Long.compare(right.endedAt, left.endedAt);
+            return endedOrder != 0 ? endedOrder : left.id.compareTo(right.id);
+        };
+
+        public final String id;
+        public final String roomId;
+        public final long startedAt;
+        public final long endedAt;
+        public final int watchedSeconds;
+        public final String completionState;
+        public final HistoryMedia media;
+
+        public HistoryItem(String id, String roomId, long startedAt, long endedAt, int watchedSeconds, String completionState, HistoryMedia media) {
+            this.id = id;
+            this.roomId = roomId;
+            this.startedAt = startedAt;
+            this.endedAt = endedAt;
+            this.watchedSeconds = watchedSeconds;
+            this.completionState = completionState;
+            this.media = media;
+        }
+
+        public static HistoryItem fromJson(JSONObject json) throws JSONException {
+            long startedAt = positiveLong(json, "startedAt");
+            long endedAt = positiveLong(json, "endedAt");
+            if (endedAt < startedAt) throw new JSONException("Invalid history item timestamps");
+            return new HistoryItem(
+                requiredId(json, "id"), requiredId(json, "roomId"), startedAt, endedAt,
+                positiveInt(json, "watchedSeconds"),
+                requiredEnum(json, "completionState", "unknown", "completed", "incomplete"),
+                HistoryMedia.fromJson(json.getJSONObject("media"))
+            );
+        }
+    }
+
+    public static final class HistoryPage {
+        public final String pairId;
+        public final boolean readOnly;
+        public final String nextCursor;
+        public final List<HistoryItem> items;
+
+        public HistoryPage(String pairId, boolean readOnly, String nextCursor, List<HistoryItem> items) {
+            this.pairId = pairId;
+            this.readOnly = readOnly;
+            this.nextCursor = nextCursor;
+            List<HistoryItem> ordered = new ArrayList<>(items);
+            ordered.sort(HistoryItem.DISPLAY_ORDER);
+            this.items = Collections.unmodifiableList(ordered);
+        }
+
+        public static HistoryPage fromJson(JSONObject json) throws JSONException {
+            if (!(json.opt("readOnly") instanceof Boolean)) throw new JSONException("Invalid history read-only state");
+            String nextCursor = nullableText(json, "nextCursor", 512);
+            JSONArray itemJson = json.getJSONArray("items");
+            if (itemJson.length() > 50) throw new JSONException("Invalid history page size");
+            List<HistoryItem> items = new ArrayList<>(itemJson.length());
+            Set<String> ids = new HashSet<>();
+            for (int index = 0; index < itemJson.length(); index += 1) {
+                HistoryItem item = HistoryItem.fromJson(itemJson.getJSONObject(index));
+                if (!ids.add(item.id)) throw new JSONException("Duplicate history item response");
+                items.add(item);
+            }
+            return new HistoryPage(requiredId(json, "pairId"), json.getBoolean("readOnly"), nextCursor, items);
+        }
+    }
+
+    public static final class DailyWatchSummary {
+        public final String date;
+        public final int watchedSeconds;
+        public final int sessionCount;
+
+        public DailyWatchSummary(String date, int watchedSeconds, int sessionCount) {
+            this.date = date;
+            this.watchedSeconds = watchedSeconds;
+            this.sessionCount = sessionCount;
+        }
+
+        public static DailyWatchSummary fromJson(JSONObject json) throws JSONException {
+            return new DailyWatchSummary(requiredCalendarDate(json, "date"), positiveInt(json, "watchedSeconds"), positiveInt(json, "sessionCount"));
+        }
+    }
+
+    public static final class MonthlySummary {
+        public final String pairId;
+        public final boolean readOnly;
+        public final String month;
+        public final int tzOffsetMinutes;
+        public final int totalWatchedSeconds;
+        public final int sessionCount;
+        public final int distinctVideoCount;
+        public final Integer completedCount;
+        public final String lastWatchedDate;
+        public final List<DailyWatchSummary> days;
+
+        public MonthlySummary(String pairId, boolean readOnly, String month, int tzOffsetMinutes, int totalWatchedSeconds, int sessionCount, int distinctVideoCount, Integer completedCount, String lastWatchedDate, List<DailyWatchSummary> days) {
+            this.pairId = pairId;
+            this.readOnly = readOnly;
+            this.month = month;
+            this.tzOffsetMinutes = tzOffsetMinutes;
+            this.totalWatchedSeconds = totalWatchedSeconds;
+            this.sessionCount = sessionCount;
+            this.distinctVideoCount = distinctVideoCount;
+            this.completedCount = completedCount;
+            this.lastWatchedDate = lastWatchedDate;
+            this.days = Collections.unmodifiableList(new ArrayList<>(days));
+        }
+
+        public static MonthlySummary fromJson(JSONObject json) throws JSONException {
+            if (!(json.opt("readOnly") instanceof Boolean)) throw new JSONException("Invalid history read-only state");
+            String month = requiredText(json, "month", 7);
+            if (!isCalendarMonth(month)) throw new JSONException("Invalid history month");
+            int offset = json.getInt("tzOffsetMinutes");
+            if (offset < -840 || offset > 840) throw new JSONException("Invalid timezone offset");
+            String lastWatchedDate = null;
+            if (json.has("lastWatchedDate") && json.get("lastWatchedDate") != JSONObject.NULL) lastWatchedDate = requiredCalendarDate(json, "lastWatchedDate");
+            JSONArray dayJson = json.getJSONArray("days");
+            if (dayJson.length() > 31) throw new JSONException("Invalid monthly history days");
+            List<DailyWatchSummary> days = new ArrayList<>(dayJson.length());
+            Set<String> dates = new HashSet<>();
+            for (int index = 0; index < dayJson.length(); index += 1) {
+                DailyWatchSummary day = DailyWatchSummary.fromJson(dayJson.getJSONObject(index));
+                if (!month.equals(day.date.substring(0, 7)) || !dates.add(day.date)) throw new JSONException("Invalid monthly history date");
+                days.add(day);
+            }
+            return new MonthlySummary(
+                requiredId(json, "pairId"), json.getBoolean("readOnly"), month, offset,
+                nonNegativeInt(json, "totalWatchedSeconds"), nonNegativeInt(json, "sessionCount"),
+                nonNegativeInt(json, "distinctVideoCount"), nullableNonNegativeInt(json, "completedCount"),
+                lastWatchedDate, days
+            );
+        }
+    }
+
+    public static final class CalendarMarker {
+        public final String date;
+        public final int watchedSeconds;
+        public final int sessionCount;
+
+        public CalendarMarker(String date, int watchedSeconds, int sessionCount) {
+            this.date = date;
+            this.watchedSeconds = watchedSeconds;
+            this.sessionCount = sessionCount;
+        }
+
+        public static CalendarMarker fromJson(JSONObject json) throws JSONException {
+            return new CalendarMarker(requiredCalendarDate(json, "date"), positiveInt(json, "watchedSeconds"), positiveInt(json, "sessionCount"));
+        }
+    }
+
+    public static final class CalendarMarkers {
+        public final String pairId;
+        public final boolean readOnly;
+        public final String month;
+        public final int tzOffsetMinutes;
+        public final List<CalendarMarker> markers;
+
+        public CalendarMarkers(String pairId, boolean readOnly, String month, int tzOffsetMinutes, List<CalendarMarker> markers) {
+            this.pairId = pairId;
+            this.readOnly = readOnly;
+            this.month = month;
+            this.tzOffsetMinutes = tzOffsetMinutes;
+            this.markers = Collections.unmodifiableList(new ArrayList<>(markers));
+        }
+
+        public static CalendarMarkers fromJson(JSONObject json) throws JSONException {
+            if (!(json.opt("readOnly") instanceof Boolean)) throw new JSONException("Invalid history read-only state");
+            String month = requiredText(json, "month", 7);
+            if (!isCalendarMonth(month)) throw new JSONException("Invalid history month");
+            int offset = json.getInt("tzOffsetMinutes");
+            if (offset < -840 || offset > 840) throw new JSONException("Invalid timezone offset");
+            JSONArray markerJson = json.getJSONArray("markers");
+            if (markerJson.length() > 31) throw new JSONException("Invalid calendar marker count");
+            List<CalendarMarker> markers = new ArrayList<>(markerJson.length());
+            Set<String> dates = new HashSet<>();
+            for (int index = 0; index < markerJson.length(); index += 1) {
+                CalendarMarker marker = CalendarMarker.fromJson(markerJson.getJSONObject(index));
+                if (!month.equals(marker.date.substring(0, 7)) || !dates.add(marker.date)) throw new JSONException("Invalid calendar marker date");
+                markers.add(marker);
+            }
+            return new CalendarMarkers(requiredId(json, "pairId"), json.getBoolean("readOnly"), month, offset, markers);
+        }
+
+        public CalendarMarker markerForDate(String date) {
+            for (CalendarMarker marker : markers) if (marker.date.equals(date)) return marker;
+            return null;
+        }
+    }
+
     public static final class PublicActor {
         public final String id;
         public final String nickname;

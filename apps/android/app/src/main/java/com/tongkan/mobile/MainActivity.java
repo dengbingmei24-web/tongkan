@@ -56,6 +56,7 @@ import com.tongkan.mobile.ui.BreathComponents;
 import com.tongkan.mobile.ui.BreathTheme;
 import com.tongkan.mobile.ui.CalendarScreen;
 import com.tongkan.mobile.ui.HomeScreen;
+import com.tongkan.mobile.ui.HistorySectionView;
 import com.tongkan.mobile.ui.LibraryScreen;
 import com.tongkan.mobile.ui.MainNavigationView;
 import com.tongkan.mobile.ui.ImmersiveMediaGestureController;
@@ -74,6 +75,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -86,6 +88,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private static final String PREFS = "tongkan_android";
     private static final String PUBLIC_ORIGIN = "https://tongkan-personal.pages.dev";
     private static final long ACTIVE_ROOM_POLL_INTERVAL_MS = 10_000L;
+    private static final long HISTORY_GRANT_RETRY_MS = 10_000L;
 
     private final ExecutorService background = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
@@ -105,6 +108,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private List<AccountModels.BatchItemResult> libraryBatchResults = new ArrayList<>();
     private AccountModels.CalendarSnapshot currentCalendar;
     private AccountModels.CalendarSnapshot currentTodayCalendar;
+    private AccountModels.CalendarMarkers currentCalendarMarkers;
     private String currentArchiveCalendarPairId;
     private String calendarMonth = LocalDate.now().toString().substring(0, 7);
     private String calendarSelectedDate = LocalDate.now().toString();
@@ -112,6 +116,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private String calendarMessage = "";
     private String todayCalendarError = "";
     private boolean calendarLoading;
+    private boolean calendarMarkersLoading;
     private boolean calendarError;
     private boolean todayCalendarLoading;
     private long calendarRequestGeneration;
@@ -121,6 +126,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private String pairMessage = "";
     private boolean pairLoading;
     private boolean pairLoaded;
+    private AccountModels.HistoryPage currentWatchHistory;
+    private AccountModels.MonthlySummary currentWatchMonthly;
+    private String currentWatchArchivePairId;
+    private boolean watchHistoryLoading;
+    private boolean watchHistoryError;
+    private String watchHistoryMessage = "";
+    private int watchHistoryPendingRequests;
+    private long watchHistoryRequestGeneration;
     private String registeredPushToken;
     private final PushTokenProvider pushTokenProvider = new FcmPushTokenProvider();
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 7201;
@@ -173,6 +186,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private MainNavigationView mainNavigationView;
     private LibraryScreen libraryScreen;
     private CalendarScreen calendarScreen;
+    private HistorySectionView historySectionView;
     private BreathTheme breathTheme;
     private LinearLayout videoSection;
     private LinearLayout preparationPanel;
@@ -204,6 +218,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean activeRoomLoading;
     private boolean activeRoomJoining;
     private final Runnable activeRoomPoll = this::refreshActiveRoom;
+    private AccountModels.HistoryGrant roomHistoryGrant;
+    private boolean historyGrantRequesting;
+    private boolean historyPairRequesting;
+    private boolean historyActiveRoomConfirmed;
+    private boolean activityResumed;
+    private long historyLifecycleGeneration;
+    private final Runnable historyGrantRefresh = () -> requestHistoryGrant(true);
+    private final Runnable historyGrantExpiry = this::expireHistoryGrant;
     private BilibiliMedia pendingLibraryMedia;
     private boolean darkMode;
     private boolean danmakuVisible;
@@ -290,6 +312,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     @Override
     protected void onResume() {
         super.onResume();
+        activityResumed = true;
+        if (roomClient != null) roomClient.setPlaybackReportsActive(true);
+        maybeStartHistoryGrant();
         if (accountSession == null) return;
         registerDeviceTokenIfAvailable();
         if (mainNavigationView != null
@@ -308,6 +333,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     @Override
     protected void onPause() {
+        activityResumed = false;
+        if (roomClient != null) roomClient.setPlaybackReportsActive(false);
         stopActiveRoomPolling();
         super.onPause();
     }
@@ -353,6 +380,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (rootContainer != null && keyboardLayoutListener != null) {
             rootContainer.getViewTreeObserver().removeOnGlobalLayoutListener(keyboardLayoutListener);
         }
+        clearRoomHistoryLifecycle();
         if (roomClient != null) roomClient.close();
         if (accountClient != null) accountClient.close();
         background.shutdownNow();
@@ -453,6 +481,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             }
         });
         mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTabFromNavigation);
+        historySectionView = new HistorySectionView(this, breathTheme);
         calendarScreen = new CalendarScreen(this, breathTheme, new CalendarScreen.Listener() {
             @Override public void onRefresh() { ensureCalendarLoaded(true); }
             @Override public void onMonthChanged(String month) { changeCalendarMonth(month); }
@@ -1091,6 +1120,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void connectIdentity(String roomId, String key, String role, String inviteKey, String nickname) {
+        boolean confirmedActiveRoom = activePairRoom != null
+            && roomId.equals(activePairRoom.roomId)
+            && "guest".equals(role);
+        clearRoomHistoryLifecycle();
         if (roomClient != null) roomClient.close();
         currentRoomId = roomId;
         currentKey = key;
@@ -1112,7 +1145,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             .putString("role", role)
             .putString("inviteKey", inviteKey == null ? "" : inviteKey)
             .apply();
+        historyActiveRoomConfirmed = confirmedActiveRoom;
         roomClient = new RoomClient(roomId, key, nickname, this);
+        roomClient.setPlaybackReportsActive(activityResumed);
         roomClient.connect();
     }
 
@@ -1228,6 +1263,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         BilibiliMedia previousRoomMedia = roomMedia;
         latestAnchor = anchor;
         roomMedia = anchor.media;
+        if (roomClient != null && (anchor.media == null || (previousRoomMedia != null && !anchor.media.sameIdentity(previousRoomMedia)))) {
+            roomClient.clearPlaybackReport();
+        }
         if (anchor.media == null) {
             playerHint.setText("房间还没有视频");
             showPreparationPanel();
@@ -1295,6 +1333,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         playerBuffering = false;
         currentPositionSeconds = 0;
         durationSeconds = 0;
+        updateRoomPlaybackReport();
         updatePlaybackButtons(true, false);
         seekBar.setProgress(0);
         immersiveSeekBar.setProgress(0);
@@ -1361,6 +1400,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             joinButton.setText("加入房间");
             showVideoScreen();
             applySnapshot(snapshot);
+            maybeStartHistoryGrant();
             if (pendingLibraryMedia != null) {
                 BilibiliMedia media = pendingLibraryMedia;
                 pendingLibraryMedia = null;
@@ -1457,6 +1497,30 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     @Override
+    public void onHistoryBound(long expiresAt) {
+        runOnUiThread(() -> {
+            AccountModels.HistoryGrant grant = roomHistoryGrant;
+            if (grant == null) return;
+            roomHistoryGrant = grant.withServerExpiry(expiresAt);
+            if (roomHistoryGrant == grant) return;
+            scheduleHistoryGrant(roomHistoryGrant);
+        });
+    }
+
+    @Override
+    public void onHistoryDisabled(String code, String message) {
+        runOnUiThread(() -> {
+            roomHistoryGrant = null;
+            historyGrantRequesting = false;
+            mainHandler.removeCallbacks(historyGrantRefresh);
+            mainHandler.removeCallbacks(historyGrantExpiry);
+            if ("HISTORY_GRANT_EXPIRED".equals(code) || "INVALID_HISTORY_GRANT".equals(code)) {
+                mainHandler.postDelayed(historyGrantRefresh, 1_000L);
+            }
+        });
+    }
+
+    @Override
     public void onPlayerReady() {
         runOnUiThread(() -> {
             playerReady = true;
@@ -1469,6 +1533,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 applyLatestAnchorToPlayer();
             }
             playerHint.setText(preparingLocalVideo ? "正在确认视频可播放…" : "播放器已就绪");
+            updateRoomPlaybackReport();
             if (appFullscreen) setImmersiveControlsVisible(true, !playerPaused && !playerEnded);
         });
     }
@@ -1494,6 +1559,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             playerPaused = paused;
             playerEnded = ended;
             readyState = state;
+            updateRoomPlaybackReport();
 
             if (preparingLocalVideo && pendingMediaToBroadcast != null && playerReady && state >= 1 && durationSeconds > 0) {
                 preparingLocalVideo = false;
@@ -1548,6 +1614,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             latestBufferingPositionSeconds = positionSeconds;
             latestBufferingPaused = paused;
             latestBufferingReadyState = state;
+            updateRoomPlaybackReport();
             if (appFullscreen) {
                 setImmersiveControlsVisible(true, !buffering && !paused && !playerEnded);
             }
@@ -1558,7 +1625,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     if (!playerBuffering || roomBufferingActive || roomClient == null || loadedMedia == null || latestAnchor == null) return;
                     roomBufferingActive = true;
                     playerHint.setText("正在缓冲，房间会暂时等待");
-                    roomClient.sendReport(latestAnchor.sequence, latestBufferingPositionSeconds, latestBufferingPaused, latestBufferingReadyState, true, loadedMedia);
+                    updateRoomPlaybackReport();
                 };
                 mainHandler.postDelayed(pendingBufferingReport, BUFFERING_DEBOUNCE_MS);
                 return;
@@ -1569,9 +1636,27 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             roomBufferingActive = false;
             if (wasRoomBufferingActive && roomClient != null && loadedMedia != null && latestAnchor != null) {
                 playerHint.setText("缓冲结束，等待房间继续");
-                roomClient.sendReport(latestAnchor.sequence, latestBufferingPositionSeconds, latestBufferingPaused, latestBufferingReadyState, false, loadedMedia);
+                updateRoomPlaybackReport();
             }
         });
+    }
+
+    private void updateRoomPlaybackReport() {
+        RoomClient client = roomClient;
+        PlaybackAnchor anchor = latestAnchor;
+        BilibiliMedia media = loadedMedia != null ? loadedMedia : roomMedia;
+        if (client == null || anchor == null) return;
+        Double duration = durationSeconds > 0 && Double.isFinite(durationSeconds) ? durationSeconds : null;
+        client.sendReport(
+            anchor.sequence,
+            currentPositionSeconds,
+            playerPaused,
+            readyState,
+            playerBuffering,
+            media,
+            playerEnded,
+            duration
+        );
     }
 
     private void cancelPendingBufferingReport() {
@@ -1847,6 +1932,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void clearAccountSession() {
+        clearRoomHistoryLifecycle();
         stopActiveRoomPolling();
         accountSession = null;
         anonymousMode = false;
@@ -1873,6 +1959,18 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void resetSharedSpaceState() {
         resetLibraryState();
         resetCalendarState();
+        resetWatchHistoryState();
+    }
+
+    private void resetWatchHistoryState() {
+        watchHistoryRequestGeneration += 1;
+        currentWatchHistory = null;
+        currentWatchMonthly = null;
+        currentWatchArchivePairId = null;
+        watchHistoryLoading = false;
+        watchHistoryError = false;
+        watchHistoryMessage = "";
+        watchHistoryPendingRequests = 0;
     }
 
     private void resetLibraryState() {
@@ -1890,6 +1988,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         todayCalendarRequestGeneration += 1;
         currentCalendar = null;
         currentTodayCalendar = null;
+        currentCalendarMarkers = null;
         currentArchiveCalendarPairId = null;
         calendarMonth = LocalDate.now().toString().substring(0, 7);
         calendarSelectedDate = LocalDate.now().toString();
@@ -1897,6 +1996,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         calendarMessage = "";
         todayCalendarError = "";
         calendarLoading = false;
+        calendarMarkersLoading = false;
         calendarError = false;
         todayCalendarLoading = false;
         pendingCalendarItem = null;
@@ -1912,6 +2012,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             currentPairInvite,
             pairMessage,
             pairLoading,
+            watchHistorySection(),
             new MainNavigationView.PairActions() {
                 @Override public void onCreateInvite() { createPairInvite(); }
                 @Override public void onCopyInvite() { copyPairInvite(); }
@@ -1921,11 +2022,219 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 @Override public void onEditProfile() { showEditProfileDialog(); }
                 @Override public void onRequestUnbind() { showUnbindRetentionChoice(); }
                 @Override public void onChooseArchiveRetention(AccountModels.PairArchive archive) { showArchiveRetentionChoice(archive); }
+                @Override public void onOpenArchiveHistory(AccountModels.PairArchive archive) { openArchiveWatchHistory(archive); }
                 @Override public void onUseAnonymous() { enterAnonymousMode(); }
                 @Override public void onSwitchAccount() { confirmSwitchAccount(); }
                 @Override public void onLogout() { confirmAccountLogout(); }
             }
         );
+    }
+
+    private View watchHistorySection() {
+        String pairId = currentWatchArchivePairId != null
+            ? currentWatchArchivePairId
+            : (currentPair == null ? null : currentPair.pairId);
+        if (pairId == null) return null;
+        String partner = currentPair == null ? null : currentPair.partner.nickname;
+        if (currentWatchArchivePairId != null) {
+            for (AccountModels.PairArchive archive : currentPairState.archives) {
+                if (archive.pairId.equals(currentWatchArchivePairId)) partner = archive.partner.nickname;
+            }
+        }
+        return historySectionView.render(
+            currentWatchHistory,
+            currentWatchMonthly,
+            watchHistoryLoading,
+            watchHistoryError,
+            watchHistoryMessage,
+            currentWatchArchivePairId != null,
+            partner,
+            new HistorySectionView.Actions() {
+                @Override public void onRefresh() { ensureWatchHistoryLoaded(true); }
+                @Override public void onLoadMore() { loadMoreWatchHistory(); }
+                @Override public void onCloseArchive() { closeArchiveWatchHistory(); }
+                @Override public void onPlay(AccountModels.HistoryItem item) { playWatchHistoryItem(item); }
+            }
+        );
+    }
+
+    private void openArchiveWatchHistory(AccountModels.PairArchive archive) {
+        if (archive == null || watchHistoryLoading || !"keep".equals(archive.retention)) return;
+        currentWatchArchivePairId = archive.pairId;
+        currentWatchHistory = null;
+        currentWatchMonthly = null;
+        showMainTab("pair", false);
+        loadWatchHistory(true);
+    }
+
+    private void closeArchiveWatchHistory() {
+        watchHistoryRequestGeneration += 1;
+        currentWatchArchivePairId = null;
+        currentWatchHistory = null;
+        currentWatchMonthly = null;
+        watchHistoryLoading = false;
+        watchHistoryError = false;
+        watchHistoryMessage = "已返回当前空间。";
+        showMainTab("pair", false);
+        if (currentPair != null) loadWatchHistory(true);
+    }
+
+    private void playWatchHistoryItem(AccountModels.HistoryItem item) {
+        if (item == null) return;
+        BilibiliMedia media = BilibiliMedia.parse(item.media.canonicalUrl);
+        if (media == null || media.embedUrl() == null) {
+            Toast.makeText(this, "这个历史视频暂时无法播放", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (roomClient != null && authenticated) {
+            prepareLibraryMedia(media);
+            return;
+        }
+        pendingLibraryMedia = media;
+        createRoom(isAccountModeActive() && currentPair != null);
+    }
+
+    private void ensureWatchHistoryLoaded(boolean force) {
+        if (!isAccountModeActive() || watchHistoryLoading) return;
+        if (!force && watchHistoryError) return;
+        String pairId = currentWatchArchivePairId != null
+            ? currentWatchArchivePairId
+            : (currentPair == null ? null : currentPair.pairId);
+        if (pairId == null) return;
+        boolean readOnly = currentWatchArchivePairId != null;
+        if (!force && currentWatchHistory != null && pairId.equals(currentWatchHistory.pairId)
+            && currentWatchHistory.readOnly == readOnly && currentWatchMonthly != null) return;
+        loadWatchHistory(true);
+    }
+
+    private void loadWatchHistory(boolean reset) {
+        AccountModels.Session session = accountSession;
+        String archivePairId = currentWatchArchivePairId;
+        String pairId = archivePairId != null ? archivePairId : (currentPair == null ? null : currentPair.pairId);
+        if (!isAccountModeActive() || session == null || pairId == null || watchHistoryLoading) return;
+        boolean readOnly = archivePairId != null;
+        if (reset) {
+            currentWatchHistory = null;
+            currentWatchMonthly = null;
+        }
+        watchHistoryLoading = true;
+        watchHistoryError = false;
+        watchHistoryMessage = readOnly ? "正在读取只读旧历史…" : "正在读取共同历史…";
+        watchHistoryPendingRequests = 2;
+        showMainTab("pair", false);
+        long generation = ++watchHistoryRequestGeneration;
+        String token = session.token;
+        String month = LocalDate.now().toString().substring(0, 7);
+        int offset = currentTzOffsetMinutes();
+
+        AccountClient.ResultCallback<AccountModels.HistoryPage> pageCallback = new AccountClient.ResultCallback<AccountModels.HistoryPage>() {
+            @Override public void onSuccess(AccountModels.HistoryPage page) {
+                runOnUiThread(() -> {
+                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
+                    if (!pairId.equals(page.pairId) || page.readOnly != readOnly) {
+                        finishWatchHistoryRequest("共同历史返回了不匹配的空间。", true);
+                        return;
+                    }
+                    currentWatchHistory = page;
+                    finishWatchHistoryRequest(null, false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
+                    finishWatchHistoryRequest("共同历史暂时无法读取，房间功能不受影响。", true);
+                });
+            }
+        };
+        AccountClient.ResultCallback<AccountModels.MonthlySummary> monthlyCallback = new AccountClient.ResultCallback<AccountModels.MonthlySummary>() {
+            @Override public void onSuccess(AccountModels.MonthlySummary summary) {
+                runOnUiThread(() -> {
+                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
+                    if (!pairId.equals(summary.pairId) || summary.readOnly != readOnly || !month.equals(summary.month)) {
+                        finishWatchHistoryRequest("月度统计返回了不匹配的空间。", true);
+                        return;
+                    }
+                    currentWatchMonthly = summary;
+                    finishWatchHistoryRequest(null, false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
+                    finishWatchHistoryRequest("月度统计暂时无法读取。", true);
+                });
+            }
+        };
+        if (readOnly) {
+            accountClient.getArchiveHistory(token, pairId, null, 20, pageCallback);
+            accountClient.getArchiveHistoryMonthly(token, pairId, month, offset, monthlyCallback);
+        } else {
+            accountClient.getHistory(token, null, 20, pageCallback);
+            accountClient.getHistoryMonthly(token, month, offset, monthlyCallback);
+        }
+    }
+
+    private void loadMoreWatchHistory() {
+        AccountModels.Session session = accountSession;
+        AccountModels.HistoryPage page = currentWatchHistory;
+        String archivePairId = currentWatchArchivePairId;
+        String pairId = archivePairId != null ? archivePairId : (currentPair == null ? null : currentPair.pairId);
+        if (!isAccountModeActive() || session == null || page == null || page.nextCursor == null || pairId == null || watchHistoryLoading) return;
+        boolean readOnly = archivePairId != null;
+        watchHistoryLoading = true;
+        watchHistoryError = false;
+        watchHistoryMessage = "正在加载更多历史…";
+        watchHistoryPendingRequests = 1;
+        showMainTab("pair", false);
+        long generation = ++watchHistoryRequestGeneration;
+        String token = session.token;
+        AccountClient.ResultCallback<AccountModels.HistoryPage> callback = new AccountClient.ResultCallback<AccountModels.HistoryPage>() {
+            @Override public void onSuccess(AccountModels.HistoryPage next) {
+                runOnUiThread(() -> {
+                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
+                    if (!pairId.equals(next.pairId) || next.readOnly != readOnly) {
+                        finishWatchHistoryRequest("更多历史返回了不匹配的空间。", true);
+                        return;
+                    }
+                    currentWatchHistory = HistorySectionView.State.mergePages(currentWatchHistory, next);
+                    finishWatchHistoryRequest(null, false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
+                    finishWatchHistoryRequest("更多历史暂时无法读取。", true);
+                });
+            }
+        };
+        if (readOnly) accountClient.getArchiveHistory(token, pairId, page.nextCursor, 20, callback);
+        else accountClient.getHistory(token, page.nextCursor, 20, callback);
+    }
+
+    private void finishWatchHistoryRequest(String errorMessage, boolean failed) {
+        if (failed) {
+            watchHistoryError = true;
+            if (errorMessage != null) watchHistoryMessage = errorMessage;
+        }
+        watchHistoryPendingRequests = Math.max(0, watchHistoryPendingRequests - 1);
+        if (watchHistoryPendingRequests == 0) {
+            watchHistoryLoading = false;
+            if (!watchHistoryError) watchHistoryMessage = currentWatchArchivePairId == null ? "共同历史已更新。" : "旧共同历史为只读状态。";
+        }
+        showMainTab("pair", false);
+    }
+
+    private boolean isCurrentWatchHistoryRequest(long generation, String token, String pairId, String archivePairId) {
+        if (generation != watchHistoryRequestGeneration || !isCurrentSession(token)) return false;
+        if (archivePairId != null) return archivePairId.equals(currentWatchArchivePairId);
+        return currentWatchArchivePairId == null && currentPair != null && pairId.equals(currentPair.pairId);
+    }
+
+    private static int currentTzOffsetMinutes() {
+        return ZonedDateTime.now().getOffset().getTotalSeconds() / 60;
     }
 
     private View libraryPage() {
@@ -2229,6 +2538,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         return calendarScreen.render(
             state,
             currentCalendar,
+            currentCalendarMarkers,
             currentPairState == null ? new ArrayList<>() : currentPairState.archives,
             calendarMonth,
             calendarSelectedDate,
@@ -2289,6 +2599,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         currentArchiveCalendarPairId = null;
         calendarMonth = month;
         calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, calendarSelectedDate, LocalDate.now().toString());
+        currentCalendarMarkers = null;
+        calendarMarkersLoading = false;
         calendarLoading = true;
         calendarError = false;
         if (showLoadingMessage) calendarMessage = "正在同步 " + month + " 的共同计划…";
@@ -2309,6 +2621,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     calendarError = false;
                     if (calendarMessage.startsWith("正在")) calendarMessage = "日历已更新。";
                     showMainTab("calendar", false);
+                    loadCalendarMarkers(token, pairId, month, false, generation);
                     showPendingCalendarEditor();
                 });
             }
@@ -2327,6 +2640,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         calendarMonth = month;
         calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, calendarSelectedDate, LocalDate.now().toString());
         currentCalendar = null;
+        currentCalendarMarkers = null;
+        calendarMarkersLoading = false;
         calendarLoading = true;
         calendarError = false;
         calendarMessage = "正在读取只读旧日历…";
@@ -2346,6 +2661,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     calendarError = false;
                     calendarMessage = "旧日历为只读状态。";
                     showMainTab("calendar", false);
+                    loadCalendarMarkers(token, pairId, month, true, generation);
                 });
             }
 
@@ -2355,21 +2671,60 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         });
     }
 
+    private void loadCalendarMarkers(String token, String pairId, String month, boolean readOnly, long generation) {
+        if (calendarMarkersLoading || !AccountModels.isCalendarMonth(month)) return;
+        calendarMarkersLoading = true;
+        int offset = currentTzOffsetMinutes();
+        AccountClient.ResultCallback<AccountModels.CalendarMarkers> callback = new AccountClient.ResultCallback<AccountModels.CalendarMarkers>() {
+            @Override public void onSuccess(AccountModels.CalendarMarkers markers) {
+                runOnUiThread(() -> {
+                    if (!isCurrentCalendarRequest(generation, token, readOnly ? null : pairId, readOnly ? pairId : null)) return;
+                    calendarMarkersLoading = false;
+                    if (!pairId.equals(markers.pairId) || markers.readOnly != readOnly || !month.equals(markers.month)) {
+                        calendarMessage = "计划已读取；实看标记响应不匹配。";
+                        showMainTab("calendar", false);
+                        return;
+                    }
+                    currentCalendarMarkers = markers;
+                    showMainTab("calendar", false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (!isCurrentCalendarRequest(generation, token, readOnly ? null : pairId, readOnly ? pairId : null)) return;
+                    calendarMarkersLoading = false;
+                    currentCalendarMarkers = null;
+                    calendarMessage = "计划已读取；实看标记暂时不可用。";
+                    showMainTab("calendar", false);
+                });
+            }
+        };
+        if (readOnly) accountClient.getArchiveHistoryCalendarMarkers(token, pairId, month, offset, callback);
+        else accountClient.getHistoryCalendarMarkers(token, month, offset, callback);
+    }
+
     private void changeCalendarMonth(String month) {
         if (!AccountModels.isCalendarMonth(month)) return;
         calendarRequestGeneration += 1;
         calendarLoading = false;
+        calendarMarkersLoading = false;
         calendarMonth = month;
         calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, null, LocalDate.now().toString());
         currentCalendar = null;
+        currentCalendarMarkers = null;
         ensureCalendarLoaded(true);
     }
 
     private void openCalendarDate(String date) {
         if (!AccountModels.isCalendarDate(date)) return;
+        calendarRequestGeneration += 1;
+        calendarLoading = false;
+        calendarMarkersLoading = false;
         currentArchiveCalendarPairId = null;
         calendarMonth = CalendarScreen.State.monthOf(date);
         calendarSelectedDate = date;
+        currentCalendarMarkers = null;
         if (!calendarMatches(currentCalendar, currentPair == null ? null : currentPair.pairId, calendarMonth, false)) {
             currentCalendar = null;
         }
@@ -2387,8 +2742,10 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void closeArchiveCalendar() {
         calendarRequestGeneration += 1;
         calendarLoading = false;
+        calendarMarkersLoading = false;
         currentArchiveCalendarPairId = null;
         currentCalendar = null;
+        currentCalendarMarkers = null;
         calendarMessage = "已返回当前空间。";
         if (currentPair == null) showMainTab("calendar", false);
         else loadActiveCalendar(calendarMonth, true);
@@ -2400,10 +2757,18 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             return;
         }
         String normalizedDate = AccountModels.isCalendarDate(date) ? date : LocalDate.now().toString();
+        String targetMonth = CalendarScreen.State.monthOf(normalizedDate);
+        boolean contextChanged = currentArchiveCalendarPairId != null || !targetMonth.equals(calendarMonth);
+        if (contextChanged) {
+            calendarRequestGeneration += 1;
+            calendarLoading = false;
+            calendarMarkersLoading = false;
+            currentCalendarMarkers = null;
+        }
         pendingCalendarItem = item;
         pendingCalendarDate = normalizedDate;
         currentArchiveCalendarPairId = null;
-        calendarMonth = CalendarScreen.State.monthOf(normalizedDate);
+        calendarMonth = targetMonth;
         calendarSelectedDate = normalizedDate;
         if (!calendarMatches(currentCalendar, currentPair == null ? null : currentPair.pairId, calendarMonth, false)) {
             currentCalendar = null;
@@ -2787,9 +3152,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (homeScreen != null && isAccountModeActive()) homeScreen.setPairState(currentPair);
         pairLoaded = true;
         pairLoading = false;
-        if (changed) resetSharedSpaceState();
+        if (changed) {
+            resetSharedSpaceState();
+            if (previousPairId != null || nextPairId == null) clearRoomHistoryLifecycle();
+        }
         if (currentArchivePairId != null && !hasArchive(pairState.archives, currentArchivePairId)) resetLibraryState();
         if (currentArchiveCalendarPairId != null && !hasArchive(pairState.archives, currentArchiveCalendarPairId)) resetCalendarState();
+        if (currentPair != null) maybeStartHistoryGrant();
     }
 
     private static boolean hasArchive(List<AccountModels.PairArchive> archives, String pairId) {
@@ -3053,6 +3422,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                     pairLoaded = true;
                     pairMessage = "绑定成功，现在可以一键邀请一起看。";
                     showMainTab("pair");
+                    ensureWatchHistoryLoaded(true);
                 });
             }
 
@@ -3084,6 +3454,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                         ? successMessage
                         : (userInitiated ? (currentPair == null ? "好友和旧空间状态已更新。" : "绑定状态已更新。") : "");
                     showMainTab("pair");
+                    if (currentPair != null) ensureWatchHistoryLoaded(false);
                 });
             }
 
@@ -3340,6 +3711,155 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             });
     }
 
+    private void maybeStartHistoryGrant() {
+        AccountModels.Session session = accountSession;
+        if (!isAccountModeActive() || session == null || !authenticated || !historyActiveRoomConfirmed
+            || currentRoomId == null || roomClient == null || !("host".equals(currentRole) || "guest".equals(currentRole))) return;
+        if (currentPair != null) {
+            requestHistoryGrant(false);
+            return;
+        }
+        if (pairLoaded || historyPairRequesting) return;
+        historyPairRequesting = true;
+        long generation = historyLifecycleGeneration;
+        String token = session.token;
+        accountClient.getPair(token, new AccountClient.ResultCallback<AccountModels.PairState>() {
+            @Override public void onSuccess(AccountModels.PairState pairState) {
+                runOnUiThread(() -> {
+                    if (generation != historyLifecycleGeneration || !isCurrentSession(token)) return;
+                    historyPairRequesting = false;
+                    applyPairSnapshot(pairState);
+                    if (currentPair != null) requestHistoryGrant(false);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (generation != historyLifecycleGeneration) return;
+                    historyPairRequesting = false;
+                });
+            }
+        });
+    }
+
+    private void requestHistoryGrant(boolean forceRefresh) {
+        AccountModels.Session session = accountSession;
+        AccountModels.Pair pair = currentPair;
+        RoomClient client = roomClient;
+        String roomId = currentRoomId;
+        String slot = currentRole;
+        if (!isAccountModeActive() || session == null || pair == null || client == null || !authenticated
+            || !historyActiveRoomConfirmed || roomId == null || !("host".equals(slot) || "guest".equals(slot)) || historyGrantRequesting) return;
+        long now = System.currentTimeMillis();
+        if (!forceRefresh && roomHistoryGrant != null && roomHistoryGrant.expiresAt > now
+            && roomHistoryGrant.matches(pair.pairId, roomId, slot)) {
+            client.bindHistory(roomHistoryGrant.grant);
+            scheduleHistoryGrant(roomHistoryGrant);
+            return;
+        }
+        historyGrantRequesting = true;
+        long generation = historyLifecycleGeneration;
+        String token = session.token;
+        String pairId = pair.pairId;
+        accountClient.issueHistoryGrant(token, roomId, slot, new AccountClient.ResultCallback<AccountModels.HistoryGrant>() {
+            @Override public void onSuccess(AccountModels.HistoryGrant grant) {
+                runOnUiThread(() -> {
+                    if (!isCurrentHistoryLifecycle(generation, token, pairId, roomId, slot)) return;
+                    historyGrantRequesting = false;
+                    if (!grant.matches(pairId, roomId, slot)) {
+                        mainHandler.removeCallbacks(historyGrantRefresh);
+                        mainHandler.postDelayed(historyGrantRefresh, HISTORY_GRANT_RETRY_MS);
+                        return;
+                    }
+                    roomHistoryGrant = grant;
+                    client.bindHistory(grant.grant);
+                    scheduleHistoryGrant(grant);
+                });
+            }
+
+            @Override public void onFailure(AccountClient.Failure failure) {
+                runOnUiThread(() -> {
+                    if (!isCurrentHistoryLifecycle(generation, token, pairId, roomId, slot)) return;
+                    historyGrantRequesting = false;
+                    long retryDelay = HISTORY_GRANT_RETRY_MS;
+                    if (roomHistoryGrant != null) retryDelay = Math.min(retryDelay, Math.max(1_000L, roomHistoryGrant.expiresAt - System.currentTimeMillis()));
+                    mainHandler.removeCallbacks(historyGrantRefresh);
+                    mainHandler.postDelayed(historyGrantRefresh, retryDelay);
+                });
+            }
+        });
+    }
+
+    private void scheduleHistoryGrant(AccountModels.HistoryGrant grant) {
+        mainHandler.removeCallbacks(historyGrantRefresh);
+        mainHandler.removeCallbacks(historyGrantExpiry);
+        long now = System.currentTimeMillis();
+        mainHandler.postDelayed(historyGrantRefresh, historyScheduleDelay(grant.refreshAfter, now));
+        mainHandler.postDelayed(historyGrantExpiry, historyScheduleDelay(grant.expiresAt, now));
+    }
+
+    private void expireHistoryGrant() {
+        AccountModels.HistoryGrant grant = roomHistoryGrant;
+        if (grant == null) return;
+        long remaining = grant.expiresAt - System.currentTimeMillis();
+        if (remaining > 0) {
+            mainHandler.postDelayed(historyGrantExpiry, remaining);
+            return;
+        }
+        roomHistoryGrant = null;
+        historyGrantRequesting = false;
+        if (roomClient != null) roomClient.clearHistoryBinding();
+        if (isAccountModeActive() && authenticated && historyActiveRoomConfirmed) {
+            mainHandler.postDelayed(historyGrantRefresh, 1_000L);
+        }
+    }
+
+    private boolean isCurrentHistoryLifecycle(long generation, String token, String pairId, String roomId, String slot) {
+        return historyLifecycleStateMatches(
+            generation,
+            historyLifecycleGeneration,
+            isCurrentSession(token),
+            currentPair != null && pairId.equals(currentPair.pairId),
+            roomId.equals(currentRoomId),
+            slot.equals(currentRole),
+            historyActiveRoomConfirmed,
+            authenticated
+        );
+    }
+
+    static long historyScheduleDelay(long targetAt, long now) {
+        return Math.max(1_000L, targetAt - now);
+    }
+
+    static boolean historyLifecycleStateMatches(
+        long expectedGeneration,
+        long currentGeneration,
+        boolean currentSession,
+        boolean currentPair,
+        boolean currentRoom,
+        boolean currentSlot,
+        boolean activeRoomConfirmed,
+        boolean authenticated
+    ) {
+        return expectedGeneration == currentGeneration
+            && currentSession && currentPair && currentRoom && currentSlot
+            && activeRoomConfirmed && authenticated;
+    }
+
+    private void clearRoomHistoryLifecycle() {
+        historyLifecycleGeneration += 1;
+        mainHandler.removeCallbacks(historyGrantRefresh);
+        mainHandler.removeCallbacks(historyGrantExpiry);
+        roomHistoryGrant = null;
+        historyGrantRequesting = false;
+        historyPairRequesting = false;
+        historyActiveRoomConfirmed = false;
+        if (roomClient != null) {
+            roomClient.clearHistoryBinding();
+            roomClient.clearPlaybackReport();
+        }
+    }
+
     private void showInviteFallback(String message) {
         new AlertDialog.Builder(this)
             .setTitle("改用邀请链接")
@@ -3371,6 +3891,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                         "好友现在可以在 App 首页直接进入房间",
                         Toast.LENGTH_SHORT
                     ).show();
+                    historyActiveRoomConfirmed = true;
+                    maybeStartHistoryGrant();
                 });
             }
 
@@ -3500,6 +4022,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         anonymousMode = accountSession != null && enabled;
         preferences.edit().putBoolean("anonymousMode", anonymousMode).apply();
         if (anonymousMode) {
+            clearRoomHistoryLifecycle();
             stopActiveRoomPolling();
             activePairRoom = null;
             homeScreen.setActiveRoom(null, false);
@@ -3675,6 +4198,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         mainNavigationView.applyTheme();
         if (refreshPairOnEntry && "pair".equals(target) && isAccountModeActive() && !pairLoading) {
             mainHandler.post(() -> refreshPairState(false));
+        }
+        if ("pair".equals(target) && isAccountModeActive() && currentPair != null && !watchHistoryLoading) {
+            mainHandler.post(() -> ensureWatchHistoryLoaded(false));
         }
         if (refreshPairOnEntry && "library".equals(target) && isAccountModeActive() && !libraryLoading) {
             mainHandler.post(() -> ensureLibraryLoaded(false));
@@ -3969,6 +4495,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void leaveRoom() {
         clearPublishedActiveRoom();
+        clearRoomHistoryLifecycle();
         if (roomClient != null) roomClient.close();
         roomClient = null;
         authenticated = false;

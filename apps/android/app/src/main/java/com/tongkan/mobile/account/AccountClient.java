@@ -63,7 +63,9 @@ public final class AccountClient {
     private static final Set<String> VERSIONED_ERROR_CODES = new HashSet<>(Arrays.asList(
         "UNAUTHORIZED", "AUTH_REQUIRED", "INVALID_REQUEST", "INVALID_JSON", "JSON_REQUIRED", "ARCHIVE_FORBIDDEN",
         "NOT_FOUND", "PAIR_REQUIRED", "LIBRARY_VERSION_CONFLICT", "CATEGORY_NAME_CONFLICT", "LIBRARY_LIMIT_REACHED",
-        "LIBRARY_ITEM_NOT_FOUND", "PLAN_NOT_FOUND", "PLAN_ALREADY_EXISTS", "CALENDAR_VERSION_CONFLICT"
+        "LIBRARY_ITEM_NOT_FOUND", "PLAN_NOT_FOUND", "PLAN_ALREADY_EXISTS", "CALENDAR_VERSION_CONFLICT",
+        "HISTORY_SOURCE_NOT_FOUND", "HISTORY_SOURCE_CONFLICT", "HISTORY_SOURCE_REVOKED", "HISTORY_GRANT_FORBIDDEN",
+        "HISTORY_GRANT_EXPIRED", "HISTORY_SIGNATURE_INVALID", "HISTORY_INTERVAL_CONFLICT"
     ));
     private static final Set<String> REVISION_CONFLICT_CODES = new HashSet<>(Arrays.asList(
         "LIBRARY_VERSION_CONFLICT", "CALENDAR_VERSION_CONFLICT"
@@ -277,6 +279,50 @@ public final class AccountClient {
         if (!requireConfigured(callback)) return;
         Request request = requestBuilder("/api/pair/active-room", token).delete().build();
         execute(request, value -> null, callback);
+    }
+
+    public void issueHistoryGrant(String token, String roomId, String slot, ResultCallback<AccountModels.HistoryGrant> callback) {
+        if (!requireConfigured(callback) || !requireId(roomId, "房间无效，无法启用共同历史。", callback)) return;
+        if (!"host".equals(slot) && !"guest".equals(slot)) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "房间身份无效，无法启用共同历史。", 0, false));
+            return;
+        }
+        JSONObject body = new JSONObject();
+        try {
+            body.put("roomId", roomId);
+            body.put("slot", slot);
+        } catch (JSONException error) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "无法生成共同历史授权请求。", 0, false));
+            return;
+        }
+        execute(post("/api/history/grants", body, token), value -> AccountModels.HistoryGrant.fromJson(new JSONObject(value)), callback);
+    }
+
+    public void getHistory(String token, String cursor, int limit, ResultCallback<AccountModels.HistoryPage> callback) {
+        getHistoryPage(token, "/api/history", cursor, limit, callback);
+    }
+
+    public void getArchiveHistory(String token, String pairId, String cursor, int limit, ResultCallback<AccountModels.HistoryPage> callback) {
+        if (!requireConfigured(callback) || !requireId(pairId, "旧空间无效。", callback)) return;
+        getHistoryPage(token, "/api/pair/archives/" + pairId + "/history", cursor, limit, callback);
+    }
+
+    public void getHistoryMonthly(String token, String month, int tzOffsetMinutes, ResultCallback<AccountModels.MonthlySummary> callback) {
+        getHistoryMonthly(token, "/api/history/monthly", month, tzOffsetMinutes, callback);
+    }
+
+    public void getArchiveHistoryMonthly(String token, String pairId, String month, int tzOffsetMinutes, ResultCallback<AccountModels.MonthlySummary> callback) {
+        if (!requireConfigured(callback) || !requireId(pairId, "旧空间无效。", callback)) return;
+        getHistoryMonthly(token, "/api/pair/archives/" + pairId + "/history/monthly", month, tzOffsetMinutes, callback);
+    }
+
+    public void getHistoryCalendarMarkers(String token, String month, int tzOffsetMinutes, ResultCallback<AccountModels.CalendarMarkers> callback) {
+        getHistoryCalendarMarkers(token, "/api/history/calendar-markers", month, tzOffsetMinutes, callback);
+    }
+
+    public void getArchiveHistoryCalendarMarkers(String token, String pairId, String month, int tzOffsetMinutes, ResultCallback<AccountModels.CalendarMarkers> callback) {
+        if (!requireConfigured(callback) || !requireId(pairId, "旧空间无效。", callback)) return;
+        getHistoryCalendarMarkers(token, "/api/pair/archives/" + pairId + "/history/calendar-markers", month, tzOffsetMinutes, callback);
     }
 
     public void getCalendarMonth(String token, String month, ResultCallback<AccountModels.CalendarSnapshot> callback) {
@@ -529,6 +575,38 @@ public final class AccountClient {
         reorder(token, "/api/library/items/reorder", "orderedItemIds", orderedIds, expectedRevision, callback);
     }
 
+    private void getHistoryPage(String token, String basePath, String cursor, int limit, ResultCallback<AccountModels.HistoryPage> callback) {
+        if (!requireConfigured(callback)) return;
+        if (limit < 1 || limit > 50) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "历史分页数量需要在 1 到 50 之间。", 0, false));
+            return;
+        }
+        String normalizedCursor = cursor == null ? "" : cursor.trim();
+        if (normalizedCursor.length() > 512) {
+            callback.onFailure(new Failure("INVALID_REQUEST", "历史分页位置无效。", 0, false));
+            return;
+        }
+        execute(requestBuilder(historyPagePath(basePath, normalizedCursor, limit), token).get().build(),
+            value -> AccountModels.HistoryPage.fromJson(new JSONObject(value)), callback);
+    }
+
+    private void getHistoryMonthly(String token, String basePath, String month, int tzOffsetMinutes, ResultCallback<AccountModels.MonthlySummary> callback) {
+        if (!requireConfigured(callback) || !requireCalendarMonth(month, callback) || !requireTzOffset(tzOffsetMinutes, callback)) return;
+        String path = basePath + "?month=" + encode(month) + "&tzOffsetMinutes=" + tzOffsetMinutes;
+        execute(requestBuilder(path, token).get().build(), value -> AccountModels.MonthlySummary.fromJson(new JSONObject(value)), callback);
+    }
+
+    private void getHistoryCalendarMarkers(String token, String basePath, String month, int tzOffsetMinutes, ResultCallback<AccountModels.CalendarMarkers> callback) {
+        if (!requireConfigured(callback) || !requireCalendarMonth(month, callback) || !requireTzOffset(tzOffsetMinutes, callback)) return;
+        String path = basePath + "?month=" + encode(month) + "&tzOffsetMinutes=" + tzOffsetMinutes;
+        execute(requestBuilder(path, token).get().build(), value -> AccountModels.CalendarMarkers.fromJson(new JSONObject(value)), callback);
+    }
+
+    static String historyPagePath(String basePath, String cursor, int limit) {
+        String path = basePath + "?limit=" + limit;
+        return cursor == null || cursor.isEmpty() ? path : path + "&cursor=" + encode(cursor);
+    }
+
     public void close() {
         for (Call call : calls) call.cancel();
         calls.clear();
@@ -724,6 +802,12 @@ public final class AccountClient {
     private static <T> boolean requireCalendarRevision(long revision, ResultCallback<T> callback) {
         if (revision >= 0) return true;
         callback.onFailure(new Failure("INVALID_REQUEST", "日历版本无效，请刷新后重试。", 0, false));
+        return false;
+    }
+
+    private static <T> boolean requireTzOffset(int offset, ResultCallback<T> callback) {
+        if (offset >= -840 && offset <= 840) return true;
+        callback.onFailure(new Failure("INVALID_REQUEST", "当前时区偏移无效。", 0, false));
         return false;
     }
     private void mutateWithName(
