@@ -81,6 +81,8 @@ export interface ClientPlaybackReport {
   paused: boolean;
   readyState: number;
   buffering: boolean;
+  ended?: boolean;
+  durationSeconds?: number | null;
   media: MediaIdentity | null;
   sentAtClientMs: number;
 }
@@ -116,6 +118,11 @@ export interface PlaybackCommandMessage {
 export interface PlaybackReportMessage {
   type: "playback.report";
   report: ClientPlaybackReport;
+}
+
+export interface HistoryBindMessage {
+  type: "history.bind";
+  grant: string;
 }
 
 export interface ChatMessage {
@@ -165,6 +172,8 @@ export type ClientMessage =
   | ScreenWatchReadyMessage
   | RtcSignalMessage;
 
+export type SignalingClientMessage = ClientMessage | HistoryBindMessage;
+
 export interface AuthenticatedEvent {
   type: "auth.ok";
   member: RoomMember;
@@ -182,8 +191,16 @@ export interface ErrorEvent {
     | "MEDIA_MISMATCH"
     | "SCREEN_BUSY"
     | "INVALID_SCREEN_SHARE"
-    | "PEER_UNAVAILABLE";
+    | "PEER_UNAVAILABLE"
+    | "INVALID_HISTORY_GRANT"
+    | "HISTORY_GRANT_EXPIRED"
+    | "HISTORY_BIND_CONFLICT";
   message: string;
+}
+
+export interface HistoryBoundEvent {
+  type: "history.bound";
+  expiresAt: number;
 }
 
 export interface SnapshotEvent {
@@ -246,6 +263,7 @@ export interface RtcSignalEvent {
 export type ServerEvent =
   | AuthenticatedEvent
   | ErrorEvent
+  | HistoryBoundEvent
   | SnapshotEvent
   | PlaybackAnchorEvent
   | MemberEvent

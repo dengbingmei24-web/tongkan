@@ -14,4 +14,16 @@ describe("Android shared protocol fixtures", () => {
       expect(parseClientMessage(JSON.stringify(fixture))).toEqual({ ok: true, message: fixture });
     });
   }
+
+  it("accepts the Alpha 10.4 Android playback report extension", () => {
+    const fixture = {
+      ...androidPlaybackReport,
+      report: {
+        ...androidPlaybackReport.report,
+        ended: false,
+        durationSeconds: 1_320,
+      },
+    };
+    expect(parseClientMessage(JSON.stringify(fixture))).toEqual({ ok: true, message: fixture });
+  });
 });
