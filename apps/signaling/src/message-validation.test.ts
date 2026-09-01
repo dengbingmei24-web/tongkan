@@ -3,6 +3,8 @@ import {
   MAX_CHAT_LENGTH,
   MAX_CLIENT_MESSAGE_BYTES,
   MAX_ICE_CANDIDATE_LENGTH,
+  MAX_DURATION_SECONDS,
+  MAX_HISTORY_GRANT_LENGTH,
   MAX_NICKNAME_LENGTH,
   MAX_SDP_LENGTH,
   parseClientMessage,
@@ -23,6 +25,49 @@ function parse(value: unknown) {
 }
 
 describe("parseClientMessage", () => {
+  it("accepts optional history bind and both legacy and history-capable playback reports", () => {
+    const baseReport = {
+      sequenceApplied: 1,
+      positionSeconds: 10,
+      paused: false,
+      readyState: 4,
+      buffering: false,
+      media: {
+        type: "bilibili",
+        bvid: "BV1xx411c7mD",
+        page: 1,
+        canonicalUrl: "https://www.bilibili.com/video/BV1xx411c7mD",
+      },
+      sentAtClientMs: 1_000,
+    };
+    expect(parse({ type: "history.bind", grant: "x".repeat(20) }).ok).toBe(true);
+    expect(parse({ type: "playback.report", report: baseReport }).ok).toBe(true);
+    expect(parse({
+      type: "playback.report",
+      report: { ...baseReport, ended: false, durationSeconds: null },
+    }).ok).toBe(true);
+  });
+
+  it("rejects partial or invalid history report fields and oversized grants", () => {
+    const report = {
+      sequenceApplied: 1,
+      positionSeconds: 10,
+      paused: false,
+      readyState: 4,
+      buffering: false,
+      media: null,
+      sentAtClientMs: 1_000,
+    };
+    expect(parse({ type: "playback.report", report: { ...report, ended: false } }).ok).toBe(false);
+    expect(parse({ type: "playback.report", report: { ...report, durationSeconds: 10 } }).ok).toBe(false);
+    expect(parse({ type: "playback.report", report: { ...report, ended: false, durationSeconds: 0 } }).ok).toBe(false);
+    expect(parse({
+      type: "playback.report",
+      report: { ...report, ended: false, durationSeconds: MAX_DURATION_SECONDS + 1 },
+    }).ok).toBe(false);
+    expect(parse({ type: "history.bind", grant: "x".repeat(MAX_HISTORY_GRANT_LENGTH + 1) }).ok).toBe(false);
+  });
+
   it("accepts current auth, B23 media and RTC candidate messages", () => {
     expect(parse({
       type: "auth",

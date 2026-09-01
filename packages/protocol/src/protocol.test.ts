@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bilibiliEmbedUrl, parseBilibiliUrl, planDriftCorrection, positionAt } from "./index";
-import type { PlaybackAnchor } from "./types";
+import type { HistoryBindMessage, PlaybackAnchor, ServerEvent, SignalingClientMessage } from "./types";
 
 const anchor: PlaybackAnchor = {
   media: null,
@@ -84,5 +84,22 @@ describe("playback clock", () => {
 
   it("uses a hard seek for large drift", () => {
     expect(planDriftCorrection(anchor, 2, 3_000).kind).toBe("seek");
+  });
+});
+
+describe("history protocol additions", () => {
+  it("keeps history binding optional while exposing the bound event", () => {
+    const bind: HistoryBindMessage = { type: "history.bind", grant: "opaque-grant" };
+    const inbound: SignalingClientMessage = bind;
+    const bound: ServerEvent = { type: "history.bound", expiresAt: 1_788_228_600_000 };
+    const error: ServerEvent = {
+      type: "error",
+      code: "HISTORY_BIND_CONFLICT",
+      message: "conflict",
+    };
+
+    expect(inbound.type).toBe("history.bind");
+    expect(bound).toMatchObject({ type: "history.bound" });
+    expect(error).toMatchObject({ code: "HISTORY_BIND_CONFLICT" });
   });
 });

@@ -1,13 +1,15 @@
-import type { ClientMessage, MediaIdentity } from "@tongkan/protocol";
+import type { MediaIdentity, SignalingClientMessage } from "@tongkan/protocol";
 
 export const MAX_CLIENT_MESSAGE_BYTES = 64 * 1_024;
 export const MAX_NICKNAME_LENGTH = 24;
 export const MAX_CHAT_LENGTH = 500;
 export const MAX_SDP_LENGTH = 32 * 1_024;
 export const MAX_ICE_CANDIDATE_LENGTH = 4 * 1_024;
+export const MAX_HISTORY_GRANT_LENGTH = 4_096;
+export const MAX_DURATION_SECONDS = 7 * 24 * 60 * 60;
 
 type ValidationResult =
-  | { ok: true; message: ClientMessage }
+  | { ok: true; message: SignalingClientMessage }
   | { ok: false; reason: "MESSAGE_TOO_LARGE" | "INVALID_MESSAGE" };
 
 type JsonObject = Record<string, unknown>;
@@ -27,7 +29,7 @@ export function parseClientMessage(raw: string | ArrayBuffer): ValidationResult 
     return { ok: false, reason: "INVALID_MESSAGE" };
   }
   return isClientMessage(value)
-    ? { ok: true, message: value as ClientMessage }
+    ? { ok: true, message: value as SignalingClientMessage }
     : { ok: false, reason: "INVALID_MESSAGE" };
 }
 
@@ -40,6 +42,9 @@ function isClientMessage(value: unknown): boolean {
       return isPlaybackCommand(value);
     case "playback.report":
       return isPlaybackReport(value);
+    case "history.bind":
+      return hasExactKeys(value, ["type", "grant"])
+        && isString(value.grant, MAX_HISTORY_GRANT_LENGTH, 20);
     case "chat.message":
       return isChatMessage(value);
     case "ping":
@@ -106,7 +111,7 @@ function isPlaybackCommand(value: JsonObject): boolean {
 function isPlaybackReport(value: JsonObject): boolean {
   if (!hasExactKeys(value, ["type", "report"]) || !isObject(value.report)) return false;
   const report = value.report;
-  return hasExactKeys(report, [
+  if (!hasAllowedKeys(report, [
     "sequenceApplied",
     "positionSeconds",
     "paused",
@@ -114,7 +119,14 @@ function isPlaybackReport(value: JsonObject): boolean {
     "buffering",
     "media",
     "sentAtClientMs",
-  ])
+  ], ["ended", "durationSeconds"])) return false;
+  const hasEnded = hasOwn(report, "ended");
+  const hasDuration = hasOwn(report, "durationSeconds");
+  if (hasEnded !== hasDuration) return false;
+  return (!hasEnded || (
+    typeof report.ended === "boolean"
+    && (report.durationSeconds === null || isFiniteNumber(report.durationSeconds, Number.MIN_VALUE, MAX_DURATION_SECONDS))
+  ))
     && isInteger(report.sequenceApplied, 0)
     && isFiniteNumber(report.positionSeconds, 0)
     && typeof report.paused === "boolean"
