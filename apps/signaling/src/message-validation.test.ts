@@ -99,6 +99,70 @@ describe("parseClientMessage", () => {
     }).ok).toBe(true);
   });
 
+  it("accepts legacy auth without webpage capability and valid ZIP0 media with it", () => {
+    expect(parse({
+      type: "auth",
+      key: "a".repeat(32),
+      nickname: "小明",
+      capabilities: validCapabilities,
+    }).ok).toBe(true);
+    expect(parse({
+      type: "auth",
+      key: "a".repeat(32),
+      nickname: "小明",
+      capabilities: { ...validCapabilities, canControlWebpage: true },
+    }).ok).toBe(true);
+    expect(parse({
+      type: "playback.command",
+      commandId: "command-zip0",
+      kind: "media-change",
+      positionSeconds: 0,
+      media: {
+        type: "webpage",
+        site: "zip0",
+        url: "https://www.zip0.com/watch?episode=1&id=158205&source=bfzy",
+        contentKey: "zip0:bfzy:158205:1",
+        title: "测试视频",
+      },
+      clientSentAtMs: 1_000,
+    }).ok).toBe(true);
+  });
+
+  it("rejects invalid webpage identities and malformed optional capability", () => {
+    expect(parse({
+      type: "auth",
+      key: "a".repeat(32),
+      nickname: "小明",
+      capabilities: { ...validCapabilities, canControlWebpage: "yes" },
+    }).ok).toBe(false);
+    expect(parse({
+      type: "playback.command",
+      commandId: "command-zip0-fragment",
+      kind: "media-change",
+      positionSeconds: 0,
+      media: {
+        type: "webpage",
+        site: "zip0",
+        url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1#secret",
+        contentKey: "zip0:bfzy:158205:1",
+      },
+      clientSentAtMs: 1_000,
+    }).ok).toBe(false);
+    expect(parse({
+      type: "playback.command",
+      commandId: "command-zip0-stream",
+      kind: "media-change",
+      positionSeconds: 0,
+      media: {
+        type: "webpage",
+        site: "zip0",
+        url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1&stream=https%3A%2F%2Fcdn.example%2Fv.m3u8",
+        contentKey: "zip0:bfzy:158205:1",
+      },
+      clientSentAtMs: 1_000,
+    }).ok).toBe(false);
+  });
+
   it("rejects malformed JSON, binary payloads and messages above 64 KiB", () => {
     expect(parseClientMessage("{"))
       .toEqual({ ok: false, reason: "INVALID_MESSAGE" });

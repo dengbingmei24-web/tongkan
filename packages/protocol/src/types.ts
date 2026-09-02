@@ -1,4 +1,4 @@
-export type RoomMode = "bilibili" | "direct-video" | "screen-share";
+export type RoomMode = "bilibili" | "direct-video" | "webpage" | "screen-share";
 export type MemberRole = "host" | "guest";
 export type MemberSlot = "host" | "guest";
 export type PlaybackCommandKind = "play" | "pause" | "seek" | "rate" | "media-change";
@@ -21,7 +21,17 @@ export interface DirectMediaIdentity {
   mimeType?: string;
 }
 
-export type MediaIdentity = BiliMediaIdentity | DirectMediaIdentity;
+export interface WebpageMediaIdentity {
+  type: "webpage";
+  site: "zip0";
+  url: string;
+  contentKey: string;
+  title?: string;
+}
+
+export type Zip0MediaIdentity = WebpageMediaIdentity;
+
+export type MediaIdentity = BiliMediaIdentity | DirectMediaIdentity | WebpageMediaIdentity;
 
 export interface PlaybackAnchor {
   media: MediaIdentity | null;
@@ -45,6 +55,7 @@ export interface RoomMember {
 export interface PeerCapabilities {
   platform: "web" | "extension" | "android";
   canControlBilibili: boolean;
+  canControlWebpage?: boolean;
   canShareScreen: boolean;
   canShareSystemAudio: boolean;
   canUseMicrophone: boolean;

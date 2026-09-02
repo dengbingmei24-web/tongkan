@@ -1,5 +1,6 @@
 import {
   positionAt,
+  normalizeZip0MediaIdentity,
   type AuthMessage,
   type BiliMediaIdentity,
   type ClientPlaybackReport,
@@ -54,7 +55,8 @@ export class RoomSession {
     this.hostKey = stored.hostKey;
     this.inviteKey = stored.inviteKey;
     const media = stored.playback.media ? normalizeMediaIdentity(stored.playback.media) : null;
-    this.mode = stored.mode === "direct-video" && !media ? "bilibili" : stored.mode;
+    const mediaMode = roomModeForMedia(media);
+    this.mode = stored.mode === "screen-share" && stored.screenShare ? "screen-share" : mediaMode;
     this.sequence = stored.sequence;
     this.members = stored.members;
     this.playback = media === stored.playback.media ? stored.playback : {
@@ -173,7 +175,7 @@ export class RoomSession {
         positionSeconds = Math.max(0, message.positionSeconds ?? 0);
         playbackRate = 1;
         if (!this.screenShare) {
-          this.mode = media.type === "bilibili" ? "bilibili" : "direct-video";
+          this.mode = roomModeForMedia(media);
         }
         this.bufferingSlots.clear();
         break;
@@ -236,7 +238,7 @@ export class RoomSession {
       return "INVALID_SCREEN_SHARE";
     }
     this.screenShare = null;
-    this.mode = this.playback.media?.type === "direct" ? "direct-video" : "bilibili";
+    this.mode = roomModeForMedia(this.playback.media);
     return this.mode;
   }
 
@@ -244,7 +246,7 @@ export class RoomSession {
     if (!this.screenShare || this.screenShare.sharerSlot !== slot) return null;
     const shareId = this.screenShare.shareId;
     this.screenShare = null;
-    this.mode = this.playback.media?.type === "direct" ? "direct-video" : "bilibili";
+    this.mode = roomModeForMedia(this.playback.media);
     return { shareId, nextMode: this.mode };
   }
 
@@ -313,7 +315,15 @@ export function isBilibiliMedia(media: MediaIdentity | null): media is BiliMedia
 }
 
 function normalizeMediaIdentity(media: MediaIdentity): MediaIdentity | null {
-  return media.type === "direct" ? normalizeDirectMedia(media) : media;
+  if (media.type === "direct") return normalizeDirectMedia(media);
+  if (media.type === "webpage") return normalizeZip0MediaIdentity(media);
+  return media;
+}
+
+export function roomModeForMedia(media: MediaIdentity | null): RoomMode {
+  if (media?.type === "direct") return "direct-video";
+  if (media?.type === "webpage") return "webpage";
+  return "bilibili";
 }
 
 function normalizeDirectMedia(media: DirectMediaIdentity): DirectMediaIdentity | null {

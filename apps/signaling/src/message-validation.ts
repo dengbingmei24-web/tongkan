@@ -1,4 +1,4 @@
-import type { MediaIdentity, SignalingClientMessage } from "@tongkan/protocol";
+import { normalizeZip0MediaIdentity, type MediaIdentity, type SignalingClientMessage } from "@tongkan/protocol";
 
 export const MAX_CLIENT_MESSAGE_BYTES = 64 * 1_024;
 export const MAX_NICKNAME_LENGTH = 24;
@@ -77,15 +77,16 @@ function isAuthMessage(value: JsonObject): boolean {
   if (!isString(value.nickname, MAX_NICKNAME_LENGTH)) return false;
   const capabilities = value.capabilities;
   return isObject(capabilities)
-    && hasExactKeys(capabilities, [
+    && hasAllowedKeys(capabilities, [
       "platform",
       "canControlBilibili",
       "canShareScreen",
       "canShareSystemAudio",
       "canUseMicrophone",
-    ])
+    ], ["canControlWebpage"])
     && ["web", "extension", "android"].includes(String(capabilities.platform))
     && typeof capabilities.canControlBilibili === "boolean"
+    && (!hasOwn(capabilities, "canControlWebpage") || typeof capabilities.canControlWebpage === "boolean")
     && typeof capabilities.canShareScreen === "boolean"
     && typeof capabilities.canShareSystemAudio === "boolean"
     && typeof capabilities.canUseMicrophone === "boolean";
@@ -170,6 +171,7 @@ function isRtcSignal(value: unknown): boolean {
 
 function isMediaIdentity(value: unknown): value is MediaIdentity {
   if (!isObject(value)) return false;
+  if (value.type === "webpage") return normalizeZip0MediaIdentity(value) !== null;
   if (value.type === "direct") {
     return hasAllowedKeys(value, ["type", "url"], ["title", "mimeType"])
       && isHttpUrl(value.url, 2_048)

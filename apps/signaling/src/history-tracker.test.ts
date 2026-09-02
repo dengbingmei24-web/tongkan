@@ -27,6 +27,13 @@ const OTHER_MEDIA = {
   canonicalUrl: "https://www.bilibili.com/video/BV1GJ411x7h7?p=2",
   title: "另一个视频",
 };
+const ZIP0_MEDIA = {
+  type: "webpage" as const,
+  site: "zip0" as const,
+  url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+  contentKey: "zip0:bfzy:158205:1",
+  title: "ZIP0 测试视频",
+};
 
 function createTracker(): HistoryTracker {
   let id = 0;
@@ -131,6 +138,21 @@ describe("HistoryTracker strict overlap", () => {
 
     expect(tracker.serialize().activeInterval).toBeNull();
     expect(tracker.pendingSnapshot(10_000)).toBeNull();
+  });
+
+  it("never opens a history interval for ZIP0 webpage media", async () => {
+    const tracker = createTracker();
+    const room = snapshot(1_000);
+    room.mode = "webpage";
+    room.playback.media = ZIP0_MEDIA;
+    await bindPair(tracker, room, 1_000);
+
+    tracker.recordReport("host", report(room), room, 1_000);
+    tracker.recordReport("guest", report(room), room, 1_000);
+    tracker.advance(room, 65_000);
+
+    expect(tracker.serialize().activeInterval).toBeNull();
+    expect(tracker.pendingSnapshot(65_000)).toBeNull();
   });
 });
 

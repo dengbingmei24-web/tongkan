@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { bilibiliEmbedUrl, parseBilibiliUrl, planDriftCorrection, positionAt } from "./index";
+import {
+  bilibiliEmbedUrl,
+  normalizeZip0MediaIdentity,
+  normalizeZip0WatchUrl,
+  parseBilibiliUrl,
+  parseZip0WatchUrl,
+  planDriftCorrection,
+  positionAt,
+} from "./index";
 import type { HistoryBindMessage, PlaybackAnchor, ServerEvent, SignalingClientMessage } from "./types";
 
 const anchor: PlaybackAnchor = {
@@ -70,6 +78,69 @@ describe("Bilibili URL parsing", () => {
   it("does not embed an unresolved b23 share link", () => {
     const media = parseBilibiliUrl("https://b23.tv/AbCd123");
     expect(media && bilibiliEmbedUrl(media)).toBeNull();
+  });
+});
+
+describe("ZIP0 webpage URL parsing", () => {
+  it("normalizes a ZIP0 watch URL and derives a stable content key", () => {
+    expect(parseZip0WatchUrl(
+      "https://www.zip0.com/watch?episode=01&id=158205&source=BFZY",
+    )).toEqual({
+      type: "webpage",
+      site: "zip0",
+      url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+      contentKey: "zip0:bfzy:158205:1",
+    });
+  });
+
+  it("normalizes an identity while preserving its optional title", () => {
+    expect(normalizeZip0MediaIdentity({
+      type: "webpage",
+      site: "zip0",
+      url: "https://zip0.com/watch?id=158205&source=bfzy&episode=1",
+      contentKey: "zip0:bfzy:158205:1",
+      title: "欢迎来龙餐馆",
+    })).toEqual({
+      type: "webpage",
+      site: "zip0",
+      url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+      contentKey: "zip0:bfzy:158205:1",
+      title: "欢迎来龙餐馆",
+    });
+    expect(normalizeZip0WatchUrl(
+      "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+    )).toBe("https://zip0.com/watch?source=bfzy&id=158205&episode=1");
+  });
+
+  it.each([
+    "http://zip0.com/watch?source=bfzy&id=158205&episode=1",
+    "https://evil.example/watch?source=bfzy&id=158205&episode=1",
+    "https://zip0.com/video?source=bfzy&id=158205&episode=1",
+    "https://user:password@zip0.com/watch?source=bfzy&id=158205&episode=1",
+    "https://zip0.com/watch?source=bfzy&id=158205&episode=1#episode",
+    "https://zip0.com/watch?source=bfzy&id=158205&episode=1&token=secret",
+    "https://zip0.com/watch?source=bfzy&id=158205&episode=0",
+    "https://zip0.com/watch?source=bfzy&id=158205&episode=1.5",
+  ])("rejects unsafe or unsupported URL: %s", (url: string) => {
+    expect(parseZip0WatchUrl(url)).toBeNull();
+  });
+
+  it.each([
+    {
+      type: "webpage",
+      site: "zip0",
+      url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+      contentKey: "zip0:bfzy:158205:2",
+    },
+    {
+      type: "webpage",
+      site: "zip0",
+      url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+      contentKey: "zip0:bfzy:158205:1",
+      streamUrl: "https://cdn.example/video.m3u8",
+    },
+  ])("rejects an invalid webpage identity: %o", (media: Record<string, unknown>) => {
+    expect(normalizeZip0MediaIdentity(media)).toBeNull();
   });
 });
 

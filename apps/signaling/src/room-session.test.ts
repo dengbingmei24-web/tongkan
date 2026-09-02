@@ -199,4 +199,48 @@ describe("RoomSession", () => {
       playback: { media: { type: "direct", url: "https://media.example.com/movie.mp4" } },
     });
   });
+
+  it("maps ZIP0 webpage media to its distinct mode and restores it after screen sharing", () => {
+    const room = RoomSession.create("room", "host-key", "guest-key", 1_000);
+    room.authenticate(auth("host-key", "小明"), 1_000);
+    room.authenticate(auth("guest-key", "小夏"), 1_100);
+
+    const changed = room.applyPlaybackCommand("host", command("media-change", {
+      media: {
+        type: "webpage",
+        site: "zip0",
+        url: "https://www.zip0.com/watch?episode=1&id=158205&source=bfzy",
+        contentKey: "zip0:bfzy:158205:1",
+        title: "欢迎来龙餐馆",
+      },
+    }), 1_500);
+
+    expect(changed).toMatchObject({
+      media: {
+        type: "webpage",
+        site: "zip0",
+        url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+        contentKey: "zip0:bfzy:158205:1",
+      },
+    });
+    expect(room.snapshot(1_500)).toMatchObject({ mode: "webpage" });
+
+    room.startScreenShare("host", screenStart("share-host"), 2_000);
+    expect(room.stopScreenShare("host", "share-host")).toBe("webpage");
+    expect(room.snapshot(2_100)).toMatchObject({ mode: "webpage", screenShare: null });
+  });
+
+  it("rejects ZIP0 media whose content key does not match its URL", () => {
+    const room = RoomSession.create("room", "host-key", "guest-key", 1_000);
+    room.authenticate(auth("host-key", "小明"), 1_000);
+
+    expect(room.applyPlaybackCommand("host", command("media-change", {
+      media: {
+        type: "webpage",
+        site: "zip0",
+        url: "https://zip0.com/watch?source=bfzy&id=158205&episode=1",
+        contentKey: "zip0:bfzy:158205:2",
+      },
+    }), 2_000)).toBe("INVALID_MEDIA");
+  });
 });
