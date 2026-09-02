@@ -104,7 +104,7 @@
 - **P1 日历实看标记（已本地实现）**：月历区分计划标记与实际观看标记，日期详情将“计划”和“一起看过”分区；实际记录不自动修改计划状态。
 - **P1 归档只读（已本地实现）**：keep 旧空间可查看历史和统计，pending/delete/第三方拒绝，双方 delete 后随 pair 级联清理。
 - **已冻结首切片**：满 60 秒才进入可见历史；完成状态保持 unknown 并隐藏完成数；UTC 存储 + 当前设备 offset；不关联或自动完成计划；跟随 pair keep/delete，暂不做单条删除、纠错或导出。
-- **本地审查证据**：Protocol 13 项、Account 93 项、Signaling 67 项测试通过；Android 单元测试与 Lint、History QA 14 cases/13 tags ValidateOnly 通过。APK、Preview/生产 Live QA 和全仓剩余门禁仍待单独执行。
+- **本地审查证据**：全仓 typecheck、210 项常规测试、信令 integration + Web 七场景自测、Extension bridge、Protocol/Web/Extension/Account/Signaling 非 APK build、依赖/链接/凭据与差异检查均通过；Android APK、Preview/生产 Live QA 仍待单独授权。
 
 ### 4.4 主要依赖与取舍
 

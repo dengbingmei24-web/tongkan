@@ -99,7 +99,7 @@
 - [x] Reviewer 为 `history.bind` 增加独立低频限流；该消息不消耗播放报告额度，也不延长房间活动时间。
 - [x] Android 单元测试与 Lint 通过；已复验授权重试、旧 RoomClient 回调隔离、5 秒报告清理、`startedAt DESC, id DESC` 分页顺序和归档状态清理。
 - [x] `qa/watch-history` PowerShell 解析、14 cases/13 tags ValidateOnly、JSON 解析与差异检查通过；runner 默认离线校验并拒绝生产地址，未包含凭据。
-- [ ] T406 剩余全仓 Web/Extension/integration/build、依赖、Markdown 链接和凭据扫描门禁尚未运行；不得据此标记完整发布门禁通过。
+- [x] T406 非 APK 门禁通过：全仓 typecheck、210 项常规测试、信令 integration + Web 七场景自测、Extension bridge、Protocol/Web/Extension/Account/Signaling build、依赖清单、127 份 Markdown/46 个本地链接、451 个跟踪路径凭据扫描和 `git diff --check` 均通过。Account 测试与 Workers build 首次仅因沙箱 Wrangler registry/log 权限失败，沙箱外原样复跑通过。
 - [ ] Android APK build 未获授权且未运行；不得复用旧 APK 作为 Alpha 10.4 证据。
 - [ ] 配置 Preview Account Service Binding 与历史 Secrets 后，再单独申请 migration 0008、Preview Account/Signaling 部署和 History Live QA 授权。
 - [ ] 生产 migration 0008、Account/Signaling 部署、APK build/publish、push 和公开发布必须分别获得授权。

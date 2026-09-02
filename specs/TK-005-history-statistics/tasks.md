@@ -52,7 +52,7 @@
 - [x] T403 [REVIEW] 审查 W3 的 Android 生命周期、四 tab UI、QA runner 和敏感日志边界；修复分页排序、旧回调、授权重试和归档清理后 APPROVED。
 - [x] T404 [REVIEW] 按 W1 → W2 → W3 无冲突集成，解决仅由交叉合同产生的问题，未扩大功能范围。
 - [ ] T405 [REVIEW] 配置本地/Preview Account Service Binding 与 Secrets 示例；生产配置仍保持不变。
-- [ ] T406 [REVIEW] 运行全仓 typecheck/test/integration/build、Android test/lint/build、diff/link/credential checks 和本地 D1 migration。（部分完成：Protocol、Account、Signaling、Android test/lint、本地 D1、History QA 与 diff 检查已通过；Web/Extension/全仓 integration/build、依赖/链接/凭据门禁和 Android APK build 尚未运行。）
+- [ ] T406 [REVIEW] 运行全仓 typecheck/test/integration/build、Android test/lint/build、diff/link/credential checks 和本地 D1 migration。（非 APK 部分已完成：全仓 typecheck、210 项常规测试、信令 integration + Web 七场景自测、Extension bridge、Protocol/Web/Extension/Account/Signaling build、依赖、127 份 Markdown/46 个本地链接、451 个跟踪路径凭据扫描、diff 和本地 D1 均通过；仅 Android APK build 因未授权未运行。）
 - [ ] T407 [REVIEW] 获得授权后执行 Preview migration 0008、部署 Preview Account/Signaling 并运行 Calendar/History Live QA；不执行生产、不发布 APK。
 - [x] T408 [REVIEW] 同步 PRD、路线图、选定设计、QA、CHANGELOG 和 CONTEXT；D-092 无需新增决策，Alpha 10.3 物理矩阵仍标记 deferred。
 - [ ] T409 [REVIEW] 生产 migration、Account/Signaling deployment、APK build/publish、push 与更广发布分别请求用户授权。

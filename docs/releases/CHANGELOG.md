@@ -14,7 +14,7 @@
 - W1 Account、W2 Signaling、W3 Android/QA 已按 Account → Signaling → Android 顺序无冲突集成；Reviewer 为 `history.bind` 增加独立低频限流，并修复 Android 分页顺序、旧回调、授权重试与归档清理。
 - Protocol 类型检查、13 项测试和构建通过；Account 类型检查、13 文件/93 项测试（含真实本地 D1）和 dry-run 通过；Signaling 类型检查、8 文件/67 项测试和 dry-run 通过。
 - Android 单元测试与 Lint、History QA PowerShell 解析、14 cases/13 tags ValidateOnly、JSON 解析和差异检查通过。
-- 全仓 Web/Extension/integration/build、依赖/链接/凭据门禁和 Android APK build 尚未运行，不能标记完整发布门禁通过。
+- 全仓 typecheck、210 项常规测试、信令 integration + Web 七场景自测、Extension bridge、Protocol/Web/Extension/Account/Signaling 非 APK build、依赖清单、127 份 Markdown/46 个本地链接、451 个跟踪路径凭据扫描和差异检查通过；Android APK build 仍未获授权且未运行。
 
 ### 发布状态
 
