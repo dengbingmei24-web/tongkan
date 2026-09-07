@@ -15,29 +15,19 @@ export function unavailableBilibiliCopy(mobileWeb: boolean): {
   statusLabel: string;
   title: string;
   description: string;
-  primaryAction: string | null;
-  steps: readonly string[];
 } {
   if (mobileWeb) {
     return {
-      modeLabel: "B站网页观看",
-      statusLabel: "请使用 Android App",
-      title: "手机网页暂不能控制 B站播放器",
-      description: "手机网页可以观看电脑端共享的画面；需要双方独立加载并同步控制 B站视频时，请使用同看 Android App。",
-      primaryAction: null,
-      steps: [],
+      modeLabel: "B站本地观看",
+      statusLabel: "手机网页未同步",
+      title: "手机网页暂不能同步 B站",
+      description: "当前画面由 B站播放器独立播放，房间无法读取或控制它。请改用直链视频；完整 B站同步将在 Android App 中提供。",
     };
   }
   return {
-    modeLabel: "共享观看",
-    statusLabel: "可共享观看",
-    title: "无需扩展，也能一起看",
-    description: "共享正在播放的 B站标签页后，对方会收到同一画面和声音；播放操作由共享者完成。",
-    primaryAction: "无需扩展共享观看",
-    steps: [
-      "在系统窗口中选择“浏览器标签页”",
-      "选择正在播放视频的 B站标签页",
-      "开启“共享标签页音频”后开始共享",
-    ],
+    modeLabel: "B站本地观看",
+    statusLabel: "仅本地播放",
+    title: "当前浏览器未连接 B站控制桥",
+    description: "画面可以本地播放，但不会跟随房间进度。请在 Edge 中加载并重新连接同看扩展。",
   };
 }

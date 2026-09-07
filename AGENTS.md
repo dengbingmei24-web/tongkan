@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-同看是一个双人同步观看 B站视频的自用工具。当前 Alpha 9 使用匿名临时房间；Alpha 10 将增加邮箱验证码账号、唯一好友和长期双人空间。
+同看是一个双人同步观看 B站视频的自用工具。无注册/无登录，通过临时密钥创建房间。
 架构：Cloudflare Durable Objects 信令 + Web 房间页 + Chrome 扩展 + Android App。
 
 ## 代码仓库结构
@@ -16,43 +16,36 @@ apps/
 packages/
   protocol/     共享类型定义、协议常量、B站链接解析
 scripts/        构建/部署/测试脚本
-qa/             可执行测试契约与验收记录
-docs/           PRD、决策、质量、运维、架构与历史归档
-design/         Web/Android 设计规范与原型
-specs/          Spec Kit 功能规格、计划、任务与合同
+qa/             测试契约 JSON、QA 清单
 release/        构建产物目录
 ```
 
 ## 上下文管理协议（最重要）
 
-根目录只保留四个 Markdown 入口：
+项目上下文由四个根目录文件组成：
 
 | 文件 | 作用 |
 |---|---|
-| `README.md` | 用户入口、安装使用和公开项目介绍 |
 | `AGENTS.md` | AI 执行规则、技能路由、安全和构建约束 |
 | `PROJECT_CONTEXT.md` | 稳定产品背景、仓库目录地图、架构和文档索引 |
-| `CONTEXT.md` | 精简的当前版本、开发状态、问题、任务和跨对话交接 |
-
-长期决策真源位于 `docs/decisions/DECISIONS.md`；所有专题文档从 `docs/README.md` 进入。
+| `CONTEXT.md` | 当前版本、开发状态、问题、任务和跨对话交接 |
+| `DECISIONS.md` | 已确认的长期产品、设计和技术决策 |
 
 **每次新对话开头必须按顺序执行**：
 
 1. 读取 `CONTEXT.md`，确认当前版本和最近状态。
 2. 读取 `PROJECT_CONTEXT.md`，定位任务对应的目录和真源文档。
-3. 如果任务涉及产品、架构、协议、UI 或版本范围，搜索并读取 `docs/decisions/DECISIONS.md` 中的相关决策。
+3. 如果任务涉及产品、架构、协议、UI 或版本范围，搜索并读取 `DECISIONS.md` 中的相关决策。
 4. 根据 `PROJECT_CONTEXT.md` 的“任务到目录和文档映射”读取对应 PRD、设计、部署或 QA 文档。
 5. 修改前检查 `git status --short`，不要覆盖已有未提交改动。
 
-**每次对话结束前必须执行（审查/控制任务）**：
+**每次对话结束前必须执行**：
 
 - 无论是否修改代码，都更新 `CONTEXT.md` 的 `last_updated` 和本轮状态。
 - 至少检查并按需更新：`current_version`、`status`、Completed、In Progress、Known Issues、Next Steps、Conversation Log。
-- 如果用户确认了跨对话仍然有效的产品、设计、协议或架构选择，追加到 `docs/decisions/DECISIONS.md`。
+- 如果用户确认了跨对话仍然有效的产品、设计、协议或架构选择，追加到 `DECISIONS.md`。
 - 如果仓库结构、核心产品边界或文档真源发生长期变化，更新 `PROJECT_CONTEXT.md`。
 - 产品范围变化同步对应 PRD；设计变化同步 `design/alpha9-ui/SELECTED_DESIGN.md`。
-
-**隔离执行任务例外**：执行任务不得修改 `CONTEXT.md`、`docs/decisions/DECISIONS.md`、`PROJECT_CONTEXT.md`、全局 PRD、生产配置或部署状态。执行任务结束时只填写任务合同要求的 Draft PR / `handoff.md`；由审查任务统一更新全局上下文。
 
 **对话过长或即将压缩上下文时**：优先更新 `CONTEXT.md`，确保目标、已完成工作、阻塞和下一步完整可恢复。
 
@@ -164,11 +157,6 @@ Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
           "C:\...\同步观看视频\release\tongkan-android-1.0-alphaN.apk"
 ```
 
-### APK 真机测试交付
-
-- 当构建结果需要用户安装或真机测试时，完成构建后自动打开 `release/` 文件夹，并在资源管理器中选中本次应测试的 APK；不要只提供文字路径。
-- 如果 APK 尚未生成或构建失败，不打开旧 APK，并明确说明阻塞原因。
-
 ## 编码规范
 
 - **Java (Android)**：跟现有风格，不引入 Kotlin / Jetpack / Compose。minSdk 26。
@@ -190,9 +178,9 @@ Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
 | 房间会话逻辑 | `apps/signaling/src/room-session.ts` |
 | 共享类型 | `packages/protocol/src/types.ts` |
 | 线上部署配置 | `apps/signaling/wrangler.toml` |
-| QA 清单 | `docs/quality/QA_CHECKLIST.md` |
-| PRD | `docs/product/PRD.md` |
-| 部署文档 | `docs/operations/DEPLOYMENT.md` |
+| QA 清单 | `QA_CHECKLIST.md` |
+| PRD | `PRD.md` |
+| 部署文档 | `DEPLOYMENT.md` |
 | 上下文快照 | `CONTEXT.md` ← 每次先读这个 |
 
 ## 线上环境
@@ -227,14 +215,3 @@ Copy-Item "C:\tmp\android-build\project\app\build\outputs\apk\debug\*.apk" `
 
 每个对话保持聚焦。如果一个对话同时涉及多个不相关的领域（如既改 Android 又做视频），
 建议用户分两个对话处理。
-
-审查任务签发的 Worker Task Contract 视为用户已授权执行任务在指定分支提交合同范围内的改动；该授权不包含 push、merge、rebase、force push、生产迁移或部署。
-
-<!-- SPECKIT START -->
-复杂任务必须先确认自己是审查任务还是隔离执行任务，并读取
-`.specify/memory/constitution.md`、`docs/decisions/DECISIONS.md` 中的 D-079、`docs/development/MULTI_SESSION_WORKFLOW.md`
-以及当前 `specs/TK-xxx-name/` 下的 spec、plan、tasks、合同和 checklist。
-最多三个执行任务，每个任务使用审查任务创建的独立 worktree；执行任务永远不得
-修改全局上下文/PRD/生产配置或部署，且不得自行 push、merge、rebase、force push。
-Spec Kit 只补充规格与验收，不替代现有上下文体系。
-<!-- SPECKIT END -->

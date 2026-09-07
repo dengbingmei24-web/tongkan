@@ -9,15 +9,6 @@ coverage/
 .env
 .env.*
 !.env.example
-.dev.vars
-**/.dev.vars
-**/google-services.json
-**/firebase-service-account*.json
-**/*firebase-adminsdk*.json
-**/serviceAccountKey.json
-**/service-account*.json
-**/.dev.vars.*
-!**/.dev.vars.example
 apps/extension/build/
 apps/android/.gradle/
 apps/android/local.properties
@@ -31,11 +22,12 @@ apps/android/app/build/
 apps/android/build/
 release/
 
-# One-off browser probes and generated patch helpers.
+# Local debugging notes and one-off browser probes.
+.crash-analysis.md
+.roomclient-loss-analysis.md
 scripts/.tmp-*
 scripts/fix_java.js
 qa/bilibili-player-probe-*/
-videos/**/.hyperframes/*.pid
 
 # Local Chrome/Edge extension signing and packaged artifacts.
 # Keep the private key local; load apps/extension/dist for development.

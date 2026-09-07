@@ -1,9 +1,7 @@
 import type {
   AuthMessage,
   ChatMessage,
-  ClientMessage,
   CreateRoomResponse,
-  HistoryBindMessage,
   MemberSlot,
   PlaybackCommandMessage,
   PlaybackReportMessage,
@@ -14,8 +12,6 @@ import type {
   ServerEvent,
 } from "@tongkan/protocol";
 import type { Env } from "./env";
-import { HistoryIngestClient } from "./history-ingest-client";
-import { HistoryTracker, type StoredHistoryTrackerState } from "./history-tracker";
 import { MemberMessageRateLimiter } from "./message-rate-limit";
 import { parseClientMessage } from "./message-validation";
 import { RoomSession, type StoredRoomSession } from "./room-session";
@@ -23,11 +19,9 @@ import { RoomSession, type StoredRoomSession } from "./room-session";
 interface SocketAttachment {
   slot?: MemberSlot;
   authenticated: boolean;
-  historyBound?: boolean;
 }
 
 const SESSION_KEY = "session";
-const HISTORY_KEY = "history";
 const ROOM_CREATION_LIMIT = 20;
 const ROOM_CREATION_WINDOW_MS = 60_000;
 const LOCAL_WEB_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
@@ -85,13 +79,9 @@ function send(socket: WebSocket, event: ServerEvent): void {
 
 export class RoomDurableObject implements DurableObject {
   private session: RoomSession | null = null;
-  private history: HistoryTracker | null = null;
   private readonly messageRateLimiter = new MemberMessageRateLimiter();
 
-  constructor(
-    private readonly state: DurableObjectState,
-    private readonly env: Env = {} as Env,
-  ) {}
+  constructor(private readonly state: DurableObjectState) {}
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -99,15 +89,14 @@ export class RoomDurableObject implements DurableObject {
       if (this.session) return json({ initialized: true });
       const stored = await request.json<StoredRoomSession>();
       this.session = new RoomSession(stored);
-      this.history = HistoryTracker.create(stored.roomId);
       await this.persist();
-      await this.syncAlarm();
+      await this.syncExpirationAlarm();
       return json({ initialized: true }, 201);
     }
 
     await this.ensureLoaded();
-    await this.maintain(Date.now());
-    if (!this.session || this.history?.isClosed()) return json({ error: "ROOM_NOT_FOUND" }, 404);
+    await this.expireOrSchedule(Date.now());
+    if (!this.session) return json({ error: "ROOM_NOT_FOUND" }, 404);
 
     if (url.pathname === "/snapshot") {
       return json(this.session.snapshot(Date.now()));
@@ -127,8 +116,8 @@ export class RoomDurableObject implements DurableObject {
 
   async webSocketMessage(socket: WebSocket, raw: string | ArrayBuffer): Promise<void> {
     await this.ensureLoaded();
-    await this.maintain(Date.now());
-    if (!this.session || this.history?.isClosed()) return;
+    await this.expireOrSchedule(Date.now());
+    if (!this.session) return;
 
     const parsed = parseClientMessage(raw);
     if (!parsed.ok) {
@@ -160,11 +149,6 @@ export class RoomDurableObject implements DurableObject {
       send(socket, { type: "error", code: "RATE_LIMITED", message: "消息发送过于频繁，请稍后重试。" });
       return;
     }
-    if (message.type === "history.bind") {
-      await this.handleHistoryBind(socket, slot, attachment, message, nowMs);
-      return;
-    }
-    const coreMessage: ClientMessage = message;
     this.session.touch(slot, nowMs);
 
     switch (message.type) {
@@ -172,7 +156,7 @@ export class RoomDurableObject implements DurableObject {
         await this.handlePlaybackCommand(socket, slot, message, nowMs);
         break;
       case "playback.report":
-        await this.handlePlaybackReport(slot, message, nowMs, attachment.historyBound === true);
+        await this.handlePlaybackReport(slot, message, nowMs);
         break;
       case "chat.message":
         this.handleChat(slot, message, nowMs);
@@ -210,10 +194,8 @@ export class RoomDurableObject implements DurableObject {
     const nowMs = Date.now();
     const member = this.session.disconnect(attachment.slot, nowMs);
     const stoppedShare = this.session.stopScreenShareForSlot(attachment.slot);
-    this.history?.disconnect(attachment.slot, this.session.snapshot(nowMs), nowMs);
     await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
+    await this.syncExpirationAlarm();
     if (member) this.broadcast({ type: "member.updated", member });
     if (stoppedShare) {
       this.broadcast({
@@ -228,13 +210,22 @@ export class RoomDurableObject implements DurableObject {
 
   async alarm(): Promise<void> {
     await this.ensureLoaded();
-    await this.maintain(Date.now());
+    if (!this.session) return;
+    const expiresAtMs = this.session.emptyExpiresAtMs();
+    if (expiresAtMs === null) {
+      await this.state.storage.deleteAlarm();
+      return;
+    }
+    if (Date.now() < expiresAtMs) {
+      await this.state.storage.setAlarm(expiresAtMs);
+      return;
+    }
+    await this.destroyExpiredRoom();
   }
 
   private async authenticateSocket(socket: WebSocket, message: AuthMessage): Promise<void> {
     if (!this.session) return;
-    const nowMs = Date.now();
-    const result = this.session.authenticate(message, nowMs);
+    const result = this.session.authenticate(message, Date.now());
     if (!result) {
       send(socket, { type: "error", code: "INVALID_KEY", message: "邀请链接已经失效。" });
       socket.close(4001, "invalid key");
@@ -249,12 +240,10 @@ export class RoomDurableObject implements DurableObject {
         candidate.close(4002, "replaced by a newer connection");
       }
     }
-    this.history?.unbind(result.slot, this.session.snapshot(nowMs), nowMs);
-    socket.serializeAttachment({ authenticated: true, slot: result.slot, historyBound: false } satisfies SocketAttachment);
+    socket.serializeAttachment({ authenticated: true, slot: result.slot } satisfies SocketAttachment);
     const stoppedShare = replacedExisting ? this.session.stopScreenShareForSlot(result.slot) : null;
     await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
+    await this.state.storage.deleteAlarm();
     send(socket, {
       type: "auth.ok",
       member: result.member,
@@ -272,40 +261,6 @@ export class RoomDurableObject implements DurableObject {
     }
   }
 
-  private async handleHistoryBind(
-    socket: WebSocket,
-    slot: MemberSlot,
-    attachment: SocketAttachment,
-    message: HistoryBindMessage,
-    nowMs: number,
-  ): Promise<void> {
-    if (!this.session || !this.history || !this.env.HISTORY_GRANT_SECRET) {
-      send(socket, { type: "error", code: "INVALID_HISTORY_GRANT", message: "共同观看记录暂不可用，房间仍可正常使用。" });
-      return;
-    }
-    const result = await this.history.bind(
-      slot,
-      message.grant,
-      this.env.HISTORY_GRANT_SECRET,
-      this.session.snapshot(nowMs),
-      nowMs,
-    );
-    if (!result.ok) {
-      const messageByCode = {
-        INVALID_HISTORY_GRANT: "共同观看授权无效，请重新获取。",
-        HISTORY_GRANT_EXPIRED: "共同观看授权已过期，请刷新后重试。",
-        HISTORY_BIND_CONFLICT: "共同观看授权与当前房间不一致。",
-      } as const;
-      send(socket, { type: "error", code: result.code, message: messageByCode[result.code] });
-      return;
-    }
-    socket.serializeAttachment({ ...attachment, slot, authenticated: true, historyBound: true } satisfies SocketAttachment);
-    await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
-    send(socket, { type: "history.bound", expiresAt: result.expiresAt });
-  }
-
   private async handlePlaybackCommand(
     socket: WebSocket,
     slot: MemberSlot,
@@ -313,7 +268,6 @@ export class RoomDurableObject implements DurableObject {
     nowMs: number,
   ): Promise<void> {
     if (!this.session) return;
-    const previousSnapshot = this.session.snapshot(nowMs);
     const anchor = this.session.applyPlaybackCommand(slot, message, nowMs);
     if (anchor === "RATE_LIMITED") {
       send(socket, { type: "error", code: "RATE_LIMITED", message: "拖动过于频繁，请松开进度条后再同步。" });
@@ -323,11 +277,7 @@ export class RoomDurableObject implements DurableObject {
       send(socket, { type: "error", code: "INVALID_MESSAGE", message: "视频链接无效，或包含不能保存在房间中的敏感参数。" });
       return;
     }
-    const snapshot = this.session.snapshot(nowMs);
-    this.history?.playbackCommand(message.kind, previousSnapshot, snapshot, nowMs);
     await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
     const actor = this.session.getMember(slot);
     this.broadcast({
       type: "playback.anchor",
@@ -341,16 +291,12 @@ export class RoomDurableObject implements DurableObject {
     slot: MemberSlot,
     message: PlaybackReportMessage,
     nowMs: number,
-    historyBound: boolean,
   ): Promise<void> {
     if (!this.session) return;
     const previousSequence = this.session.snapshot(nowMs).playback.sequence;
     this.session.applyPlaybackReport(slot, message.report, nowMs);
     const snapshot = this.session.snapshot(nowMs);
-    if (historyBound) this.history?.recordReport(slot, message.report, snapshot, nowMs);
     await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
     if (snapshot.playback.sequence !== previousSequence) {
       this.broadcast({ type: "room.snapshot", snapshot });
     }
@@ -388,10 +334,7 @@ export class RoomDurableObject implements DurableObject {
       send(socket, { type: "error", code: "INVALID_SCREEN_SHARE", message: "屏幕共享请求缺少必要信息，请重试。" });
       return;
     }
-    this.history?.modeChanged(this.session.snapshot(nowMs), nowMs);
     await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
     this.broadcast({ type: "screen.started", share: result });
   }
 
@@ -401,16 +344,12 @@ export class RoomDurableObject implements DurableObject {
     message: ScreenStopMessage,
   ): Promise<void> {
     if (!this.session) return;
-    const nowMs = Date.now();
     const result = this.session.stopScreenShare(slot, message.shareId);
     if (result === "INVALID_SCREEN_SHARE") {
       send(socket, { type: "error", code: "INVALID_SCREEN_SHARE", message: "当前共享已经结束，或由对方发起。" });
       return;
     }
-    this.history?.modeChanged(this.session.snapshot(nowMs), nowMs);
     await this.persist();
-    await this.flushHistory(nowMs);
-    await this.syncAlarm();
     this.broadcast({ type: "screen.stopped", shareId: message.shareId, reason: message.reason, nextMode: result });
     this.broadcast({ type: "room.snapshot", snapshot: this.session.snapshot(Date.now()) });
   }
@@ -464,16 +403,10 @@ export class RoomDurableObject implements DurableObject {
   }
 
   private async ensureLoaded(): Promise<void> {
-    if (!this.session) {
-      const stored = await this.state.storage.get<StoredRoomSession>(SESSION_KEY);
-      if (!stored) return;
-      this.session = new RoomSession(stored);
-    }
-    if (!this.history) {
-      const storedHistory = await this.state.storage.get<StoredHistoryTrackerState>(HISTORY_KEY);
-      this.history = storedHistory ? new HistoryTracker(storedHistory) : HistoryTracker.create(this.session.serialize().roomId);
-    }
-    const stored = this.session.serialize();
+    if (this.session) return;
+    const stored = await this.state.storage.get<StoredRoomSession>(SESSION_KEY);
+    if (!stored) return;
+    this.session = new RoomSession(stored);
     const liveSlots = new Set<MemberSlot>();
     for (const socket of this.state.getWebSockets()) {
       const attachment = socket.deserializeAttachment() as SocketAttachment | null;
@@ -481,89 +414,37 @@ export class RoomDurableObject implements DurableObject {
     }
     const nowMs = Date.now();
     for (const slot of ["host", "guest"] satisfies MemberSlot[]) {
-      if (this.session.getMember(slot)?.connected && !liveSlots.has(slot)) {
-        this.session.disconnect(slot, nowMs);
-        this.history.disconnect(slot, this.session.snapshot(nowMs), nowMs);
-      }
+      if (this.session.getMember(slot)?.connected && !liveSlots.has(slot)) this.session.disconnect(slot, nowMs);
     }
     const normalized = this.session.serialize();
     if (JSON.stringify(normalized) !== JSON.stringify(stored)) {
-      await this.persist();
+      await this.state.storage.put(SESSION_KEY, normalized);
     }
   }
 
   private async persist(): Promise<void> {
     if (this.session) await this.state.storage.put(SESSION_KEY, this.session.serialize());
-    if (this.history) await this.state.storage.put(HISTORY_KEY, this.history.serialize());
   }
 
-  private async syncAlarm(): Promise<void> {
-    const deadlines: number[] = [];
-    if (this.session && !this.history?.isClosed()) {
-      const expiresAtMs = this.session.emptyExpiresAtMs();
-      if (expiresAtMs !== null) deadlines.push(expiresAtMs);
-    }
-    const historyAlarmAt = this.history?.nextAlarmAt();
-    if (historyAlarmAt !== null && historyAlarmAt !== undefined) deadlines.push(historyAlarmAt);
-    if (deadlines.length === 0) {
+  private async syncExpirationAlarm(): Promise<void> {
+    if (!this.session) return;
+    const expiresAtMs = this.session.emptyExpiresAtMs();
+    if (expiresAtMs === null) {
       await this.state.storage.deleteAlarm();
       return;
     }
-    await this.state.storage.setAlarm(Math.min(...deadlines));
+    await this.state.storage.setAlarm(expiresAtMs);
   }
 
-  private async maintain(nowMs: number): Promise<void> {
+  private async expireOrSchedule(nowMs: number): Promise<void> {
     if (!this.session) return;
-    const snapshot = this.session.snapshot(nowMs);
-    this.history?.advance(snapshot, nowMs);
-    await this.flushHistory(nowMs);
-    if (this.history?.isClosed()) {
-      if (this.history.shouldDestroy(nowMs)) {
-        await this.destroyExpiredRoom();
-        return;
-      }
-      await this.persist();
-      await this.syncAlarm();
-      return;
-    }
     const expiresAtMs = this.session.emptyExpiresAtMs();
-    if (expiresAtMs === null) {
-      await this.persist();
-      await this.syncAlarm();
-      return;
-    }
+    if (expiresAtMs === null) return;
     if (nowMs >= expiresAtMs) {
-      this.history?.closeRoom(snapshot, expiresAtMs);
-      await this.persist();
-      await this.flushHistory(nowMs);
-      if (!this.history || this.history.shouldDestroy(nowMs)) {
-        await this.destroyExpiredRoom();
-      } else {
-        for (const socket of this.state.getWebSockets()) {
-          if (socket.readyState === WebSocket.OPEN) socket.close(4004, "room expired");
-        }
-        await this.persist();
-        await this.syncAlarm();
-      }
+      await this.destroyExpiredRoom();
       return;
     }
-    await this.persist();
-    await this.syncAlarm();
-  }
-
-  private async flushHistory(nowMs: number): Promise<void> {
-    if (!this.history || !this.history.retryDue(nowMs)) return;
-    const snapshot = this.history.pendingSnapshot(nowMs);
-    if (!snapshot) return;
-    if (!this.env.ACCOUNT_HISTORY || !this.env.HISTORY_INGEST_SECRET) {
-      this.history.markRecoverableFailure(nowMs);
-      return;
-    }
-    const result = await new HistoryIngestClient(this.env.ACCOUNT_HISTORY, this.env.HISTORY_INGEST_SECRET)
-      .ingest(snapshot, nowMs);
-    if (result.kind === "success") this.history.acknowledge(result.ack, nowMs);
-    else if (result.kind === "terminal") this.history.markTerminalFailure();
-    else this.history.markRecoverableFailure(nowMs);
+    await this.state.storage.setAlarm(expiresAtMs);
   }
 
   private async destroyExpiredRoom(): Promise<void> {

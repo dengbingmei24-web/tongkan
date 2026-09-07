@@ -1,22 +1,21 @@
 :root {
-  color-scheme: light;
-  --color-paper: #F3F3F0;
-  --color-paper-2: #FFFFFF;
-  --color-paper-3: #ECECE7;
-  --color-paper-raised: #E5E5DF;
-  --color-ink: #171817;
-  --color-ink-2: #363836;
-  --color-neutral: #5F625F;
-  --color-muted: #7C807C;
-  --color-rule: #D9D9D2;
-  --color-rule-strong: #BFC1BA;
-  --color-accent: #171817;
-  --color-accent-soft: #E3E3DE;
-  --color-accent-ink: #FFFFFF;
-  --color-focus: #5369C8;
-  --color-error: #B42318;
-  --color-success: #2B7A4B;
-  --color-backdrop: rgb(11 12 13 / 0.72);
+  --color-paper: oklch(14% 0.012 255);
+  --color-paper-2: oklch(18% 0.015 255);
+  --color-paper-3: oklch(22% 0.017 255);
+  --color-paper-raised: oklch(25% 0.019 255);
+  --color-ink: oklch(95% 0.008 245);
+  --color-ink-2: oklch(86% 0.012 245);
+  --color-neutral: oklch(72% 0.014 250);
+  --color-muted: oklch(63% 0.014 250);
+  --color-rule: oklch(31% 0.018 255);
+  --color-rule-strong: oklch(42% 0.025 250);
+  --color-accent: oklch(75% 0.16 47);
+  --color-accent-soft: oklch(29% 0.06 47);
+  --color-accent-ink: oklch(16% 0.025 47);
+  --color-focus: oklch(84% 0.13 190);
+  --color-error: oklch(69% 0.18 25);
+  --color-success: oklch(77% 0.13 150);
+  --color-backdrop: oklch(8% 0.008 255 / 0.78);
 
   --font-display: "Geist Variable", "IBM Plex Sans", sans-serif;
   --font-body: "Geist Variable", "IBM Plex Sans", sans-serif;
@@ -33,20 +32,20 @@
   --space-3xl: 6rem;
   --space-4xl: 9rem;
 
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
+  --text-xs: 0.64rem;
+  --text-sm: 0.8rem;
   --text-base: 1rem;
-  --text-md: 1.125rem;
-  --text-lg: 1.375rem;
-  --text-xl: 1.75rem;
-  --text-2xl: 2.125rem;
-  --text-3xl: 2.75rem;
-  --text-display: clamp(2.625rem, 5vw, 3.5rem);
-  --text-display-s: clamp(2rem, 4vw, 2.75rem);
+  --text-md: 1.25rem;
+  --text-lg: 1.5625rem;
+  --text-xl: 1.9531rem;
+  --text-2xl: 2.4414rem;
+  --text-3xl: 3.0518rem;
+  --text-display: clamp(2.75rem, 5vw + 1rem, 5.25rem);
+  --text-display-s: clamp(2.25rem, 4vw + 0.75rem, 4rem);
 
   --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
   --radius-pill: 999px;
   --rule-hair: 1px;
 
@@ -54,8 +53,8 @@
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --dur-micro: 120ms;
-  --dur-short: 180ms;
-  --dur-long: 280ms;
+  --dur-short: 200ms;
+  --dur-long: 380ms;
 
   --z-base: 1;
   --z-raised: 10;
@@ -64,25 +63,4 @@
   --z-modal: 400;
   --z-toast: 500;
   --z-tooltip: 600;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --color-paper: #0B0C0D;
-  --color-paper-2: #171819;
-  --color-paper-3: #202224;
-  --color-paper-raised: #282A2D;
-  --color-ink: #F4F4F1;
-  --color-ink-2: #D7D8D5;
-  --color-neutral: #AAADAA;
-  --color-muted: #858986;
-  --color-rule: #303236;
-  --color-rule-strong: #494C51;
-  --color-accent: #F0F0EC;
-  --color-accent-soft: #27292B;
-  --color-accent-ink: #101112;
-  --color-focus: #91A4FF;
-  --color-error: #FF8679;
-  --color-success: #62C88B;
-  --color-backdrop: rgb(0 0 0 / 0.76);
 }

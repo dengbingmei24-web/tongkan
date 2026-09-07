@@ -5,61 +5,16 @@
 [![CI](https://github.com/dengbingmei24-web/tongkan/actions/workflows/ci.yml/badge.svg)](https://github.com/dengbingmei24-web/tongkan/actions/workflows/ci.yml)
 [![Android CI](https://github.com/dengbingmei24-web/tongkan/actions/workflows/android.yml/badge.svg)](https://github.com/dengbingmei24-web/tongkan/actions/workflows/android.yml)
 
-## 立即使用
-
-- [🌐 打开在线网页版](https://tongkan-personal.pages.dev)
-- [📱 下载 Android 1.0.0-alpha.9.2](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
-- [📝 查看版本更新](./docs/releases/CHANGELOG.md)
-- [🚀 查看后续发布方式](./docs/operations/RELEASING.md)
-
-> 推荐选择：两部 Android 手机同步看 B站时使用 App；电脑端临时创建房间、聊天、屏幕共享或同步视频直链时可以直接使用网页版。
-
-## Android 界面
-
-下面这张产品展示图统一呈现 **Android 1.0.0-alpha.9.2** 已实现的入口、浅色观看、深色观看和沉浸横屏状态。实际视频画面与 B站弹幕会随所选视频变化。
-
-![同看 Android Alpha 9.2 创建房间、浅深色观看与沉浸横屏界面](./docs/images/tongkan-alpha9.2-showcase.png)
-
-> 默认使用浅色主题；深色主题为中性黑灰。绿色只表示在线或成功状态，横屏由用户手动进入，播放控制会在无操作时自动隐藏。
-## 怎么使用
-
-### Android App：两部手机同步看 B站
-
-1. 两个人分别从 [GitHub Release](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2) 下载并安装 APK；最低支持 Android 8.0。
-2. 房主填写昵称并点击“创建房间”，App 会自动弹出系统分享面板。
-3. 朋友打开同看 App，把收到的邀请链接粘贴到“加入朋友的房间”，然后点击“加入房间”。
-4. 任意一方在“准备视频”页面粘贴 B站完整链接、BV 链接或 b23.tv 分享链接，再点击“准备视频”。
-5. 视频准备成功后会自动进入观看页，并停在 0 秒等待手动播放。
-6. 双方均可播放、暂停、拖动进度和切换倍速；弹幕开关保存在各自手机上。
-7. 需要横屏时手动点击“横屏”；横屏控制栏会自动隐藏，点击画面可再次显示。
-
-### 在线网页版：无需安装 App
-
-1. 打开 [tongkan-personal.pages.dev](https://tongkan-personal.pages.dev)，填写昵称并创建房间。
-2. 把页面生成的邀请链接发给朋友；朋友打开链接并填写昵称加入。
-3. 浏览器可以直接播放的 MP4/WebM 等视频直链，不安装扩展也能同步播放、暂停和进度。
-4. 两台电脑使用 Chrome 或 Edge 时，可以聊天和发起屏幕共享；共享标签页时可选择共享标签页音频。
-5. 电脑网页要完整同步 B站播放器，需要加载本仓库的浏览器扩展；手机网页中的 B站画面目前只能本地观看，不会与房间同步。
-
-### 各版本能力
-
-| 使用方式 | B站双向同步 | 视频直链 | 聊天 | 屏幕共享 | 推荐场景 |
-| --- | --- | --- | --- | --- | --- |
-| Android App | 支持 | 暂不作为主要入口 | 支持 | 暂未加入 | 账号双人空间、共同片库和两部手机一起看 B站 |
-| 电脑网页 + 扩展 | 支持 | 支持 | 支持 | 支持 | 电脑双人观看与共享屏幕 |
-| 电脑网页（无扩展） | 不支持 B站控制 | 支持 | 支持 | 支持 | 直链视频、聊天、屏幕共享 |
-| 手机网页 | B站仅本地观看 | 支持浏览器可播放直链 | 支持 | 只能观看电脑共享 | 临时加入房间或观看共享画面 |
-
 ## 项目上下文与 AI 入口
 
 长期开发和换对话时，从以下文件进入：
 
 1. [`CONTEXT.md`](./CONTEXT.md)：当前版本、正在进行的工作、已知问题和下一步。
 2. [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md)：产品目标、完整目录地图、架构、关键文件和文档导航。
-3. [`docs/decisions/DECISIONS.md`](./docs/decisions/DECISIONS.md)：已经确认的长期产品、设计和技术决策。
+3. [`DECISIONS.md`](./DECISIONS.md)：已经确认的长期产品、设计和技术决策。
 4. [`AGENTS.md`](./AGENTS.md)：AI 的强制工作规则、构建方式和安全约束。
 
-任务文档入口：Android 后续开发看 [`docs/product/ANDROID_FOLLOWUP_PRD.md`](./docs/product/ANDROID_FOLLOWUP_PRD.md)，整体产品范围看 [`docs/product/PRD.md`](./docs/product/PRD.md)，Alpha 9 设计看 [`design/alpha9-ui/SELECTED_DESIGN.md`](./design/alpha9-ui/SELECTED_DESIGN.md)。
+任务文档入口：Android 后续开发看 [`ANDROID_FOLLOWUP_PRD.md`](./ANDROID_FOLLOWUP_PRD.md)，整体产品范围看 [`PRD.md`](./PRD.md)，Alpha 9 设计看 [`design/alpha9-ui/SELECTED_DESIGN.md`](./design/alpha9-ui/SELECTED_DESIGN.md)。
 
 > `CONTEXT.md` 是动态交接真源；不要根据 README 中的历史描述判断当前版本。
 
@@ -71,20 +26,20 @@
 - 直链视频同步：将浏览器可直接播放的 HTTP/HTTPS 视频地址载入房间，双方在内置播放器中播放、暂停、拖动和双击切换状态。
 - 断线自动恢复：网页刷新、短暂掉线或网络切换后自动重新认证，并按服务端保存的视频、播放状态和当前进度重新对齐。
 - 桌面屏幕共享基础链路：Chrome / Edge 使用 `getDisplayMedia` 捕获标签页、窗口或屏幕，WebRTC 双人点对点传输画面与可用的共享声音。
-- Android 1.0 Alpha：支持 QQ 邮箱账号、唯一好友、共同片库、聊天、横屏亮度/音量、FCM 邀请和 B站双向同步；匿名临时房间继续保留。
+- Android 1.0 Alpha：两部 Android 手机加入同一 Cloudflare 房间，在 App 内载入 B站播放器，双方均可播放、暂停、拖动，显示真实时长，并在断线后恢复服务端最新状态。
 - 共享协议包：B站链接解析、时钟锚点、漂移校准策略。
 
 语音和 Android 屏幕共享位于后续开发阶段；Android 1.0 已进入可安装 Alpha 阶段（见 `apps/android/`），不会阻塞 B站双人同步与桌面屏幕共享链路。
 
 ### Android 1.0 Alpha
 
-Android 工程位于 [`apps/android`](./apps/android)，使用原生 Java、受控 WebView 和 JavaScript Bridge，直接复用现有 Cloudflare Durable Objects 房间服务与播放协议。Android 1.0 不包含手机屏幕共享、语音和桌面扩展互通验收。
+Android 工程位于 [`apps/android`](./apps/android)，使用原生 Java、受控 WebView 和 JavaScript Bridge，直接复用现有 Cloudflare Durable Objects 房间服务与播放协议。Android 1.0 不包含手机屏幕共享、语音、聊天和桌面扩展互通验收。
 
-当前本地交付版本是 **Android `1.0.0-alpha10.2.2`（versionCode 38）**，匹配的 B23 修复已部署到生产 Account Worker；等待用截图中的同一分享文本完成真机确认。APK 使用 Debug 证书，最新公开 GitHub Release 仍为 Alpha 9.2，双设备物理验收延期。
+当前通过真机测试的版本是 **Android `1.0.0-alpha.9.2`（versionCode 11）**。
 
 - [下载 Alpha 9.2 APK](https://github.com/dengbingmei24-web/tongkan/releases/tag/v1.0.0-alpha.9.2)
 - [查看全部 GitHub Releases](https://github.com/dengbingmei24-web/tongkan/releases)
-- [查看版本变更记录](./docs/releases/CHANGELOG.md)
+- [查看版本变更记录](./CHANGELOG.md)
 
 最低系统版本为 Android 8.0（API 26）。Debug APK 使用 Android 调试证书签名，只用于个人安装测试；以后发布正式版时需要改用长期保存的 Release 签名。
 
@@ -102,7 +57,7 @@ pnpm android:check
 - APK 不直接提交到仓库，统一放在 GitHub Releases 中。
 - 每个版本使用不可重复的标签，例如 `v1.0.0-alpha.9.2`。
 - 推送 `v*` 标签后，GitHub Actions 会自动测试、构建 APK、生成 SHA-256 并创建预发布版。
-- 完整发布步骤见 [`docs/operations/RELEASING.md`](./docs/operations/RELEASING.md)。
+- 完整发布步骤见 [`RELEASING.md`](./RELEASING.md)。
 
 ## 本地启动
 
@@ -125,9 +80,9 @@ pnpm dev:web
 ### B站链接同步
 
 1. 支持完整 `bilibili.com/video/BV...` 链接、`b23.tv` 分享短链，以及包含链接的整段分享文案。
-2. 未安装扩展时，播放器会直接显示“无需扩展共享观看”：打开正在播放的 B站标签页，点击按钮，在浏览器选择器中选中该标签页并开启“共享标签页音频”。对方随后通过 WebRTC 看到同一画面和声音，视频由共享者在 B站标签页控制。
-3. 需要双方都能播放、暂停、拖动和切换倍速时，构建并加载 `apps/extension/dist`。扩展会注入 B站官方嵌入播放器的 iframe，让两端分别加载视频并同步原生操作。
-4. 扩展代码更新后，要在扩展管理页点击“重新加载”，然后刷新房间页。
+2. 解析出 BV 号后，房间会载入 B站官方嵌入播放器；Edge / Chrome 扩展直接注入该播放器的 iframe，同步原生播放、暂停、进度和倍速操作。
+3. 两位参与者都需要加载 `apps/extension/dist`。扩展代码更新后，要在扩展管理页点击“重新加载”，然后刷新房间页。
+4. 房间显示“浏览器扩展：未检测到（B站需要）”时，嵌入画面仍可本地观看，但播放、暂停和拖动还不能双向同步。
 5. `b23.tv` 会先通过独立 B站页面完成跳转；扩展识别真实 BV 号并回写房间后，双方自动切换到房间内嵌播放器。
 
 ### 直链视频同步
@@ -149,12 +104,12 @@ pnpm dev:web
 
 ### 桌面屏幕共享
 
-两人加入同一房间后，可以点击房间底部的“共享屏幕”；载入 B站视频但没有安装扩展时，也可以直接点击播放器内的“无需扩展共享观看”：
+两人加入同一房间后，任意一方点击房间底部的“共享屏幕”：
 
-1. 先打开正在播放视频的 B站标签页。
-2. 在系统选择器中选择“浏览器标签页”，选中该 B站页面。
-3. 开启浏览器提供的“共享标签页音频”，对方页面会自动建立 WebRTC P2P 连接并显示画面。
-4. 无扩展模式由共享者在 B站标签页控制播放；共享者点击“停止共享”，或使用浏览器原生的停止按钮后，双方回到普通房间页面。
+1. 选择浏览器标签页、窗口或整个屏幕。
+2. 共享标签页时，勾选浏览器提供的“共享标签页音频”。
+3. 对方页面会自动建立 WebRTC P2P 连接并显示画面。
+4. 共享者点击“停止共享”，或使用浏览器原生的停止按钮，双方会回到 B站同步模式。
 
 默认使用公共 STUN，不部署媒体中继。部分公司网、校园网、移动网络或严格 NAT 可能无法直连；15 秒后页面会显示诊断。需要 TURN 时，按仓库根目录的 [`.env.example`](./.env.example) 配置 Web 环境变量。环境变量名称、默认值和格式只在该文件维护，部署文档不再复制另一份配置清单。
 
@@ -214,7 +169,7 @@ pnpm build
 pnpm test:integration
 ```
 
-发布前还应按 [`docs/quality/QA_CHECKLIST.md`](./docs/quality/QA_CHECKLIST.md) 完成真实双浏览器、B站播放器和屏幕共享验收；自动化测试不能替代浏览器权限、标签页音频和跨网络 WebRTC 测试。
+发布前还应按 [`QA_CHECKLIST.md`](./QA_CHECKLIST.md) 完成真实双浏览器、B站播放器和屏幕共享验收；自动化测试不能替代浏览器权限、标签页音频和跨网络 WebRTC 测试。
 
 每次验收的实际环境、结果和失败证据使用 [`qa/TEST_RUN_TEMPLATE.md`](./qa/TEST_RUN_TEMPLATE.md) 单独记录，避免直接修改通用清单。
 
@@ -222,7 +177,7 @@ pnpm test:integration
 
 ## 公网部署和移动端方向
 
-生产构建、Cloudflare 一键部署、Edge 扩展打包，以及“手机网页 → Android App”的能力边界和开发顺序见 [`docs/operations/DEPLOYMENT.md`](./docs/operations/DEPLOYMENT.md)。
+生产构建、Cloudflare 一键部署、Edge 扩展打包，以及“手机网页 → Android App”的能力边界和开发顺序见 [`DEPLOYMENT.md`](./DEPLOYMENT.md)。
 
 只准备生产文件：
 

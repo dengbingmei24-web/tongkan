@@ -1,8 +1,7 @@
-import type { MemberSlot, SignalingClientMessage } from "@tongkan/protocol";
+import type { ClientMessage, MemberSlot } from "@tongkan/protocol";
 
 export type MessageRateLimitCategory =
   | "auth"
-  | "history.bind"
   | "playback.command"
   | "playback.report"
   | "chat.message"
@@ -23,7 +22,6 @@ interface TokenBucket {
 
 export const MESSAGE_RATE_LIMIT_POLICIES: Record<MessageRateLimitCategory, RateLimitPolicy> = {
   auth: { capacity: 2, refillPerSecond: 0.2 },
-  "history.bind": { capacity: 4, refillPerSecond: 0.2 },
   "playback.command": { capacity: 12, refillPerSecond: 6 },
   "playback.report": { capacity: 10, refillPerSecond: 5 },
   "chat.message": { capacity: 5, refillPerSecond: 1 },
@@ -36,7 +34,7 @@ export const MESSAGE_RATE_LIMIT_POLICIES: Record<MessageRateLimitCategory, RateL
 export class MemberMessageRateLimiter {
   private readonly buckets = new Map<string, TokenBucket>();
 
-  allow(slot: MemberSlot, message: SignalingClientMessage, nowMs: number): boolean {
+  allow(slot: MemberSlot, message: ClientMessage, nowMs: number): boolean {
     const category = categoryForMessage(message);
     const policy = MESSAGE_RATE_LIMIT_POLICIES[category];
     const key = `${slot}:${category}`;
@@ -52,12 +50,10 @@ export class MemberMessageRateLimiter {
   }
 }
 
-export function categoryForMessage(message: SignalingClientMessage): MessageRateLimitCategory {
+export function categoryForMessage(message: ClientMessage): MessageRateLimitCategory {
   switch (message.type) {
     case "auth":
       return "auth";
-    case "history.bind":
-      return "history.bind";
     case "playback.command":
       return "playback.command";
     case "playback.report":

@@ -1,30 +1,24 @@
 package com.tongkan.mobile;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
-import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
@@ -37,33 +31,13 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.SeekBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.WindowManager;
-
-import com.tongkan.mobile.account.AccountClient;
-import com.tongkan.mobile.account.AccountModels;
-import com.tongkan.mobile.account.FcmPushTokenProvider;
-import com.tongkan.mobile.account.PushTokenProvider;
-import com.tongkan.mobile.account.SessionStore;
-import com.tongkan.mobile.ui.AuthScreen;
-import com.tongkan.mobile.ui.BreathBottomSheet;
-import com.tongkan.mobile.ui.BreathComponents;
-import com.tongkan.mobile.ui.BreathTheme;
-import com.tongkan.mobile.ui.CalendarScreen;
-import com.tongkan.mobile.ui.HomeScreen;
-import com.tongkan.mobile.ui.HistorySectionView;
-import com.tongkan.mobile.ui.LibraryScreen;
-import com.tongkan.mobile.ui.MainNavigationView;
-import com.tongkan.mobile.ui.ImmersiveMediaGestureController;
-import com.tongkan.mobile.ui.PortraitComposerPositioner;
-import com.tongkan.mobile.ui.RoomChatOverlay;
-import com.tongkan.mobile.ui.RoomChatView;
-import com.tongkan.mobile.ui.RoomLibraryPickerDialog;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -75,10 +49,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 import java.lang.Thread;
 import java.util.concurrent.ExecutorService;
@@ -87,56 +57,9 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity implements RoomClient.Listener, PlayerJavascriptBridge.Listener {
     private static final String PREFS = "tongkan_android";
     private static final String PUBLIC_ORIGIN = "https://tongkan-personal.pages.dev";
-    private static final long ACTIVE_ROOM_POLL_INTERVAL_MS = 10_000L;
-    private static final long HISTORY_GRANT_RETRY_MS = 10_000L;
 
     private final ExecutorService background = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
-    private AccountClient accountClient;
-    private SessionStore sessionStore;
-    private AccountModels.Session accountSession;
-    private boolean anonymousMode;
-    private AccountModels.Pair currentPair;
-    private AccountModels.PairState currentPairState = AccountModels.PairState.empty();
-    private AccountModels.PairInvite currentPairInvite;
-    private AccountModels.LibrarySnapshot currentLibrary;
-    private String currentArchivePairId;
-    private String libraryMessage = "";
-    private boolean libraryLoading;
-    private boolean libraryError;
-    private List<String> libraryRetryInputs = new ArrayList<>();
-    private List<AccountModels.BatchItemResult> libraryBatchResults = new ArrayList<>();
-    private AccountModels.CalendarSnapshot currentCalendar;
-    private AccountModels.CalendarSnapshot currentTodayCalendar;
-    private AccountModels.CalendarMarkers currentCalendarMarkers;
-    private String currentArchiveCalendarPairId;
-    private String calendarMonth = LocalDate.now().toString().substring(0, 7);
-    private String calendarSelectedDate = LocalDate.now().toString();
-    private String todayCalendarDate = LocalDate.now().toString();
-    private String calendarMessage = "";
-    private String todayCalendarError = "";
-    private boolean calendarLoading;
-    private boolean calendarMarkersLoading;
-    private boolean calendarError;
-    private boolean todayCalendarLoading;
-    private long calendarRequestGeneration;
-    private long todayCalendarRequestGeneration;
-    private AccountModels.LibraryItem pendingCalendarItem;
-    private String pendingCalendarDate;
-    private String pairMessage = "";
-    private boolean pairLoading;
-    private boolean pairLoaded;
-    private AccountModels.HistoryPage currentWatchHistory;
-    private AccountModels.MonthlySummary currentWatchMonthly;
-    private String currentWatchArchivePairId;
-    private boolean watchHistoryLoading;
-    private boolean watchHistoryError;
-    private String watchHistoryMessage = "";
-    private int watchHistoryPendingRequests;
-    private long watchHistoryRequestGeneration;
-    private String registeredPushToken;
-    private final PushTokenProvider pushTokenProvider = new FcmPushTokenProvider();
-    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 7201;
     private EditText nicknameInput;
     private EditText inviteInput;
     private EditText videoInput;
@@ -167,27 +90,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean playerPaused = true;
     private boolean playerEnded;
     private boolean playerBuffering;
-    private static final long BUFFERING_DEBOUNCE_MS = 2000;
-    private static final long IMMERSIVE_CONTROLS_HIDE_DELAY_MS = 2800;
-    private Runnable pendingBufferingReport;
-    private boolean roomBufferingActive;
-    private double latestBufferingPositionSeconds;
-    private boolean latestBufferingPaused;
-    private int latestBufferingReadyState;
     private volatile boolean loadingVideo;
     private int readyState;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private FrameLayout rootContainer;
     private FrameLayout htmlFullscreenContainer;
     private LinearLayout rootLayout;
-    private FrameLayout entryHost;
-    private AuthScreen authScreen;
-    private HomeScreen homeScreen;
-    private MainNavigationView mainNavigationView;
-    private LibraryScreen libraryScreen;
-    private CalendarScreen calendarScreen;
-    private HistorySectionView historySectionView;
-    private BreathTheme breathTheme;
+    private LinearLayout entrySection;
+    private ScrollView entryScroll;
     private LinearLayout videoSection;
     private LinearLayout preparationPanel;
     private FrameLayout playerContainer;
@@ -196,9 +106,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private Button continueButton;
     private ImageButton entryThemeButton;
     private Button cancelPreparationButton;
-    private Button libraryPickerButton;
-    private Button changeVideoButton;
-    private Button videoThemeButton;
+    private ImageButton moreButton;
     private Button danmakuButton;
     private Button speedButton;
     private Button orientationButton;
@@ -212,60 +120,23 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private boolean preparingLocalVideo;
     private boolean awaitingMediaConfirmation;
     private boolean pendingAutoShare;
-    private boolean pendingPairWatchInvite;
-    private boolean pendingActiveRoomPublish;
-    private AccountModels.ActiveRoom activePairRoom;
-    private boolean activeRoomLoading;
-    private boolean activeRoomJoining;
-    private final Runnable activeRoomPoll = this::refreshActiveRoom;
-    private AccountModels.HistoryGrant roomHistoryGrant;
-    private boolean historyGrantRequesting;
-    private boolean historyPairRequesting;
-    private boolean historyActiveRoomConfirmed;
-    private boolean activityResumed;
-    private long historyLifecycleGeneration;
-    private final Runnable historyGrantRefresh = this::refreshHistoryGrant;
-    private final Runnable historyGrantExpiry = this::expireHistoryGrant;
-    private BilibiliMedia pendingLibraryMedia;
     private boolean darkMode;
     private boolean danmakuVisible;
     private boolean appFullscreen;
     private double selectedPlaybackRate = 1.0;
     private long loadingGeneration;
-    private boolean orientationWasPlaying;
-    private long ignoreOrientationPauseUntilMs;
     private int systemInsetTop;
     private int systemInsetBottom;
-    private int portraitComposerBottomMargin;
-    private FrameLayout portraitComposerLayer;
-    private ViewTreeObserver.OnGlobalLayoutListener keyboardLayoutListener;
     private FrameLayout immersiveControls;
     private View immersiveTapLayer;
     private ImageButton immersivePlayButton;
     private ImageButton immersiveCenterPlayButton;
     private Button immersiveDanmakuButton;
     private Button immersiveSpeedButton;
-    private Button immersiveLibraryButton;
     private SeekBar immersiveSeekBar;
     private TextView immersiveTimeText;
-    private ImageButton immersiveChatButton;
-    private View immersiveChatUnreadDot;
-    private LinearLayout immersiveAdjustmentHud;
-    private ImageView immersiveAdjustmentIcon;
-    private SeekBar immersiveAdjustmentProgress;
-    private TextView immersiveAdjustmentText;
-    private RoomChatView portraitChatView;
-    private RoomChatOverlay immersiveChatOverlay;
-    private ImmersiveMediaGestureController immersiveGestureController;
-    private String ownMemberId;
-    private String currentRoomNickname = "我";
     private boolean immersiveControlsVisible;
     private final Runnable hideImmersiveControls = () -> setImmersiveControlsVisible(false, false);
-    private final Runnable hideImmersiveAdjustmentHud = () -> {
-        if (immersiveAdjustmentHud == null) return;
-        immersiveAdjustmentHud.animate().alpha(0f).setDuration(180)
-            .withEndAction(() -> immersiveAdjustmentHud.setVisibility(View.GONE)).start();
-    };
 
     private static final String[][] DAILY_QUOTES = {
         {"生活就像一盒巧克力，你永远不知道下一颗是什么味道。", "《阿甘正传》"},
@@ -285,75 +156,19 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(null);
         preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
-        accountClient = new AccountClient(BuildConfig.ACCOUNT_API_BASE_URL, BuildConfig.ACCOUNT_TEST_ACCESS_TOKEN);
-        sessionStore = new SessionStore(this);
-        accountSession = sessionStore.load();
-        anonymousMode = accountSession != null && preferences.getBoolean("anonymousMode", false);
-        breathTheme = new BreathTheme(this, preferences);
-        darkMode = breathTheme.isDark();
+        darkMode = preferences.getBoolean("darkMode", false);
         danmakuVisible = preferences.getBoolean("danmakuVisible", true);
         playerBridgeScript = readAsset("bilibili-player-bridge.js");
         buildInterface();
         configureWebView();
-        requestNotificationPermissionIfNeeded();
 
         nicknameInput.setText(preferences.getString("nickname", "我"));
-        String deepLink = incomingInviteUrl(getIntent());
+        showEntryScreen();
+        String deepLink = getIntent().getDataString();
         if (deepLink != null && InviteInfo.parse(deepLink) != null) {
-            showEntryScreen();
-            homeScreen.showJoinPanel();
             inviteInput.setText(deepLink);
             joinInvite(deepLink);
-        } else {
-            restoreAccountSession();
         }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        activityResumed = true;
-        if (roomClient != null) roomClient.setPlaybackReportsActive(true);
-        maybeStartHistoryGrant();
-        if (accountSession == null) return;
-        registerDeviceTokenIfAvailable();
-        if (mainNavigationView != null
-            && entryHost != null
-            && entryHost.getVisibility() == View.VISIBLE
-            && "pair".equals(mainNavigationView.getCurrentPage())
-            && !pairLoading) {
-            mainHandler.post(() -> refreshPairState(false));
-        }
-        if (mainNavigationView != null && entryHost != null && entryHost.getVisibility() == View.VISIBLE) {
-            if ("calendar".equals(mainNavigationView.getCurrentPage())) mainHandler.post(() -> ensureCalendarLoaded(true));
-            if ("home".equals(mainNavigationView.getCurrentPage())) mainHandler.post(() -> ensureTodayCalendarLoaded(true));
-        }
-        if (canPollActiveRoom()) startActiveRoomPolling();
-    }
-
-    @Override
-    protected void onPause() {
-        activityResumed = false;
-        if (roomClient != null) roomClient.setPlaybackReportsActive(false);
-        stopActiveRoomPolling();
-        super.onPause();
-    }
-
-    private void requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= 33 && FcmPushTokenProvider.isConfigured()
-            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != getPackageManager().PERMISSION_GRANTED) {
-            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, NOTIFICATION_PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    private static String incomingInviteUrl(Intent intent) {
-        String data = intent == null ? null : intent.getDataString();
-        if (data != null && InviteInfo.parse(data) != null) return data;
-        if (intent != null && intent.hasExtra("url")) {
-            String extra = intent.getStringExtra("url");
-            if (extra != null && InviteInfo.parse(extra) != null) return extra;
-        }
-        return null;
     }
 
     @Override
@@ -366,10 +181,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     protected void onNewIntent(Intent intent) {
 
         setIntent(intent);
-        String deepLink = incomingInviteUrl(intent);
+        String deepLink = intent.getDataString();
         if (deepLink != null) {
-            showEntryScreen();
-            homeScreen.showJoinPanel();
             inviteInput.setText(deepLink);
             joinInvite(deepLink);
         }
@@ -377,12 +190,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     @Override
     protected void onDestroy() {
-        if (rootContainer != null && keyboardLayoutListener != null) {
-            rootContainer.getViewTreeObserver().removeOnGlobalLayoutListener(keyboardLayoutListener);
-        }
-        clearRoomHistoryLifecycle();
         if (roomClient != null) roomClient.close();
-        if (accountClient != null) accountClient.close();
         background.shutdownNow();
         mainHandler.removeCallbacksAndMessages(null);
         hideHtmlFullscreen();
@@ -399,138 +207,84 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         rootLayout.setOrientation(LinearLayout.VERTICAL);
         rootContainer.addView(rootLayout, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        entryHost = new FrameLayout(this);
-        rootLayout.addView(entryHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        entryScroll = new ScrollView(this);
+        entryScroll.setFillViewport(true);
+        entryScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        entrySection = new LinearLayout(this);
+        entrySection.setOrientation(LinearLayout.VERTICAL);
+        entrySection.setPadding(dp(20), dp(20), dp(20), dp(24));
+        entrySection.setTag("screen");
+        entryScroll.addView(entrySection, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        rootLayout.addView(entryScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         htmlFullscreenContainer = new FrameLayout(this);
         htmlFullscreenContainer.setBackgroundColor(Color.BLACK);
         htmlFullscreenContainer.setVisibility(View.GONE);
         rootContainer.addView(htmlFullscreenContainer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        String[] quote = dailyQuote();
-        authScreen = new AuthScreen(this, breathTheme, new AuthScreen.Listener() {
-            @Override
-            public void onToggleTheme() {
-                toggleTheme();
-            }
+        LinearLayout entryHeader = horizontal();
+        TextView title = text("同看", 24, Color.BLACK);
+        title.setTag("primaryText");
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        entryHeader.addView(title, weight(1));
+        entryThemeButton = iconButton(R.drawable.ic_theme_moon, "切换深色主题");
+        entryThemeButton.setOnClickListener(view -> toggleTheme());
+        entryHeader.addView(entryThemeButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        entrySection.addView(entryHeader, matchWrap());
 
-            @Override
-            public void onRequestCode(String email) {
-                requestAccountCode(email);
-            }
+        String[] dailyQuote = dailyQuote();
+        TextView quoteLabel = text("今日台词", 12, Color.DKGRAY);
+        quoteLabel.setTag("secondaryText");
+        entrySection.addView(quoteLabel, margin(matchWrap(), 0, 28, 0, 0));
+        TextView quoteText = text(dailyQuote[0], 27, Color.BLACK);
+        quoteText.setTag("primaryText");
+        quoteText.setTypeface(Typeface.SERIF, Typeface.BOLD);
+        quoteText.setLineSpacing(dp(3), 1.08f);
+        entrySection.addView(quoteText, margin(matchWrap(), 0, 8, 0, 0));
+        TextView quoteSource = text(dailyQuote[1], 13, Color.DKGRAY);
+        quoteSource.setTag("secondaryText");
+        entrySection.addView(quoteSource, margin(matchWrap(), 0, 8, 0, 0));
 
-            @Override
-            public void onVerifyCode(String email, String code) {
-                verifyAccountCode(email, code);
-            }
+        TextView createTitle = text("创建一个房间", 18, Color.BLACK);
+        createTitle.setTag("primaryText");
+        createTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        entrySection.addView(createTitle, margin(matchWrap(), 0, 28, 0, 0));
+        entrySection.addView(label("你的昵称"), margin(matchWrap(), 0, 12, 0, 0));
+        nicknameInput = edit("你的昵称");
+        nicknameInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+        entrySection.addView(nicknameInput, margin(matchHeight(52), 0, 7, 0, 0));
+        createButton = button("创建房间", true);
+        createButton.setOnClickListener(view -> createRoom());
+        entrySection.addView(createButton, margin(matchHeight(52), 0, 8, 0, 0));
 
-            @Override
-            public void onUseAnonymousRoom() {
-                enterAnonymousMode();
-            }
-        });
-        homeScreen = new HomeScreen(this, breathTheme, quote[0], quote[1], new HomeScreen.Listener() {
-            @Override
-            public void onToggleTheme() {
-                toggleTheme();
-            }
+        entrySection.addView(divider("或者"), margin(matchHeight(34), 0, 18, 0, 0));
+        TextView joinTitle = text("加入朋友的房间", 18, Color.BLACK);
+        joinTitle.setTag("primaryText");
+        joinTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        entrySection.addView(joinTitle, margin(matchWrap(), 0, 6, 0, 0));
+        entrySection.addView(label("邀请链接"), margin(matchWrap(), 0, 12, 0, 0));
+        LinearLayout inviteRow = horizontal();
+        inviteInput = edit("粘贴朋友发来的邀请链接");
+        inviteRow.addView(inviteInput, weight(1));
+        Button pasteButton = button("粘贴", false);
+        pasteButton.setOnClickListener(view -> pasteInviteFromClipboard());
+        inviteRow.addView(pasteButton, margin(new LinearLayout.LayoutParams(dp(72), ViewGroup.LayoutParams.MATCH_PARENT), 8, 0, 0, 0));
+        entrySection.addView(inviteRow, matchHeight(52));
+        joinButton = button("加入房间", false);
+        joinButton.setOnClickListener(view -> joinInvite(inviteInput.getText().toString()));
+        entrySection.addView(joinButton, margin(matchHeight(52), 0, 8, 0, 0));
+        continueButton = textButton("继续上次房间  ›");
+        continueButton.setOnClickListener(view -> restoreLastRoom());
+        entrySection.addView(continueButton, margin(matchHeight(52), 0, 14, 0, 0));
 
-            @Override
-            public void onCreateRoom() {
-                createRoom();
-            }
-
-            @Override
-            public void onJoinRoom() {
-                joinInvite(inviteInput.getText().toString());
-            }
-
-            @Override
-            public void onPasteInvite() {
-                pasteInviteFromClipboard();
-            }
-
-            @Override
-            public void onRestoreRoom() {
-                restoreLastRoom();
-            }
-
-            @Override
-            public void onAccountAction() {
-                openAccountMode();
-            }
-
-            @Override
-            public void onJoinActiveRoom() {
-                joinActiveRoom();
-            }
-
-            @Override
-            public void onOpenCalendar() {
-                openCalendarDate(LocalDate.now().toString());
-            }
-
-            @Override
-            public void onPlayTodayPlan(AccountModels.CalendarPlan plan) {
-                playCalendarPlan(plan);
-            }
-
-            @Override
-            public void onRefreshTodayPlans() {
-                ensureTodayCalendarLoaded(true);
-            }
-        });
-        mainNavigationView = new MainNavigationView(this, breathTheme, this::showMainTabFromNavigation);
-        historySectionView = new HistorySectionView(this, breathTheme);
-        calendarScreen = new CalendarScreen(this, breathTheme, new CalendarScreen.Listener() {
-            @Override public void onRefresh() { ensureCalendarLoaded(true); }
-            @Override public void onMonthChanged(String month) { changeCalendarMonth(month); }
-            @Override public void onDateSelected(String date) {
-                calendarSelectedDate = date;
-                showMainTab("calendar", false);
-            }
-            @Override public void onRequestCreate(String date) { openCalendarCreateFlow(null, date); }
-            @Override public void onCreatePlan(AccountModels.LibraryItem item, String date, String startTime, String note) {
-                createCalendarPlan(item, date, startTime, note);
-            }
-            @Override public void onUpdatePlan(AccountModels.CalendarPlan plan, String date, String startTime, String note) {
-                updateCalendarPlan(plan, date, startTime, note);
-            }
-            @Override public void onTogglePlan(AccountModels.CalendarPlan plan) { toggleCalendarPlan(plan); }
-            @Override public void onCancelPlan(AccountModels.CalendarPlan plan) { cancelCalendarPlan(plan); }
-            @Override public void onPlayPlan(AccountModels.CalendarPlan plan) { playCalendarPlan(plan); }
-            @Override public void onOpenArchive(AccountModels.PairArchive archive) { openArchiveCalendar(archive); }
-            @Override public void onCloseArchive() { closeArchiveCalendar(); }
-            @Override public void onOpenAccount() { showMainTab("pair", true); }
-        });
-        libraryScreen = new LibraryScreen(this, breathTheme, new LibraryScreen.Listener() {
-            @Override public void onRefresh() { refreshLibrary(); }
-            @Override public void onBatchAdd(List<String> inputs, String categoryId) { addLibraryItems(inputs, categoryId); }
-            @Override public void onCreateCategory(String name) { createLibraryCategory(name); }
-            @Override public void onRenameCategory(AccountModels.LibraryCategory category, String name) { renameLibraryCategory(category, name); }
-            @Override public void onDeleteCategory(AccountModels.LibraryCategory category) { deleteLibraryCategory(category); }
-            @Override public void onReorderCategories(List<String> orderedIds) { reorderLibraryCategories(orderedIds); }
-            @Override public void onUpdateItem(AccountModels.LibraryItem item, String categoryId, String watchStatus, boolean refreshMetadata) {
-                updateLibraryItem(item, categoryId, watchStatus, refreshMetadata);
-            }
-            @Override public void onRenameItem(AccountModels.LibraryItem item, String title) { renameLibraryItem(item, title); }
-            @Override public void onClearItemCategory(AccountModels.LibraryItem item) { clearLibraryItemCategory(item); }
-            @Override public void onDeleteItem(AccountModels.LibraryItem item) { deleteLibraryItem(item); }
-            @Override public void onReorderItems(List<String> orderedIds) { reorderLibraryItems(orderedIds); }
-            @Override public void onPlay(AccountModels.LibraryItem item) { playLibraryItem(item); }
-            @Override public void onSchedule(AccountModels.LibraryItem item) { openCalendarCreateFlow(item, LocalDate.now().toString()); }
-            @Override public void onOpenArchive(AccountModels.PairArchive archive) { openArchiveLibrary(archive); }
-            @Override public void onCloseArchive() { closeArchiveLibrary(); }
-            @Override public void onOpenAccount() { showMainTab("pair", true); }
-        });
-        nicknameInput = homeScreen.getNicknameInput();
-        inviteInput = homeScreen.getInviteInput();
-        createButton = homeScreen.getCreateButton();
-        joinButton = homeScreen.getJoinButton();
-        continueButton = homeScreen.getContinueButton();
-        entryThemeButton = homeScreen.getThemeButton();
-        entryConnectionText = homeScreen.getConnectionText();
-        entryHost.addView(authScreen.getView(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        entryConnectionText = text("创建房间，或粘贴邀请链接加入", 13, Color.DKGRAY);
+        entryConnectionText.setTag("secondaryText");
+        entryConnectionText.setGravity(Gravity.CENTER_HORIZONTAL);
+        entrySection.addView(entryConnectionText, margin(matchWrap(), 0, 14, 0, 0));
+        TextView privacyNote = text("临时私人房间 · 最多两个人", 11, Color.DKGRAY);
+        privacyNote.setTag("secondaryText");
+        privacyNote.setGravity(Gravity.CENTER_HORIZONTAL);
+        entrySection.addView(privacyNote, margin(matchWrap(), 0, 10, 0, 0));
 
         videoSection = new LinearLayout(this);
         videoSection.setOrientation(LinearLayout.VERTICAL);
@@ -559,6 +313,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         shareButton.setEnabled(false);
         shareButton.setOnClickListener(view -> shareInvite());
         header.addView(shareButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        moreButton = iconButton(R.drawable.ic_more, "更多操作");
+        moreButton.setOnClickListener(this::showVideoMenu);
+        header.addView(moreButton, margin(new LinearLayout.LayoutParams(dp(48), dp(48)), 8, 0, 0, 0));
         videoSection.addView(header, matchWrap());
 
         preparationPanel = card();
@@ -570,9 +327,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         TextView preparationDescription = text("粘贴链接后先在本机验证，成功后再让两边一起切换。", 13, Color.DKGRAY);
         preparationDescription.setTag("secondaryText");
         preparationPanel.addView(preparationDescription, margin(matchWrap(), 0, 4, 0, 0));
-        libraryPickerButton = button("从共同片库选择", false);
-        libraryPickerButton.setOnClickListener(view -> showRoomLibraryPicker());
-        preparationPanel.addView(libraryPickerButton, margin(matchHeight(48), 0, 14, 0, 0));
         preparationPanel.addView(label("B站视频链接"), margin(matchWrap(), 0, 16, 0, 0));
         videoInput = edit("BV、av 或 b23.tv 链接");
         preparationPanel.addView(videoInput, margin(matchHeight(52), 0, 8, 0, 0));
@@ -614,86 +368,41 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         configureSeekBar(seekBar);
         footer.addView(seekBar, matchHeight(36));
 
-        LinearLayout primaryControls = horizontal();
         playPauseButton = button("播放", true);
         setButtonIcon(playPauseButton, R.drawable.ic_play);
         playPauseButton.setEnabled(false);
         playPauseButton.setOnClickListener(view -> togglePlayback());
-        primaryControls.addView(playPauseButton, weight(1));
+        footer.addView(playPauseButton, margin(matchHeight(52), 0, 8, 0, 0));
+
+        LinearLayout tools = horizontal();
         danmakuButton = button("弹幕 开", false);
         setButtonIcon(danmakuButton, R.drawable.ic_danmaku);
         danmakuButton.setOnClickListener(view -> toggleDanmaku());
-        primaryControls.addView(danmakuButton, margin(weight(1), 6, 0, 0, 0));
+        tools.addView(danmakuButton, weight(1));
         speedButton = button("1.0×", false);
         setButtonIcon(speedButton, R.drawable.ic_speed);
         speedButton.setOnClickListener(view -> showSpeedDialog());
-        primaryControls.addView(speedButton, margin(weight(1), 6, 0, 0, 0));
+        tools.addView(speedButton, margin(weight(1), 8, 0, 0, 0));
         orientationButton = button("横屏", false);
         setButtonIcon(orientationButton, R.drawable.ic_rotate);
         orientationButton.setOnClickListener(view -> toggleOrientation());
-        primaryControls.addView(orientationButton, margin(weight(1), 6, 0, 0, 0));
+        tools.addView(orientationButton, margin(weight(1), 8, 0, 0, 0));
         fullscreenButton = button("全屏", false);
         setButtonIcon(fullscreenButton, R.drawable.ic_fullscreen);
         fullscreenButton.setOnClickListener(view -> toggleAppFullscreen());
-        primaryControls.addView(fullscreenButton, margin(weight(1), 6, 0, 0, 0));
-        footer.addView(primaryControls, margin(matchHeight(62), 0, 6, 0, 0));
-
-        LinearLayout quickActions = horizontal();
-        changeVideoButton = button("换视频", false);
-        setButtonIcon(changeVideoButton, R.drawable.ic_video);
-        changeVideoButton.setOnClickListener(view -> showRoomVideoSwitcher());
-        quickActions.addView(changeVideoButton, weight(1));
-        videoThemeButton = button(darkMode ? "浅色" : "深色", false);
-        setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
-        videoThemeButton.setOnClickListener(view -> toggleTheme());
-        quickActions.addView(videoThemeButton, margin(weight(1), 8, 0, 0, 0));
-        footer.addView(quickActions, margin(matchHeight(50), 0, 8, 0, 0));
-        portraitChatView = new RoomChatView(this, false);
-        portraitChatView.setOnSendListener(this::sendChatMessage);
-        portraitChatView.setOnComposerFocusListener(this::onPortraitComposerFocusChanged);
-        portraitChatView.setSendEnabled(false);
-        LinearLayout.LayoutParams portraitChatParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        footer.addView(portraitChatView, margin(portraitChatParams, 0, 10, 0, 0));
-        videoSection.addView(footer, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-
-        portraitComposerLayer = new FrameLayout(this);
-        portraitComposerLayer.setClipChildren(false);
-        portraitComposerLayer.setClipToPadding(false);
-        portraitComposerLayer.setVisibility(View.GONE);
-        View portraitComposer = portraitChatView.detachComposerForOverlay();
-        portraitComposerLayer.addView(portraitComposer, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(50),
-            Gravity.CENTER_VERTICAL
-        ));
-        FrameLayout.LayoutParams composerLayerParams = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(66),
-            Gravity.BOTTOM
-        );
-        composerLayerParams.leftMargin = dp(26);
-        composerLayerParams.rightMargin = dp(26);
-        rootContainer.addView(portraitComposerLayer, composerLayerParams);
+        tools.addView(fullscreenButton, margin(weight(1), 8, 0, 0, 0));
+        footer.addView(tools, margin(matchHeight(64), 0, 10, 0, 0));
+        videoSection.addView(footer, matchWrap());
 
         applyTheme();
         setContentView(rootContainer);
         rootContainer.setOnApplyWindowInsetsListener((view, insets) -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                android.graphics.Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
-                systemInsetTop = systemBars.top;
-                systemInsetBottom = systemBars.bottom;
-            } else {
-                systemInsetTop = insets.getSystemWindowInsetTop();
-                systemInsetBottom = insets.getSystemWindowInsetBottom();
-            }
+            systemInsetTop = insets.getSystemWindowInsetTop();
+            systemInsetBottom = insets.getSystemWindowInsetBottom();
             applySafeAreaInsets();
-            view.post(this::updatePortraitComposerPosition);
             return insets;
         });
-        keyboardLayoutListener = this::updatePortraitComposerPosition;
-        rootContainer.getViewTreeObserver().addOnGlobalLayoutListener(keyboardLayoutListener);
         rootContainer.requestApplyInsets();
-        rootContainer.post(this::updatePortraitComposerPosition);
     }
 
     private String[] dailyQuote() {
@@ -750,9 +459,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private StateListDrawable iconButtonBackground() {
-        int normal = breathTheme.panel();
-        int pressed = breathTheme.accentSoft();
-        int border = breathTheme.line();
+        int normal = darkMode ? Color.rgb(23, 24, 25) : Color.WHITE;
+        int pressed = darkMode ? Color.rgb(48, 50, 54) : Color.rgb(229, 229, 224);
+        int border = darkMode ? Color.rgb(48, 50, 54) : Color.rgb(217, 217, 210);
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[] {android.R.attr.state_pressed}, rounded(pressed, border, 12));
         states.addState(new int[] {}, rounded(normal, border, 12));
@@ -762,11 +471,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void setButtonIcon(Button button, int drawableId) {
         android.graphics.drawable.Drawable drawable = getDrawable(drawableId).mutate();
         drawable.setBounds(0, 0, dp(18), dp(18));
-        button.setTextSize(11);
-        button.setPadding(dp(2), dp(5), dp(2), dp(4));
-        button.setGravity(Gravity.CENTER);
-        button.setCompoundDrawables(null, drawable, null, null);
-        button.setCompoundDrawablePadding(dp(3));
+        button.setCompoundDrawables(drawable, null, null, null);
+        button.setCompoundDrawablePadding(dp(6));
     }
 
     private void tintButtonDrawables(Button button, int color) {
@@ -775,28 +481,30 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         }
     }
 
+    private void showVideoMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add("换视频");
+        menu.getMenu().add(darkMode ? "切换浅色" : "切换深色");
+        menu.getMenu().add("离开房间");
+        menu.setOnMenuItemClickListener(item -> {
+            String title = item.getTitle().toString();
+            if ("换视频".equals(title)) {
+                showPreparationPanel();
+            } else if (title.startsWith("切换")) {
+                toggleTheme();
+            } else if ("离开房间".equals(title)) {
+                confirmLeaveRoom();
+            }
+            return true;
+        });
+        menu.show();
+    }
+
     private void buildImmersiveControls() {
         immersiveTapLayer = new View(this);
         immersiveTapLayer.setBackgroundColor(Color.TRANSPARENT);
         immersiveTapLayer.setVisibility(View.GONE);
-        immersiveGestureController = new ImmersiveMediaGestureController(this, new ImmersiveMediaGestureController.Callback() {
-            @Override
-            public void onTap() {
-                if (appFullscreen) setImmersiveControlsVisible(!immersiveControlsVisible, true);
-            }
-
-            @Override
-            public void onAdjustment(ImmersiveMediaGestureController.ControlType type, int percent, boolean finished) {
-                showImmersiveAdjustment(type, percent, finished);
-            }
-        });
-        immersiveTapLayer.setOnTouchListener((view, event) -> {
-            if (appFullscreen) return immersiveGestureController.onTouch(view, event);
-            if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP && playerReady && authenticated && !awaitingMediaConfirmation) {
-                togglePlayback();
-            }
-            return true;
-        });
+        immersiveTapLayer.setOnClickListener(view -> setImmersiveControlsVisible(!immersiveControlsVisible, true));
         playerContainer.addView(immersiveTapLayer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         immersiveControls = new FrameLayout(this);
@@ -819,7 +527,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
         bottom.setPadding(dp(18), dp(12), dp(18), dp(12));
-        bottom.setBackgroundColor(Color.TRANSPARENT);
+        bottom.setBackground(rounded(Color.argb(205, 0, 0, 0), Color.TRANSPARENT, 0));
         FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         immersiveControls.addView(bottom, bottomParams);
 
@@ -847,30 +555,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         immersiveSpeedButton.setTag("immersiveButton");
         immersiveSpeedButton.setOnClickListener(view -> showSpeedDialog());
         actions.addView(immersiveSpeedButton, margin(new LinearLayout.LayoutParams(dp(78), dp(48)), 8, 0, 0, 0));
-        immersiveLibraryButton = button("片库", false);
-        immersiveLibraryButton.setTag("immersiveButton");
-        immersiveLibraryButton.setOnClickListener(view -> showRoomLibraryPicker());
-        actions.addView(immersiveLibraryButton, margin(new LinearLayout.LayoutParams(dp(70), dp(48)), 8, 0, 0, 0));
-        FrameLayout immersiveChatButtonHost = new FrameLayout(this);
-        immersiveChatButton = iconButton(R.drawable.ic_chat, "消息");
-        immersiveChatButton.setTag("immersiveIconButton");
-        immersiveChatButton.setOnClickListener(view -> {
-            setImmersiveChatUnread(false);
-            setImmersiveControlsVisible(true, false);
-            if (immersiveChatOverlay != null) immersiveChatOverlay.show();
-        });
-        immersiveChatButtonHost.addView(immersiveChatButton, new FrameLayout.LayoutParams(dp(48), dp(48)));
-        immersiveChatUnreadDot = new View(this);
-        GradientDrawable unreadBackground = new GradientDrawable();
-        unreadBackground.setShape(GradientDrawable.OVAL);
-        unreadBackground.setColor(0xFFFF3B30);
-        unreadBackground.setStroke(dp(2), Color.WHITE);
-        immersiveChatUnreadDot.setBackground(unreadBackground);
-        immersiveChatUnreadDot.setVisibility(View.GONE);
-        FrameLayout.LayoutParams unreadParams = new FrameLayout.LayoutParams(dp(12), dp(12), Gravity.TOP | Gravity.END);
-        unreadParams.setMargins(0, dp(2), dp(1), 0);
-        immersiveChatButtonHost.addView(immersiveChatUnreadDot, unreadParams);
-        actions.addView(immersiveChatButtonHost, margin(new LinearLayout.LayoutParams(dp(48), dp(48)), 8, 0, 0, 0));
         View spacer = new View(this);
         actions.addView(spacer, weight(1));
         ImageButton exitFullscreen = iconButton(R.drawable.ic_exit_fullscreen, "退出全屏");
@@ -878,52 +562,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         exitFullscreen.setOnClickListener(view -> exitImmersiveViewing());
         actions.addView(exitFullscreen, new LinearLayout.LayoutParams(dp(48), dp(48)));
         bottom.addView(actions, matchHeight(48));
-
-        immersiveAdjustmentHud = new LinearLayout(this);
-        immersiveAdjustmentHud.setOrientation(LinearLayout.VERTICAL);
-        immersiveAdjustmentHud.setGravity(Gravity.CENTER);
-        immersiveAdjustmentHud.setPadding(dp(18), dp(14), dp(18), dp(12));
-        immersiveAdjustmentHud.setBackground(rounded(Color.argb(205, 18, 20, 25), Color.argb(80, 255, 255, 255), 16));
-        immersiveAdjustmentHud.setVisibility(View.GONE);
-        immersiveAdjustmentIcon = new ImageView(this);
-        immersiveAdjustmentHud.addView(immersiveAdjustmentIcon, new LinearLayout.LayoutParams(dp(30), dp(30)));
-        immersiveAdjustmentText = text("50%", 15, Color.WHITE);
-        immersiveAdjustmentText.setTextColor(Color.WHITE);
-        immersiveAdjustmentText.setGravity(Gravity.CENTER);
-        immersiveAdjustmentHud.addView(immersiveAdjustmentText, margin(matchHeight(28), 0, 4, 0, 0));
-        immersiveAdjustmentProgress = new SeekBar(this);
-        immersiveAdjustmentProgress.setMax(100);
-        immersiveAdjustmentProgress.setEnabled(false);
-        immersiveAdjustmentProgress.setAlpha(1f);
-        immersiveAdjustmentHud.addView(immersiveAdjustmentProgress, new LinearLayout.LayoutParams(dp(138), dp(32)));
-        FrameLayout.LayoutParams hudParams = new FrameLayout.LayoutParams(dp(180), dp(128), Gravity.CENTER);
-        playerContainer.addView(immersiveAdjustmentHud, hudParams);
-
-        immersiveChatOverlay = new RoomChatOverlay(this, playerContainer);
-        immersiveChatOverlay.setVisibilityListener(visible -> {
-            if (visible) {
-                setImmersiveChatUnread(false);
-                mainHandler.removeCallbacks(hideImmersiveControls);
-                setImmersiveControlsVisible(true, false);
-            } else {
-                scheduleImmersiveControlsHide();
-            }
-        });
-        immersiveChatOverlay.getChatView().setOnSendListener(this::sendChatMessage);
-        immersiveChatOverlay.getChatView().setSendEnabled(false);
     }
 
-    private void showImmersiveAdjustment(ImmersiveMediaGestureController.ControlType type, int percent, boolean finished) {
-        if (immersiveAdjustmentHud == null) return;
-        mainHandler.removeCallbacks(hideImmersiveAdjustmentHud);
-        immersiveAdjustmentIcon.setImageResource(type == ImmersiveMediaGestureController.ControlType.BRIGHTNESS
-            ? R.drawable.ic_brightness : R.drawable.ic_volume);
-        immersiveAdjustmentText.setText((type == ImmersiveMediaGestureController.ControlType.BRIGHTNESS ? "亮度 " : "音量 ") + percent + "%");
-        immersiveAdjustmentProgress.setProgress(percent);
-        immersiveAdjustmentHud.setAlpha(1f);
-        immersiveAdjustmentHud.setVisibility(View.VISIBLE);
-        if (finished) mainHandler.postDelayed(hideImmersiveAdjustmentHud, 1000);
-    }
     private void configureSeekBar(SeekBar bar) {
         bar.setMax(1);
         bar.setEnabled(false);
@@ -962,7 +602,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void setImmersiveControlsVisible(boolean visible, boolean scheduleHide) {
         mainHandler.removeCallbacks(hideImmersiveControls);
-        if (!visible && immersiveChatOverlay != null && immersiveChatOverlay.isShowing()) return;
         immersiveControlsVisible = visible && appFullscreen;
         if (immersiveControls != null) immersiveControls.setVisibility(immersiveControlsVisible ? View.VISIBLE : View.GONE);
         if (scheduleHide && immersiveControlsVisible) scheduleImmersiveControlsHide();
@@ -970,9 +609,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void scheduleImmersiveControlsHide() {
         mainHandler.removeCallbacks(hideImmersiveControls);
-        boolean chatOpen = immersiveChatOverlay != null && immersiveChatOverlay.isShowing();
-        if (appFullscreen && !chatOpen && !playerPaused && !playerEnded && !playerBuffering && !userSeeking && !loadingVideo) {
-            mainHandler.postDelayed(hideImmersiveControls, IMMERSIVE_CONTROLS_HIDE_DELAY_MS);
+        if (appFullscreen && !playerPaused && !playerEnded && !playerBuffering && !userSeeking && !loadingVideo) {
+            mainHandler.postDelayed(hideImmersiveControls, 3000);
         }
     }
 
@@ -988,7 +626,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (immersiveCenterPlayButton != null) {
             immersiveCenterPlayButton.setImageResource(icon);
             immersiveCenterPlayButton.setContentDescription(showPlay ? "播放" : "暂停");
-            immersiveCenterPlayButton.setVisibility(showPlay ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -1019,7 +656,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 htmlFullscreenContainer.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
                 htmlFullscreenContainer.setVisibility(View.VISIBLE);
                 rootLayout.setVisibility(View.GONE);
-                syncPortraitComposerVisibility();
                 applyImmersiveMode(true);
             }
 
@@ -1055,14 +691,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                if (!request.isForMainFrame()) return false;
                 String url = request.getUrl().toString();
-                if ("about:blank".equals(url)) return false;
-                if (request.hasGesture() && playerContainer != null && playerContainer.getVisibility() == View.VISIBLE) {
-                    playerHint.setText("已阻止网页跳转，继续在同看中播放");
-                    return true;
-                }
-                return !isTrustedPlayerUrl(url);
+                return !isTrustedPlayerUrl(url) && !"about:blank".equals(url);
             }
 
             @Override
@@ -1075,10 +705,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void createRoom() {
-        createRoom(false);
-    }
-
-    private void createRoom(boolean inviteBoundFriend) {
         String nickname = normalizedNickname();
         createButton.setEnabled(false);
         createButton.setText("正在创建…");
@@ -1087,21 +713,15 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             try {
                 RoomClient.CreateRoomResult result = RoomClient.createRoom();
                 runOnUiThread(() -> {
-                    createButton.setEnabled(false);
-                    createButton.setText("正在连接…");
-                    setConnectionStatus("房间已创建，正在建立连接…");
-                    pendingPairWatchInvite = inviteBoundFriend;
-                    pendingActiveRoomPublish = isAccountModeActive();
-                    pendingAutoShare = !inviteBoundFriend && !pendingActiveRoomPublish;
+                    createButton.setEnabled(true);
+                    createButton.setText("创建房间");
+                    pendingAutoShare = true;
                     connectIdentity(result.roomId, result.hostKey, "host", result.inviteKey, nickname);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     createButton.setEnabled(true);
                     createButton.setText("创建房间");
-                    pendingPairWatchInvite = false;
-                    pendingActiveRoomPublish = false;
-                    pendingLibraryMedia = null;
                     showError("创建房间失败，请检查网络后重试");
                 });
             }
@@ -1120,21 +740,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void connectIdentity(String roomId, String key, String role, String inviteKey, String nickname) {
-        boolean confirmedActiveRoom = activePairRoom != null
-            && roomId.equals(activePairRoom.roomId)
-            && "guest".equals(role);
-        clearRoomHistoryLifecycle();
         if (roomClient != null) roomClient.close();
         currentRoomId = roomId;
         currentKey = key;
         currentRole = role;
         currentInviteKey = inviteKey;
-        currentRoomNickname = nickname;
-        ownMemberId = null;
         authenticated = false;
-        clearChatMessages();
-        setChatEnabled(false);
-        setPreparationControlsEnabled(false);
+        showVideoScreen();
         roomText.setText("房间 " + roomId.substring(0, 8) + " · " + ("host".equals(role) ? "房主" : "朋友"));
         setConnectionStatus("正在连接房间…");
         shareButton.setEnabled(inviteKey != null && !inviteKey.isEmpty());
@@ -1145,9 +757,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             .putString("role", role)
             .putString("inviteKey", inviteKey == null ? "" : inviteKey)
             .apply();
-        historyActiveRoomConfirmed = confirmedActiveRoom;
         roomClient = new RoomClient(roomId, key, nickname, this);
-        roomClient.setPlaybackReportsActive(activityResumed);
         roomClient.connect();
     }
 
@@ -1160,14 +770,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         connectIdentity(roomId, key, role, inviteKey.isEmpty() ? null : inviteKey, normalizedNickname());
     }
 
-    private String currentInviteUrl() {
-        if (currentRoomId == null || currentInviteKey == null) return null;
-        return PUBLIC_ORIGIN + "/room/" + currentRoomId + "#join=" + currentInviteKey;
-    }
-
     private void shareInvite() {
-        String url = currentInviteUrl();
-        if (url == null) return;
+        if (currentRoomId == null || currentInviteKey == null) return;
+        String url = PUBLIC_ORIGIN + "/room/" + currentRoomId + "#join=" + currentInviteKey;
         Intent share = new Intent(Intent.ACTION_SEND)
             .setType("text/plain")
             .putExtra(Intent.EXTRA_SUBJECT, "加入我的同看房间")
@@ -1175,23 +780,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         startActivity(Intent.createChooser(share, "分享房间邀请"));
     }
 
-    private void copyInviteLink() {
-        String url = currentInviteUrl();
-        if (url == null) return;
-        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if (clipboard == null) return;
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("同看房间邀请", url));
-        Toast.makeText(this, "邀请链接已复制", Toast.LENGTH_SHORT).show();
-    }
-
     private void loadVideoFromInput() {
         if (!authenticated || roomClient == null) {
-            setConnectionStatus("正在连接房间，连接完成后再准备视频");
-            playerHint.setText("正在连接房间…");
+            showError("请先连接房间，再准备视频");
             return;
         }
         if (loadingVideo) {
-            playerHint.setText("视频正在准备中，请稍候");
+            showError("视频正在准备中，请稍候");
             return;
         }
         loadingVideo = true;
@@ -1217,7 +812,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 pendingMediaToBroadcast = resolved;
                 playerContainer.setVisibility(View.VISIBLE);
                 preparationPanel.setVisibility(View.GONE);
-                syncVideoFooterVisibility();
                 loadMedia(resolved);
             });
         });
@@ -1263,9 +857,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         BilibiliMedia previousRoomMedia = roomMedia;
         latestAnchor = anchor;
         roomMedia = anchor.media;
-        if (roomClient != null && (anchor.media == null || (previousRoomMedia != null && !anchor.media.sameIdentity(previousRoomMedia)))) {
-            roomClient.clearPlaybackReport();
-        }
         if (anchor.media == null) {
             playerHint.setText("房间还没有视频");
             showPreparationPanel();
@@ -1281,7 +872,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         videoInput.setText(anchor.media.canonicalUrl);
         playerContainer.setVisibility(View.VISIBLE);
         preparationPanel.setVisibility(View.GONE);
-        syncVideoFooterVisibility();
         updatePlayerAspectRatio();
 
         if (pendingMediaToBroadcast != null && anchor.media.sameIdentity(pendingMediaToBroadcast)) {
@@ -1301,17 +891,9 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             loadMedia(anchor.media);
             return;
         }
-        double hardSyncDrift = 0;
-        if (playerReady && roomClient != null && loadedMedia != null && loadedMedia.sameIdentity(anchor.media)) {
-            hardSyncDrift = anchor.positionAt(roomClient.serverNow()) - currentPositionSeconds;
-        }
         if (playerReady) applyLatestAnchorToPlayer();
         updateSpeedButton(anchor.playbackRate);
-        if (Math.abs(hardSyncDrift) > 1.5) {
-            playerHint.setText(String.format(Locale.CHINA, "已重新同步 · 偏差 %.1f 秒", Math.abs(hardSyncDrift)));
-        } else {
-            playerHint.setText((anchor.paused ? "已暂停" : "正在播放") + " · 操作来自 " + actorNickname);
-        }
+        playerHint.setText((anchor.paused ? "已暂停" : "正在播放") + " · 操作来自 " + actorNickname);
         setPlaybackControlsEnabled(playerReady && !awaitingMediaConfirmation);
     }
 
@@ -1323,17 +905,11 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         }
         loadedMedia = media;
         playerReady = false;
-        loadingVideo = true;
-        loadingGeneration += 1;
-        long generation = loadingGeneration;
-        startLoadingTimeout(generation);
         playerPaused = true;
         playerEnded = false;
-        resetBufferingEpisode();
         playerBuffering = false;
         currentPositionSeconds = 0;
         durationSeconds = 0;
-        updateRoomPlaybackReport();
         updatePlaybackButtons(true, false);
         seekBar.setProgress(0);
         immersiveSeekBar.setProgress(0);
@@ -1342,8 +918,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         setPlaybackControlsEnabled(false);
         if (appFullscreen) setImmersiveControlsVisible(true, false);
         playerContainer.setVisibility(View.VISIBLE);
-        syncPlayerInteractionLayerVisibility();
-        syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         playerHint.setText(preparingLocalVideo ? "正在准备视频…" : "正在载入房间视频…");
         webView.loadUrl(embedUrl);
@@ -1366,60 +940,21 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     @Override
     public void onConnectionState(String state) {
-        runOnUiThread(() -> {
-            setConnectionStatus(state);
-            boolean connectionUnavailable = state.contains("正在连接") || state.contains("正在重连") || state.contains("连接中断")
-                || "已断开".equals(state) || "连接失败".equals(state);
-            if (connectionUnavailable) {
-                authenticated = false;
-                setPreparationControlsEnabled(false);
-                setPlaybackControlsEnabled(false);
-            }
-            if ("已断开".equals(state) || "连接失败".equals(state)) {
-                createButton.setEnabled(true);
-                createButton.setText("创建房间");
-                joinButton.setEnabled(true);
-                joinButton.setText("加入房间");
-                activeRoomJoining = false;
-                homeScreen.setActiveRoom(activePairRoom, false);
-            }
-            setChatEnabled(authenticated);
-        });
+        runOnUiThread(() -> setConnectionStatus(state));
     }
 
     @Override
     public void onAuthenticated(String ownMemberId, JSONObject snapshot) {
         runOnUiThread(() -> {
-            MainActivity.this.ownMemberId = ownMemberId;
             authenticated = true;
-            setChatEnabled(true);
-            setPreparationControlsEnabled(!loadingVideo);
-            createButton.setEnabled(true);
-            createButton.setText("创建房间");
             joinButton.setEnabled(true);
             joinButton.setText("加入房间");
             showVideoScreen();
             applySnapshot(snapshot);
-            maybeStartHistoryGrant();
-            if (pendingLibraryMedia != null) {
-                BilibiliMedia media = pendingLibraryMedia;
-                pendingLibraryMedia = null;
-                mainHandler.postDelayed(() -> prepareLibraryMedia(media), 250);
-            }
-            boolean notifyFriend = pendingPairWatchInvite;
-            boolean publishRoom = pendingActiveRoomPublish;
-            pendingPairWatchInvite = false;
-            pendingActiveRoomPublish = false;
-            if (publishRoom) {
-                mainHandler.postDelayed(() -> publishActiveRoom(true), 250);
-            }
-            if (notifyFriend) {
-                mainHandler.postDelayed(this::sendPairWatchInvite, 450);
-            } else if (pendingAutoShare) {
+            if (pendingAutoShare) {
                 pendingAutoShare = false;
                 mainHandler.postDelayed(this::shareInvite, 350);
             }
-            activeRoomJoining = false;
         });
     }
 
@@ -1434,92 +969,8 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     @Override
-    public void onChatMessage(String messageId, String memberId, String nickname, String text, long serverSentAtMs) {
-        runOnUiThread(() -> {
-            boolean own = ownMemberId != null && ownMemberId.equals(memberId);
-            String displayNickname = chatDisplayNickname(own, nickname);
-            boolean portraitAdded = portraitChatView != null && portraitChatView.addMessage(messageId, displayNickname, text, own);
-            boolean overlayAdded = immersiveChatOverlay != null
-                && immersiveChatOverlay.getChatView().addMessage(messageId, displayNickname, text, own);
-            if (!own && appFullscreen && (portraitAdded || overlayAdded) && immersiveChatOverlay != null && !immersiveChatOverlay.isShowing()) {
-                setImmersiveChatUnread(true);
-                immersiveChatOverlay.showIncomingBubble(displayNickname, text);
-            }
-        });
-    }
-
-    private boolean sendChatMessage(String text) {
-        if (roomClient == null || !authenticated) {
-            showError("房间正在重连，暂时无法发送消息");
-            return false;
-        }
-        String messageId = roomClient.sendChat(text);
-        if (messageId == null) return false;
-        if (portraitChatView != null) portraitChatView.addMessage(messageId, currentRoomNickname, text, true);
-        if (immersiveChatOverlay != null) immersiveChatOverlay.getChatView().addMessage(messageId, currentRoomNickname, text, true);
-        return true;
-    }
-
-    private void setChatEnabled(boolean enabled) {
-        if (portraitChatView != null) portraitChatView.setSendEnabled(enabled);
-        if (immersiveChatOverlay != null) immersiveChatOverlay.getChatView().setSendEnabled(enabled);
-        if (immersiveLibraryButton != null) immersiveLibraryButton.setEnabled(enabled);
-        if (immersiveChatButton != null) immersiveChatButton.setEnabled(enabled);
-    }
-
-    private void clearChatMessages() {
-        setImmersiveChatUnread(false);
-        if (portraitChatView != null) portraitChatView.clearMessages();
-        if (immersiveChatOverlay != null) immersiveChatOverlay.clearMessages();
-    }
-
-    private String chatDisplayNickname(boolean own, String nickname) {
-        if (own) return currentRoomNickname == null || currentRoomNickname.trim().isEmpty() ? "我" : currentRoomNickname.trim();
-        String normalized = nickname == null ? "" : nickname.trim();
-        if (normalized.isEmpty() || "我".equals(normalized)) {
-            if (currentPair != null && currentPair.partner != null && currentPair.partner.nickname != null
-                && !currentPair.partner.nickname.trim().isEmpty()) {
-                return currentPair.partner.nickname.trim();
-            }
-            return "对方";
-        }
-        return normalized;
-    }
-
-    private void setImmersiveChatUnread(boolean unread) {
-        if (immersiveChatUnreadDot != null) immersiveChatUnreadDot.setVisibility(unread ? View.VISIBLE : View.GONE);
-        if (immersiveChatButton != null) immersiveChatButton.setContentDescription(unread ? "消息，有未读消息" : "消息");
-    }
-
-    @Override
     public void onError(String message) {
         runOnUiThread(() -> showError(message));
-    }
-
-    @Override
-    public void onHistoryBound(RoomClient client, long expiresAt) {
-        runOnUiThread(() -> {
-            if (!historyClientMatches(client, roomClient)) return;
-            AccountModels.HistoryGrant grant = roomHistoryGrant;
-            if (grant == null) return;
-            roomHistoryGrant = grant.withServerExpiry(expiresAt);
-            if (roomHistoryGrant == grant) return;
-            scheduleHistoryGrant(roomHistoryGrant);
-        });
-    }
-
-    @Override
-    public void onHistoryDisabled(RoomClient client, String code, String message) {
-        runOnUiThread(() -> {
-            if (!historyClientMatches(client, roomClient)) return;
-            roomHistoryGrant = null;
-            historyGrantRequesting = false;
-            mainHandler.removeCallbacks(historyGrantRefresh);
-            mainHandler.removeCallbacks(historyGrantExpiry);
-            if ("HISTORY_GRANT_EXPIRED".equals(code) || "INVALID_HISTORY_GRANT".equals(code)) {
-                mainHandler.postDelayed(historyGrantRefresh, 1_000L);
-            }
-        });
     }
 
     @Override
@@ -1535,7 +986,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
                 applyLatestAnchorToPlayer();
             }
             playerHint.setText(preparingLocalVideo ? "正在确认视频可播放…" : "播放器已就绪");
-            updateRoomPlaybackReport();
             if (appFullscreen) setImmersiveControlsVisible(true, !playerPaused && !playerEnded);
         });
     }
@@ -1544,7 +994,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     public void onLocalCommand(String kind, double positionSeconds, double playbackRate) {
         runOnUiThread(() -> {
             if (!authenticated || roomClient == null || loadedMedia == null || awaitingMediaConfirmation) return;
-            if ("pause".equals(kind) && System.currentTimeMillis() < ignoreOrientationPauseUntilMs) return;
             if ("rate".equals(kind)) updateSpeedButton(playbackRate);
             Double position = ("play".equals(kind) || "pause".equals(kind) || "seek".equals(kind)) ? positionSeconds : null;
             Double rate = "rate".equals(kind) ? playbackRate : null;
@@ -1561,7 +1010,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             playerPaused = paused;
             playerEnded = ended;
             readyState = state;
-            updateRoomPlaybackReport();
 
             if (preparingLocalVideo && pendingMediaToBroadcast != null && playerReady && state >= 1 && durationSeconds > 0) {
                 preparingLocalVideo = false;
@@ -1613,63 +1061,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         runOnUiThread(() -> {
             playerBuffering = buffering;
             playerPaused = paused;
-            latestBufferingPositionSeconds = positionSeconds;
-            latestBufferingPaused = paused;
-            latestBufferingReadyState = state;
-            updateRoomPlaybackReport();
+            playerHint.setText(buffering ? "正在缓冲，房间会暂时等待" : "缓冲结束，等待房间继续");
             if (appFullscreen) {
                 setImmersiveControlsVisible(true, !buffering && !paused && !playerEnded);
             }
-            if (buffering) {
-                if (pendingBufferingReport != null || roomBufferingActive) return;
-                pendingBufferingReport = () -> {
-                    pendingBufferingReport = null;
-                    if (!playerBuffering || roomBufferingActive || roomClient == null || loadedMedia == null || latestAnchor == null) return;
-                    roomBufferingActive = true;
-                    playerHint.setText("正在缓冲，房间会暂时等待");
-                    updateRoomPlaybackReport();
-                };
-                mainHandler.postDelayed(pendingBufferingReport, BUFFERING_DEBOUNCE_MS);
-                return;
-            }
-
-            boolean wasRoomBufferingActive = roomBufferingActive;
-            cancelPendingBufferingReport();
-            roomBufferingActive = false;
-            if (wasRoomBufferingActive && roomClient != null && loadedMedia != null && latestAnchor != null) {
-                playerHint.setText("缓冲结束，等待房间继续");
-                updateRoomPlaybackReport();
-            }
+            if (roomClient == null || loadedMedia == null || latestAnchor == null) return;
+            roomClient.sendReport(latestAnchor.sequence, positionSeconds, paused, state, buffering, loadedMedia);
         });
-    }
-
-    private void updateRoomPlaybackReport() {
-        RoomClient client = roomClient;
-        PlaybackAnchor anchor = latestAnchor;
-        BilibiliMedia media = loadedMedia != null ? loadedMedia : roomMedia;
-        if (client == null || anchor == null) return;
-        Double duration = durationSeconds > 0 && Double.isFinite(durationSeconds) ? durationSeconds : null;
-        client.sendReport(
-            anchor.sequence,
-            currentPositionSeconds,
-            playerPaused,
-            readyState,
-            playerBuffering,
-            media,
-            playerEnded,
-            duration
-        );
-    }
-
-    private void cancelPendingBufferingReport() {
-        if (pendingBufferingReport == null) return;
-        mainHandler.removeCallbacks(pendingBufferingReport);
-        pendingBufferingReport = null;
-    }
-
-    private void resetBufferingEpisode() {
-        cancelPendingBufferingReport();
-        roomBufferingActive = false;
     }
 
     private void applySafeAreaInsets() {
@@ -1678,77 +1076,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             rootLayout.setPadding(0, 0, 0, 0);
             return;
         }
-        rootLayout.setPadding(0, systemInsetTop, 0, systemInsetBottom);
-    }
-
-    private void updatePortraitComposerPosition() {
-        if (rootContainer == null || portraitComposerLayer == null) return;
-        syncPortraitComposerVisibility();
-        if (portraitComposerLayer.getVisibility() != View.VISIBLE || rootContainer.getHeight() <= 0) {
-            setPortraitComposerBottomMargin(systemInsetBottom);
-            return;
-        }
-
-        int[] rootLocation = new int[2];
-        rootContainer.getLocationOnScreen(rootLocation);
-        int rootBottomOnScreen = rootLocation[1] + rootContainer.getHeight();
-
-        int imeTopOnScreen = Integer.MAX_VALUE;
-        WindowInsets rootInsets = rootContainer.getRootWindowInsets();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && rootInsets != null
-            && rootInsets.isVisible(WindowInsets.Type.ime())) {
-            int imeBottom = rootInsets.getInsets(WindowInsets.Type.ime()).bottom;
-            Rect windowBounds = getWindowManager().getCurrentWindowMetrics().getBounds();
-            if (imeBottom >= dp(80)) imeTopOnScreen = windowBounds.bottom - imeBottom;
-        }
-
-        Rect visibleFrame = new Rect();
-        rootContainer.getWindowVisibleDisplayFrame(visibleFrame);
-        int bottomMargin = PortraitComposerPositioner.bottomMargin(
-            rootBottomOnScreen,
-            visibleFrame.bottom,
-            imeTopOnScreen,
-            systemInsetBottom,
-            dp(80),
-            dp(6)
-        );
-        setPortraitComposerBottomMargin(bottomMargin);
-    }
-
-    private void onPortraitComposerFocusChanged(boolean focused) {
-        if (rootContainer == null || appFullscreen) return;
-        rootContainer.requestApplyInsets();
-        rootContainer.post(this::updatePortraitComposerPosition);
-        rootContainer.postDelayed(this::updatePortraitComposerPosition, focused ? 80 : 180);
-        rootContainer.postDelayed(this::updatePortraitComposerPosition, focused ? 220 : 360);
-    }
-
-    private void syncPortraitComposerVisibility() {
-        if (portraitComposerLayer == null || portraitChatView == null) return;
-        boolean portrait = getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE;
-        boolean shouldShow = portrait
-            && !appFullscreen
-            && htmlFullscreenView == null
-            && videoSection != null
-            && videoSection.getVisibility() == View.VISIBLE
-            && videoFooter != null
-            && videoFooter.getVisibility() == View.VISIBLE
-            && portraitChatView.getVisibility() == View.VISIBLE;
-        if (!shouldShow && portraitComposerLayer.getVisibility() == View.VISIBLE) {
-            portraitChatView.dismissComposer();
-        }
-        portraitComposerLayer.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
-        if (shouldShow) portraitComposerLayer.bringToFront();
-    }
-
-    private void setPortraitComposerBottomMargin(int bottomMarginPx) {
-        if (portraitComposerLayer == null) return;
-        int normalizedMargin = Math.max(0, bottomMarginPx);
-        if (portraitComposerBottomMargin == normalizedMargin) return;
-        portraitComposerBottomMargin = normalizedMargin;
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) portraitComposerLayer.getLayoutParams();
-        params.bottomMargin = normalizedMargin;
-        portraitComposerLayer.setLayoutParams(params);
+        rootLayout.setPadding(0, systemInsetTop + dp(16), 0, systemInsetBottom + dp(8));
     }
 
     private void updatePlayerAspectRatio() {
@@ -1780,2502 +1108,36 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         if (!appFullscreen) rootContainer.post(this::updatePlayerAspectRatio);
     }
 
-    private void restoreAccountSession() {
-        if (accountSession == null) {
-            showAuthScreen();
-            if (!accountClient.isConfigured()) authScreen.showMessage("账号服务尚未部署，请先使用匿名房间");
-            return;
-        }
-        if (!accountClient.isConfigured()) {
-            showEntryScreen();
-            Toast.makeText(this, "账号服务尚未配置，已进入本地房间模式", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (accountSession.expiresAt <= System.currentTimeMillis()) {
-            clearAccountSession();
-            showAuthScreen();
-            authScreen.showMessage("登录状态已过期，请重新获取验证码");
-            return;
-        }
-        showEntryScreen();
-        registerDeviceTokenIfAvailable();
-        long refreshWindowMs = 7L * 24L * 60L * 60L * 1000L;
-        if (accountSession.expiresAt - System.currentTimeMillis() <= refreshWindowMs) {
-            accountClient.refresh(accountSession.token, new AccountClient.ResultCallback<AccountModels.Session>() {
-                @Override public void onSuccess(AccountModels.Session session) {
-                    runOnUiThread(() -> finishAccountRestore(session));
-                }
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> handleAccountRestoreFailure(failure));
-                }
-            });
-        } else {
-            AccountModels.Session cached = accountSession;
-            accountClient.me(cached.token, new AccountClient.ResultCallback<AccountModels.User>() {
-                @Override public void onSuccess(AccountModels.User user) {
-                    runOnUiThread(() -> finishAccountRestore(new AccountModels.Session(cached.token, cached.expiresAt, user)));
-                }
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> handleAccountRestoreFailure(failure));
-                }
-            });
-        }
-    }
-
-    private void requestAccountCode(String email) {
-        authScreen.setRequestLoading(true);
-        accountClient.sendCode(email, new AccountClient.ResultCallback<AccountModels.SendCodeResult>() {
-            @Override public void onSuccess(AccountModels.SendCodeResult result) {
-                runOnUiThread(() -> {
-                    authScreen.setRequestLoading(false);
-                    String message = "验证码已发送，" + Math.max(1, result.expiresInSeconds / 60) + " 分钟内有效";
-                    if (!result.debugCode.isEmpty()) message += " · 测试码 " + result.debugCode;
-                    authScreen.showCodeStep(message);
-                });
-            }
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    authScreen.setRequestLoading(false);
-                    authScreen.showMessage(failure.getMessage());
-                });
-            }
-        });
-    }
-
-    private void verifyAccountCode(String email, String code) {
-        authScreen.setVerifyLoading(true);
-        String deviceName = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
-        accountClient.verifyCode(email, code, deviceName.trim(), new AccountClient.ResultCallback<AccountModels.Session>() {
-            @Override public void onSuccess(AccountModels.Session session) {
-                runOnUiThread(() -> {
-                    authScreen.setVerifyLoading(false);
-                    if (!saveAccountSession(session)) {
-                        authScreen.showMessage("无法安全保存登录状态，请检查系统安全设置");
-                        accountClient.logout(session.token, new AccountClient.ResultCallback<Void>() {
-                            @Override public void onSuccess(Void ignored) {}
-                            @Override public void onFailure(AccountClient.Failure failure) {}
-                        });
-                        return;
-                    }
-                    setAnonymousMode(false);
-                    Toast.makeText(MainActivity.this, "登录成功", Toast.LENGTH_SHORT).show();
-                    registerDeviceTokenIfAvailable();
-                    showEntryScreen();
-                });
-            }
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    authScreen.setVerifyLoading(false);
-                    authScreen.showMessage(failure.getMessage());
-                });
-            }
-        });
-    }
-
-    private void registerDeviceTokenIfAvailable() {
-        if (accountSession == null || !accountClient.isConfigured()) return;
-        pushTokenProvider.refreshToken(this, new PushTokenProvider.Callback() {
-            @Override public void onToken(String token) {
-                if (token == null || token.trim().isEmpty() || accountSession == null) return;
-                String normalized = token.trim();
-                String previous = registeredPushToken;
-                registeredPushToken = normalized;
-                if (previous != null && !previous.equals(normalized)) {
-                    accountClient.unregisterDevice(accountSession.token, previous, pushTokenProvider.providerId(), new AccountClient.ResultCallback<Void>() {
-                        @Override public void onSuccess(Void ignored) {}
-                        @Override public void onFailure(AccountClient.Failure failure) {}
-                    });
-                }
-                String deviceName = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
-                accountClient.registerDevice(accountSession.token, normalized, pushTokenProvider.providerId(), deviceName.trim(), BuildConfig.VERSION_NAME,
-                    new AccountClient.ResultCallback<AccountModels.DeviceRegistration>() {
-                        @Override public void onSuccess(AccountModels.DeviceRegistration result) {}
-                        @Override public void onFailure(AccountClient.Failure failure) {
-                            if (failure.isAuthenticationFailure()) runOnUiThread(() -> handleAccountRestoreFailure(failure));
-                        }
-                    });
-            }
-            @Override public void onUnavailable() {}
-        });
-    }
-    private void finishAccountRestore(AccountModels.Session session) {
-        if (!saveAccountSession(session)) {
-            clearAccountSession();
-            showAuthScreen();
-            authScreen.showMessage("无法恢复安全登录状态，请重新登录");
-            return;
-        }
-        registerDeviceTokenIfAvailable();
-        showEntryScreen();
-    }
-
-    private void handleAccountRestoreFailure(AccountClient.Failure failure) {
-        if (failure.isAuthenticationFailure()) {
-            clearAccountSession();
-            showAuthScreen();
-            authScreen.showMessage("登录状态已失效，请重新获取验证码");
-            return;
-        }
-        showEntryScreen();
-        Toast.makeText(this, failure.getMessage() + "，房间功能仍可使用", Toast.LENGTH_LONG).show();
-    }
-
-    private boolean saveAccountSession(AccountModels.Session session) {
-        try {
-            boolean accountChanged = accountSession == null || !accountSession.user.id.equals(session.user.id);
-            sessionStore.save(session);
-            accountSession = session;
-            if (accountChanged) resetPairState();
-            preferences.edit().putString("nickname", session.user.nickname).apply();
-            return true;
-        } catch (Exception error) {
-            return false;
-        }
-    }
-
-    private void clearAccountSession() {
-        clearRoomHistoryLifecycle();
-        stopActiveRoomPolling();
-        accountSession = null;
-        anonymousMode = false;
-        preferences.edit().remove("anonymousMode").apply();
-        registeredPushToken = null;
-        activePairRoom = null;
-        activeRoomLoading = false;
-        activeRoomJoining = false;
-        resetPairState();
-        sessionStore.clear();
-        homeScreen.setAnonymousState();
-    }
-
-    private void resetPairState() {
-        currentPair = null;
-        currentPairState = AccountModels.PairState.empty();
-        currentPairInvite = null;
-        pairMessage = "";
-        pairLoading = false;
-        pairLoaded = false;
-        resetSharedSpaceState();
-    }
-
-    private void resetSharedSpaceState() {
-        resetLibraryState();
-        resetCalendarState();
-        resetWatchHistoryState();
-    }
-
-    private void resetWatchHistoryState() {
-        watchHistoryRequestGeneration += 1;
-        currentWatchHistory = null;
-        currentWatchMonthly = null;
-        currentWatchArchivePairId = null;
-        watchHistoryLoading = false;
-        watchHistoryError = false;
-        watchHistoryMessage = "";
-        watchHistoryPendingRequests = 0;
-    }
-
-    private void resetLibraryState() {
-        currentLibrary = null;
-        currentArchivePairId = null;
-        libraryMessage = "";
-        libraryLoading = false;
-        libraryError = false;
-        libraryRetryInputs = new ArrayList<>();
-        libraryBatchResults = new ArrayList<>();
-    }
-
-    private void resetCalendarState() {
-        calendarRequestGeneration += 1;
-        todayCalendarRequestGeneration += 1;
-        currentCalendar = null;
-        currentTodayCalendar = null;
-        currentCalendarMarkers = null;
-        currentArchiveCalendarPairId = null;
-        calendarMonth = LocalDate.now().toString().substring(0, 7);
-        calendarSelectedDate = LocalDate.now().toString();
-        todayCalendarDate = LocalDate.now().toString();
-        calendarMessage = "";
-        todayCalendarError = "";
-        calendarLoading = false;
-        calendarMarkersLoading = false;
-        calendarError = false;
-        todayCalendarLoading = false;
-        pendingCalendarItem = null;
-        pendingCalendarDate = null;
-        if (homeScreen != null) homeScreen.clearTodayState();
-    }
-    private View pairPage() {
-        return mainNavigationView.pairPage(
-            accountSession.user.nickname,
-            accountSession.user.email,
-            accountSession.user.id,
-            currentPairState,
-            currentPairInvite,
-            pairMessage,
-            pairLoading,
-            watchHistorySection(),
-            new MainNavigationView.PairActions() {
-                @Override public void onCreateInvite() { createPairInvite(); }
-                @Override public void onCopyInvite() { copyPairInvite(); }
-                @Override public void onAcceptInvite(String code) { acceptPairInvite(code); }
-                @Override public void onRefresh() { refreshPairState(true); }
-                @Override public void onInviteWatch() { inviteBoundFriendToWatch(); }
-                @Override public void onEditProfile() { showEditProfileDialog(); }
-                @Override public void onRequestUnbind() { showUnbindRetentionChoice(); }
-                @Override public void onChooseArchiveRetention(AccountModels.PairArchive archive) { showArchiveRetentionChoice(archive); }
-                @Override public void onOpenArchiveHistory(AccountModels.PairArchive archive) { openArchiveWatchHistory(archive); }
-                @Override public void onUseAnonymous() { enterAnonymousMode(); }
-                @Override public void onSwitchAccount() { confirmSwitchAccount(); }
-                @Override public void onLogout() { confirmAccountLogout(); }
-            }
-        );
-    }
-
-    private View watchHistorySection() {
-        String pairId = currentWatchArchivePairId != null
-            ? currentWatchArchivePairId
-            : (currentPair == null ? null : currentPair.pairId);
-        if (pairId == null) return null;
-        String partner = currentPair == null ? null : currentPair.partner.nickname;
-        if (currentWatchArchivePairId != null) {
-            for (AccountModels.PairArchive archive : currentPairState.archives) {
-                if (archive.pairId.equals(currentWatchArchivePairId)) partner = archive.partner.nickname;
-            }
-        }
-        return historySectionView.render(
-            currentWatchHistory,
-            currentWatchMonthly,
-            watchHistoryLoading,
-            watchHistoryError,
-            watchHistoryMessage,
-            currentWatchArchivePairId != null,
-            partner,
-            new HistorySectionView.Actions() {
-                @Override public void onRefresh() { ensureWatchHistoryLoaded(true); }
-                @Override public void onLoadMore() { loadMoreWatchHistory(); }
-                @Override public void onCloseArchive() { closeArchiveWatchHistory(); }
-                @Override public void onPlay(AccountModels.HistoryItem item) { playWatchHistoryItem(item); }
-            }
-        );
-    }
-
-    private void openArchiveWatchHistory(AccountModels.PairArchive archive) {
-        if (archive == null || watchHistoryLoading || !"keep".equals(archive.retention)) return;
-        currentWatchArchivePairId = archive.pairId;
-        currentWatchHistory = null;
-        currentWatchMonthly = null;
-        showMainTab("pair", false);
-        loadWatchHistory(true);
-    }
-
-    private void closeArchiveWatchHistory() {
-        watchHistoryRequestGeneration += 1;
-        currentWatchArchivePairId = null;
-        currentWatchHistory = null;
-        currentWatchMonthly = null;
-        watchHistoryLoading = false;
-        watchHistoryError = false;
-        watchHistoryMessage = "已返回当前空间。";
-        showMainTab("pair", false);
-        if (currentPair != null) loadWatchHistory(true);
-    }
-
-    private void playWatchHistoryItem(AccountModels.HistoryItem item) {
-        if (item == null) return;
-        BilibiliMedia media = BilibiliMedia.parse(item.media.canonicalUrl);
-        if (media == null || media.embedUrl() == null) {
-            Toast.makeText(this, "这个历史视频暂时无法播放", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (roomClient != null && authenticated) {
-            prepareLibraryMedia(media);
-            return;
-        }
-        pendingLibraryMedia = media;
-        createRoom(isAccountModeActive() && currentPair != null);
-    }
-
-    private void ensureWatchHistoryLoaded(boolean force) {
-        if (!isAccountModeActive() || watchHistoryLoading) return;
-        if (!force && watchHistoryError) return;
-        String pairId = currentWatchArchivePairId != null
-            ? currentWatchArchivePairId
-            : (currentPair == null ? null : currentPair.pairId);
-        if (pairId == null) return;
-        boolean readOnly = currentWatchArchivePairId != null;
-        if (!force && currentWatchHistory != null && pairId.equals(currentWatchHistory.pairId)
-            && currentWatchHistory.readOnly == readOnly && currentWatchMonthly != null) return;
-        loadWatchHistory(true);
-    }
-
-    private void loadWatchHistory(boolean reset) {
-        AccountModels.Session session = accountSession;
-        String archivePairId = currentWatchArchivePairId;
-        String pairId = archivePairId != null ? archivePairId : (currentPair == null ? null : currentPair.pairId);
-        if (!isAccountModeActive() || session == null || pairId == null || watchHistoryLoading) return;
-        boolean readOnly = archivePairId != null;
-        if (reset) {
-            currentWatchHistory = null;
-            currentWatchMonthly = null;
-        }
-        watchHistoryLoading = true;
-        watchHistoryError = false;
-        watchHistoryMessage = readOnly ? "正在读取只读旧历史…" : "正在读取共同历史…";
-        watchHistoryPendingRequests = 2;
-        showMainTab("pair", false);
-        long generation = ++watchHistoryRequestGeneration;
-        String token = session.token;
-        String month = LocalDate.now().toString().substring(0, 7);
-        int offset = currentTzOffsetMinutes();
-
-        AccountClient.ResultCallback<AccountModels.HistoryPage> pageCallback = new AccountClient.ResultCallback<AccountModels.HistoryPage>() {
-            @Override public void onSuccess(AccountModels.HistoryPage page) {
-                runOnUiThread(() -> {
-                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
-                    if (!pairId.equals(page.pairId) || page.readOnly != readOnly) {
-                        finishWatchHistoryRequest("共同历史返回了不匹配的空间。", true);
-                        return;
-                    }
-                    currentWatchHistory = page;
-                    finishWatchHistoryRequest(null, false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
-                    finishWatchHistoryRequest("共同历史暂时无法读取，房间功能不受影响。", true);
-                });
-            }
-        };
-        AccountClient.ResultCallback<AccountModels.MonthlySummary> monthlyCallback = new AccountClient.ResultCallback<AccountModels.MonthlySummary>() {
-            @Override public void onSuccess(AccountModels.MonthlySummary summary) {
-                runOnUiThread(() -> {
-                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
-                    if (!pairId.equals(summary.pairId) || summary.readOnly != readOnly || !month.equals(summary.month)) {
-                        finishWatchHistoryRequest("月度统计返回了不匹配的空间。", true);
-                        return;
-                    }
-                    currentWatchMonthly = summary;
-                    finishWatchHistoryRequest(null, false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
-                    finishWatchHistoryRequest("月度统计暂时无法读取。", true);
-                });
-            }
-        };
-        if (readOnly) {
-            accountClient.getArchiveHistory(token, pairId, null, 20, pageCallback);
-            accountClient.getArchiveHistoryMonthly(token, pairId, month, offset, monthlyCallback);
-        } else {
-            accountClient.getHistory(token, null, 20, pageCallback);
-            accountClient.getHistoryMonthly(token, month, offset, monthlyCallback);
-        }
-    }
-
-    private void loadMoreWatchHistory() {
-        AccountModels.Session session = accountSession;
-        AccountModels.HistoryPage page = currentWatchHistory;
-        String archivePairId = currentWatchArchivePairId;
-        String pairId = archivePairId != null ? archivePairId : (currentPair == null ? null : currentPair.pairId);
-        if (!isAccountModeActive() || session == null || page == null || page.nextCursor == null || pairId == null || watchHistoryLoading) return;
-        boolean readOnly = archivePairId != null;
-        watchHistoryLoading = true;
-        watchHistoryError = false;
-        watchHistoryMessage = "正在加载更多历史…";
-        watchHistoryPendingRequests = 1;
-        showMainTab("pair", false);
-        long generation = ++watchHistoryRequestGeneration;
-        String token = session.token;
-        AccountClient.ResultCallback<AccountModels.HistoryPage> callback = new AccountClient.ResultCallback<AccountModels.HistoryPage>() {
-            @Override public void onSuccess(AccountModels.HistoryPage next) {
-                runOnUiThread(() -> {
-                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
-                    if (!pairId.equals(next.pairId) || next.readOnly != readOnly) {
-                        finishWatchHistoryRequest("更多历史返回了不匹配的空间。", true);
-                        return;
-                    }
-                    currentWatchHistory = HistorySectionView.State.mergePages(currentWatchHistory, next);
-                    finishWatchHistoryRequest(null, false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (!isCurrentWatchHistoryRequest(generation, token, pairId, archivePairId)) return;
-                    finishWatchHistoryRequest("更多历史暂时无法读取。", true);
-                });
-            }
-        };
-        if (readOnly) accountClient.getArchiveHistory(token, pairId, page.nextCursor, 20, callback);
-        else accountClient.getHistory(token, page.nextCursor, 20, callback);
-    }
-
-    private void finishWatchHistoryRequest(String errorMessage, boolean failed) {
-        if (failed) {
-            watchHistoryError = true;
-            if (errorMessage != null) watchHistoryMessage = errorMessage;
-        }
-        watchHistoryPendingRequests = Math.max(0, watchHistoryPendingRequests - 1);
-        if (watchHistoryPendingRequests == 0) {
-            watchHistoryLoading = false;
-            if (!watchHistoryError) watchHistoryMessage = currentWatchArchivePairId == null ? "共同历史已更新。" : "旧共同历史为只读状态。";
-        }
-        showMainTab("pair", false);
-    }
-
-    private boolean isCurrentWatchHistoryRequest(long generation, String token, String pairId, String archivePairId) {
-        if (generation != watchHistoryRequestGeneration || !isCurrentSession(token)) return false;
-        if (archivePairId != null) return archivePairId.equals(currentWatchArchivePairId);
-        return currentWatchArchivePairId == null && currentPair != null && pairId.equals(currentPair.pairId);
-    }
-
-    private static int currentTzOffsetMinutes() {
-        return ZonedDateTime.now().getOffset().getTotalSeconds() / 60;
-    }
-
-    private View libraryPage() {
-        LibraryScreen.PageState state;
-        if (!isAccountModeActive()) {
-            state = LibraryScreen.PageState.UNAUTHENTICATED;
-        } else if (currentLibrary != null) {
-            state = LibraryScreen.PageState.CONTENT;
-        } else if (libraryLoading || !pairLoaded) {
-            state = LibraryScreen.PageState.LOADING;
-        } else if (currentPair == null) {
-            state = LibraryScreen.PageState.UNBOUND;
-        } else if (libraryError) {
-            state = LibraryScreen.PageState.ERROR;
-        } else {
-            state = LibraryScreen.PageState.LOADING;
-        }
-        return libraryScreen.render(
-            state,
-            currentLibrary,
-            currentPairState == null ? new ArrayList<>() : currentPairState.archives,
-            libraryRetryInputs,
-            libraryBatchResults,
-            roomClient != null && authenticated,
-            libraryLoading,
-            libraryMessage
-        );
-    }
-
-    private void ensureLibraryLoaded(boolean force) {
-        AccountModels.Session session = accountSession;
-        if (session == null || libraryLoading) return;
-        if (!pairLoaded) {
-            libraryLoading = true;
-            libraryMessage = "正在读取好友和旧空间状态…";
-            showMainTab("library", false);
-            accountClient.getPair(session.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
-                @Override public void onSuccess(AccountModels.PairState pairState) {
-                    runOnUiThread(() -> {
-                        libraryLoading = false;
-                        applyPairSnapshot(pairState);
-                        if (currentPair == null) showMainTab("library", false);
-                        else loadActiveLibrary(true);
-                    });
-                }
-
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> handleLibraryFailure(failure, false));
-                }
-            });
-            return;
-        }
-        if (currentArchivePairId != null) {
-            if (force || currentLibrary == null || !currentArchivePairId.equals(currentLibrary.pairId)) loadArchiveLibrary(currentArchivePairId);
-            return;
-        }
-        if (currentPair == null) {
-            showMainTab("library", false);
-            return;
-        }
-        if (force || currentLibrary == null || !currentPair.pairId.equals(currentLibrary.pairId) || currentLibrary.readOnly) loadActiveLibrary(true);
-    }
-
-    private void refreshLibrary() {
-        ensureLibraryLoaded(true);
-    }
-
-    private void loadActiveLibrary(boolean showLoading) {
-        AccountModels.Session session = accountSession;
-        if (session == null || currentPair == null || libraryLoading) return;
-        currentArchivePairId = null;
-        libraryLoading = true;
-        libraryError = false;
-        if (showLoading) libraryMessage = "正在同步共同片库…";
-        showMainTab("library", false);
-        accountClient.getLibrary(session.token, "", "all", null, librarySnapshotCallback("片库已更新。"));
-    }
-
-    private void loadArchiveLibrary(String pairId) {
-        AccountModels.Session session = accountSession;
-        if (session == null || libraryLoading) return;
-        currentArchivePairId = pairId;
-        currentLibrary = null;
-        libraryLoading = true;
-        libraryError = false;
-        libraryMessage = "正在读取只读旧片库…";
-        showMainTab("library", false);
-        accountClient.getArchiveLibrary(session.token, pairId, librarySnapshotCallback("旧片库为只读状态。"));
-    }
-
-    private AccountClient.ResultCallback<AccountModels.LibrarySnapshot> librarySnapshotCallback(String successMessage) {
-        return new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
-            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
-                runOnUiThread(() -> {
-                    currentLibrary = snapshot;
-                    currentArchivePairId = snapshot.readOnly ? snapshot.pairId : null;
-                    libraryLoading = false;
-                    libraryError = false;
-                    libraryMessage = successMessage;
-                    showMainTab("library", false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleLibraryFailure(failure, false));
-            }
-        };
-    }
-
-    private void openArchiveLibrary(AccountModels.PairArchive archive) {
-        if (archive == null || libraryLoading) return;
-        loadArchiveLibrary(archive.pairId);
-    }
-
-    private void closeArchiveLibrary() {
-        currentArchivePairId = null;
-        currentLibrary = null;
-        if (currentPair == null) {
-            libraryMessage = "已返回当前空间。";
-            showMainTab("library", false);
-        } else {
-            loadActiveLibrary(true);
-        }
-    }
-
-    private void addLibraryItems(List<String> inputs, String categoryId) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || inputs == null || inputs.isEmpty()) {
-            if (inputs == null || inputs.isEmpty()) Toast.makeText(this, "请至少输入一条 B站链接", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        libraryLoading = true;
-        libraryMessage = "正在逐条解析并添加视频…";
-        libraryRetryInputs = new ArrayList<>(inputs);
-        libraryBatchResults = new ArrayList<>();
-        showMainTab("library", false);
-        accountClient.addLibraryItems(session.token, inputs, categoryId, currentLibrary.revision,
-            new AccountClient.ResultCallback<AccountModels.BatchAddResult>() {
-                @Override public void onSuccess(AccountModels.BatchAddResult result) {
-                    runOnUiThread(() -> {
-                        currentLibrary = result.library;
-                        libraryLoading = false;
-                        libraryError = false;
-                        int added = 0;
-                        int duplicate = 0;
-                        int rejected = 0;
-                        List<String> retryable = new ArrayList<>();
-                        for (AccountModels.BatchItemResult item : result.results) {
-                            if ("added".equals(item.status)) added += 1;
-                            else if ("duplicate".equals(item.status)) duplicate += 1;
-                            else {
-                                rejected += 1;
-                                if ("B23_RESOLUTION_FAILED".equals(item.error)) retryable.add(item.input);
-                            }
-                        }
-                        libraryRetryInputs = retryable;
-                        libraryBatchResults = new ArrayList<>(result.results);
-                        libraryMessage = "添加 " + added + " 条 · 重复 " + duplicate + " 条 · 未添加 " + rejected + " 条"
-                            + (rejected == 0 ? "" : "；失败原因已逐条标注");
-                        showMainTab("library", false);
-                    });
-                }
-
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> handleLibraryFailure(failure, true));
-                }
-            });
-    }
-
-    private void createLibraryCategory(String name) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session)) return;
-        startLibraryMutation("正在创建分类…");
-        accountClient.createLibraryCategory(session.token, name, currentLibrary.revision, mutationCallback("分类已创建。"));
-    }
-
-    private void renameLibraryCategory(AccountModels.LibraryCategory category, String name) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || category == null) return;
-        startLibraryMutation("正在重命名分类…");
-        accountClient.renameLibraryCategory(session.token, category.id, name, currentLibrary.revision, mutationCallback("分类已更新。"));
-    }
-
-    private void deleteLibraryCategory(AccountModels.LibraryCategory category) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || category == null) return;
-        startLibraryMutation("正在删除分类…");
-        accountClient.deleteLibraryCategory(session.token, category.id, currentLibrary.revision, mutationCallback("分类已删除，视频已移到未分类。"));
-    }
-
-    private void reorderLibraryCategories(List<String> orderedIds) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session)) return;
-        startLibraryMutation("正在保存分类排序…");
-        accountClient.reorderLibraryCategories(session.token, orderedIds, currentLibrary.revision, mutationCallback("分类排序已保存。"));
-    }
-
-    private void updateLibraryItem(AccountModels.LibraryItem item, String categoryId, String watchStatus, boolean refreshMetadata) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || item == null) return;
-        startLibraryMutation(refreshMetadata ? "正在刷新视频信息…" : "正在更新视频…");
-        accountClient.updateLibraryItem(session.token, item.id, categoryId, watchStatus, refreshMetadata,
-            currentLibrary.revision, mutationCallback(refreshMetadata ? "视频信息已刷新。" : "视频已更新。"));
-    }
-
-    private void renameLibraryItem(AccountModels.LibraryItem item, String title) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || item == null) return;
-        startLibraryMutation("正在保存视频名称…");
-        accountClient.renameLibraryItem(session.token, item.id, title, currentLibrary.revision, mutationCallback("视频名称已更新。"));
-    }
-
-    private void clearLibraryItemCategory(AccountModels.LibraryItem item) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || item == null) return;
-        startLibraryMutation("正在移动视频…");
-        accountClient.clearLibraryItemCategory(session.token, item.id, currentLibrary.revision, mutationCallback("视频已移到未分类。"));
-    }
-
-    private void deleteLibraryItem(AccountModels.LibraryItem item) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session) || item == null) return;
-        startLibraryMutation("正在删除视频…");
-        accountClient.deleteLibraryItem(session.token, item.id, currentLibrary.revision, mutationCallback("视频已从共同片库删除。"));
-    }
-
-    private void reorderLibraryItems(List<String> orderedIds) {
-        AccountModels.Session session = accountSession;
-        if (!canMutateLibrary(session)) return;
-        startLibraryMutation("正在保存视频排序…");
-        accountClient.reorderLibraryItems(session.token, orderedIds, currentLibrary.revision, mutationCallback("视频排序已保存。"));
-    }
-
-    private boolean canMutateLibrary(AccountModels.Session session) {
-        if (session == null || currentLibrary == null || currentLibrary.readOnly || libraryLoading) return false;
-        return true;
-    }
-
-    private void startLibraryMutation(String message) {
-        libraryLoading = true;
-        libraryError = false;
-        libraryMessage = message;
-        showMainTab("library", false);
-    }
-
-    private AccountClient.ResultCallback<AccountModels.LibrarySnapshot> mutationCallback(String successMessage) {
-        return new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
-            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
-                runOnUiThread(() -> {
-                    currentLibrary = snapshot;
-                    libraryLoading = false;
-                    libraryError = false;
-                    libraryMessage = successMessage;
-                    showMainTab("library", false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleLibraryFailure(failure, false));
-            }
-        };
-    }
-
-    private void handleLibraryFailure(AccountClient.Failure failure, boolean preserveBatchInput) {
-        libraryLoading = false;
-        if (failure.isAuthenticationFailure()) {
-            handleAccountRestoreFailure(failure);
-            return;
-        }
-        if ("LIBRARY_VERSION_CONFLICT".equals(failure.code)) {
-            libraryMessage = "片库已被对方更新，正在获取最新版本…";
-            libraryError = false;
-            currentLibrary = null;
-            showMainTab("library", false);
-            if (currentArchivePairId != null) loadArchiveLibrary(currentArchivePairId);
-            else loadActiveLibrary(true);
-            Toast.makeText(this, "检测到同时修改，已刷新片库，请确认后重试", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!preserveBatchInput) libraryRetryInputs = new ArrayList<>();
-        libraryError = true;
-        libraryMessage = failure.getMessage();
-        showMainTab("library", false);
-    }
-
-    private View calendarPage() {
-        CalendarScreen.PageState state;
-        if (!isAccountModeActive()) {
-            state = CalendarScreen.PageState.UNAUTHENTICATED;
-        } else if (currentCalendar != null) {
-            state = CalendarScreen.PageState.CONTENT;
-        } else if (calendarLoading || !pairLoaded) {
-            state = CalendarScreen.PageState.LOADING;
-        } else if (calendarError) {
-            state = CalendarScreen.PageState.ERROR;
-        } else if (currentArchiveCalendarPairId == null && currentPair == null) {
-            state = CalendarScreen.PageState.UNBOUND;
-        } else {
-            state = CalendarScreen.PageState.LOADING;
-        }
-        return calendarScreen.render(
-            state,
-            currentCalendar,
-            currentCalendarMarkers,
-            currentPairState == null ? new ArrayList<>() : currentPairState.archives,
-            calendarMonth,
-            calendarSelectedDate,
-            calendarLoading,
-            calendarMessage
-        );
-    }
-
-    private void ensureCalendarLoaded(boolean force) {
-        AccountModels.Session session = accountSession;
-        if (!isAccountModeActive() || session == null || calendarLoading) return;
-        if (!pairLoaded) {
-            calendarLoading = true;
-            calendarError = false;
-            calendarMessage = "正在读取好友和旧空间状态…";
-            showMainTab("calendar", false);
-            String token = session.token;
-            long generation = ++calendarRequestGeneration;
-            accountClient.getPair(token, new AccountClient.ResultCallback<AccountModels.PairState>() {
-                @Override public void onSuccess(AccountModels.PairState pairState) {
-                    runOnUiThread(() -> {
-                        if (generation != calendarRequestGeneration || !isCurrentSession(token)) return;
-                        calendarLoading = false;
-                        applyPairSnapshot(pairState);
-                        if (currentPair == null) showMainTab("calendar", false);
-                        else loadActiveCalendar(calendarMonth, true);
-                    });
-                }
-
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> handleCalendarFailure(failure, generation));
-                }
-            });
-            return;
-        }
-        if (currentArchiveCalendarPairId != null) {
-            if (force || !calendarMatches(currentCalendar, currentArchiveCalendarPairId, calendarMonth, true)) {
-                loadArchiveCalendar(currentArchiveCalendarPairId, calendarMonth);
-            }
-            return;
-        }
-        if (currentPair == null) {
-            currentCalendar = null;
-            calendarLoading = false;
-            calendarError = false;
-            showMainTab("calendar", false);
-            return;
-        }
-        if (force || !calendarMatches(currentCalendar, currentPair.pairId, calendarMonth, false)) {
-            loadActiveCalendar(calendarMonth, true);
-        }
-    }
-
-    private void loadActiveCalendar(String month, boolean showLoadingMessage) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (!isAccountModeActive() || session == null || pair == null || calendarLoading || !AccountModels.isCalendarMonth(month)) return;
-        currentArchiveCalendarPairId = null;
-        calendarMonth = month;
-        calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, calendarSelectedDate, LocalDate.now().toString());
-        currentCalendarMarkers = null;
-        calendarMarkersLoading = false;
-        calendarLoading = true;
-        calendarError = false;
-        if (showLoadingMessage) calendarMessage = "正在同步 " + month + " 的共同计划…";
-        showMainTab("calendar", false);
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = ++calendarRequestGeneration;
-        accountClient.getCalendarMonth(token, month, new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
-            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
-                runOnUiThread(() -> {
-                    if (!isCurrentCalendarRequest(generation, token, pairId, null)) return;
-                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
-                        failCalendarResponse("日历返回了不匹配的双人空间，请重新加载。");
-                        return;
-                    }
-                    currentCalendar = snapshot;
-                    calendarLoading = false;
-                    calendarError = false;
-                    if (calendarMessage.startsWith("正在")) calendarMessage = "日历已更新。";
-                    showMainTab("calendar", false);
-                    loadCalendarMarkers(token, pairId, month, false, generation);
-                    showPendingCalendarEditor();
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleCalendarFailure(failure, generation));
-            }
-        });
-    }
-
-    private void loadArchiveCalendar(String pairId, String month) {
-        AccountModels.Session session = accountSession;
-        if (!isAccountModeActive() || session == null || calendarLoading
-            || pairId == null || !pairId.matches("[a-f0-9]{32}") || !AccountModels.isCalendarMonth(month)) return;
-        currentArchiveCalendarPairId = pairId;
-        calendarMonth = month;
-        calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, calendarSelectedDate, LocalDate.now().toString());
-        currentCalendar = null;
-        currentCalendarMarkers = null;
-        calendarMarkersLoading = false;
-        calendarLoading = true;
-        calendarError = false;
-        calendarMessage = "正在读取只读旧日历…";
-        showMainTab("calendar", false);
-        String token = session.token;
-        long generation = ++calendarRequestGeneration;
-        accountClient.getArchiveCalendar(token, pairId, month, new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
-            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
-                runOnUiThread(() -> {
-                    if (!isCurrentCalendarRequest(generation, token, null, pairId)) return;
-                    if (!snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
-                        failCalendarResponse("旧空间日历响应无效，请重新加载。");
-                        return;
-                    }
-                    currentCalendar = snapshot;
-                    calendarLoading = false;
-                    calendarError = false;
-                    calendarMessage = "旧日历为只读状态。";
-                    showMainTab("calendar", false);
-                    loadCalendarMarkers(token, pairId, month, true, generation);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleCalendarFailure(failure, generation));
-            }
-        });
-    }
-
-    private void loadCalendarMarkers(String token, String pairId, String month, boolean readOnly, long generation) {
-        if (calendarMarkersLoading || !AccountModels.isCalendarMonth(month)) return;
-        calendarMarkersLoading = true;
-        int offset = currentTzOffsetMinutes();
-        AccountClient.ResultCallback<AccountModels.CalendarMarkers> callback = new AccountClient.ResultCallback<AccountModels.CalendarMarkers>() {
-            @Override public void onSuccess(AccountModels.CalendarMarkers markers) {
-                runOnUiThread(() -> {
-                    if (!isCurrentCalendarRequest(generation, token, readOnly ? null : pairId, readOnly ? pairId : null)) return;
-                    calendarMarkersLoading = false;
-                    if (!pairId.equals(markers.pairId) || markers.readOnly != readOnly || !month.equals(markers.month)) {
-                        calendarMessage = "计划已读取；实看标记响应不匹配。";
-                        showMainTab("calendar", false);
-                        return;
-                    }
-                    currentCalendarMarkers = markers;
-                    showMainTab("calendar", false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (!isCurrentCalendarRequest(generation, token, readOnly ? null : pairId, readOnly ? pairId : null)) return;
-                    calendarMarkersLoading = false;
-                    currentCalendarMarkers = null;
-                    calendarMessage = "计划已读取；实看标记暂时不可用。";
-                    showMainTab("calendar", false);
-                });
-            }
-        };
-        if (readOnly) accountClient.getArchiveHistoryCalendarMarkers(token, pairId, month, offset, callback);
-        else accountClient.getHistoryCalendarMarkers(token, month, offset, callback);
-    }
-
-    private void changeCalendarMonth(String month) {
-        if (!AccountModels.isCalendarMonth(month)) return;
-        calendarRequestGeneration += 1;
-        calendarLoading = false;
-        calendarMarkersLoading = false;
-        calendarMonth = month;
-        calendarSelectedDate = CalendarScreen.State.selectedDateForMonth(month, null, LocalDate.now().toString());
-        currentCalendar = null;
-        currentCalendarMarkers = null;
-        ensureCalendarLoaded(true);
-    }
-
-    private void openCalendarDate(String date) {
-        if (!AccountModels.isCalendarDate(date)) return;
-        calendarRequestGeneration += 1;
-        calendarLoading = false;
-        calendarMarkersLoading = false;
-        currentArchiveCalendarPairId = null;
-        calendarMonth = CalendarScreen.State.monthOf(date);
-        calendarSelectedDate = date;
-        currentCalendarMarkers = null;
-        if (!calendarMatches(currentCalendar, currentPair == null ? null : currentPair.pairId, calendarMonth, false)) {
-            currentCalendar = null;
-        }
-        showMainTab("calendar", false);
-        mainHandler.post(() -> ensureCalendarLoaded(false));
-    }
-
-    private void openArchiveCalendar(AccountModels.PairArchive archive) {
-        if (archive == null || calendarLoading) return;
-        currentCalendar = null;
-        currentArchiveCalendarPairId = archive.pairId;
-        loadArchiveCalendar(archive.pairId, calendarMonth);
-    }
-
-    private void closeArchiveCalendar() {
-        calendarRequestGeneration += 1;
-        calendarLoading = false;
-        calendarMarkersLoading = false;
-        currentArchiveCalendarPairId = null;
-        currentCalendar = null;
-        currentCalendarMarkers = null;
-        calendarMessage = "已返回当前空间。";
-        if (currentPair == null) showMainTab("calendar", false);
-        else loadActiveCalendar(calendarMonth, true);
-    }
-
-    private void openCalendarCreateFlow(AccountModels.LibraryItem item, String date) {
-        if (!isAccountModeActive()) {
-            Toast.makeText(this, "登录并绑定好友后可安排观看日期", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        String normalizedDate = AccountModels.isCalendarDate(date) ? date : LocalDate.now().toString();
-        String targetMonth = CalendarScreen.State.monthOf(normalizedDate);
-        boolean contextChanged = currentArchiveCalendarPairId != null || !targetMonth.equals(calendarMonth);
-        if (contextChanged) {
-            calendarRequestGeneration += 1;
-            calendarLoading = false;
-            calendarMarkersLoading = false;
-            currentCalendarMarkers = null;
-        }
-        pendingCalendarItem = item;
-        pendingCalendarDate = normalizedDate;
-        currentArchiveCalendarPairId = null;
-        calendarMonth = targetMonth;
-        calendarSelectedDate = normalizedDate;
-        if (!calendarMatches(currentCalendar, currentPair == null ? null : currentPair.pairId, calendarMonth, false)) {
-            currentCalendar = null;
-        }
-        showMainTab("calendar", false);
-        if (currentCalendar == null || currentPair == null || currentCalendar.readOnly) {
-            ensureCalendarLoaded(false);
-        } else {
-            showPendingCalendarEditor();
-        }
-    }
-
-    private void showPendingCalendarEditor() {
-        if (pendingCalendarDate == null || currentCalendar == null || currentCalendar.readOnly || currentPair == null) return;
-        if (!currentPair.pairId.equals(currentCalendar.pairId)) return;
-        if (pendingCalendarItem != null) {
-            AccountModels.LibraryItem item = pendingCalendarItem;
-            String date = pendingCalendarDate;
-            pendingCalendarItem = null;
-            pendingCalendarDate = null;
-            calendarScreen.showCreateDialog(Collections.singletonList(item), date);
-            return;
-        }
-        if (currentLibrary != null && !currentLibrary.readOnly && currentPair.pairId.equals(currentLibrary.pairId)) {
-            String date = pendingCalendarDate;
-            pendingCalendarDate = null;
-            calendarScreen.showCreateDialog(currentLibrary.items, date);
-            return;
-        }
-        loadLibraryForCalendarEditor();
-    }
-
-    private void loadLibraryForCalendarEditor() {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (session == null || pair == null || calendarLoading) return;
-        calendarLoading = true;
-        calendarMessage = "正在读取共同片库…";
-        showMainTab("calendar", false);
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = ++calendarRequestGeneration;
-        accountClient.getLibrary(token, "", "all", null, new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
-            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
-                runOnUiThread(() -> {
-                    if (!isCurrentCalendarRequest(generation, token, pairId, null)) return;
-                    calendarLoading = false;
-                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
-                        failCalendarResponse("共同片库响应无效，请重新加载。");
-                        return;
-                    }
-                    currentArchivePairId = null;
-                    currentLibrary = snapshot;
-                    calendarMessage = snapshot.items.isEmpty() ? "共同片库还是空的，请先添加视频。" : "请选择要安排的视频。";
-                    showMainTab("calendar", false);
-                    showPendingCalendarEditor();
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleCalendarFailure(failure, generation));
-            }
-        });
-    }
-
-    private void createCalendarPlan(AccountModels.LibraryItem item, String date, String startTime, String note) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (!canMutateCalendar(session) || item == null || pair == null) return;
-        calendarMonth = CalendarScreen.State.monthOf(date);
-        calendarSelectedDate = date;
-        startCalendarMutation("正在保存观看计划…");
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = calendarRequestGeneration;
-        accountClient.createCalendarPlan(token, item.id, date, startTime, note, currentCalendar.revision,
-            calendarMutationCallback("计划已添加。", date, token, pairId, generation));
-    }
-
-    private void updateCalendarPlan(AccountModels.CalendarPlan plan, String date, String startTime, String note) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (!canMutateCalendar(session) || plan == null || pair == null) return;
-        calendarMonth = CalendarScreen.State.monthOf(date);
-        calendarSelectedDate = date;
-        startCalendarMutation("正在更新观看计划…");
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = calendarRequestGeneration;
-        accountClient.updateCalendarPlanDetails(token, plan.id, date, startTime, note, currentCalendar.revision,
-            calendarMutationCallback("计划已更新。", date, token, pairId, generation));
-    }
-
-    private void toggleCalendarPlan(AccountModels.CalendarPlan plan) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (!canMutateCalendar(session) || plan == null || pair == null) return;
-        String status = "completed".equals(plan.status) ? "planned" : "completed";
-        startCalendarMutation("completed".equals(status) ? "正在标记完成…" : "正在恢复待看…");
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = calendarRequestGeneration;
-        accountClient.setCalendarPlanStatus(token, plan.id, status, currentCalendar.revision,
-            calendarMutationCallback("completed".equals(status) ? "计划已完成。" : "计划已恢复为待看。",
-                plan.date, token, pairId, generation));
-    }
-
-    private void cancelCalendarPlan(AccountModels.CalendarPlan plan) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (!canMutateCalendar(session) || plan == null || pair == null) return;
-        startCalendarMutation("正在取消观看计划…");
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = calendarRequestGeneration;
-        accountClient.deleteCalendarPlan(token, plan.id, currentCalendar.revision,
-            calendarMutationCallback("计划已取消。", plan.date, token, pairId, generation));
-    }
-
-    private boolean canMutateCalendar(AccountModels.Session session) {
-        return session != null
-            && currentPair != null
-            && currentCalendar != null
-            && !currentCalendar.readOnly
-            && currentArchiveCalendarPairId == null
-            && !calendarLoading;
-    }
-
-    private void startCalendarMutation(String message) {
-        calendarLoading = true;
-        calendarError = false;
-        calendarMessage = message;
-        calendarRequestGeneration += 1;
-        showMainTab("calendar", false);
-    }
-
-    private AccountClient.ResultCallback<AccountModels.CalendarSnapshot> calendarMutationCallback(
-        String successMessage,
-        String targetDate,
-        String token,
-        String pairId,
-        long generation
-    ) {
-        return new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
-            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
-                runOnUiThread(() -> {
-                    if (!isCurrentCalendarRequest(generation, token, pairId, null)) return;
-                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
-                        failCalendarResponse("日历更新响应无效，请重新加载。");
-                        return;
-                    }
-                    calendarLoading = false;
-                    calendarError = false;
-                    calendarMessage = successMessage;
-                    currentCalendar = null;
-                    currentArchiveCalendarPairId = null;
-                    calendarMonth = CalendarScreen.State.monthOf(targetDate);
-                    calendarSelectedDate = targetDate;
-                    invalidateTodayCalendar();
-                    showMainTab("calendar", false);
-                    loadActiveCalendar(calendarMonth, false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleCalendarFailure(failure, generation));
-            }
-        };
-    }
-
-    private void handleCalendarFailure(AccountClient.Failure failure, long generation) {
-        if (generation != calendarRequestGeneration) return;
-        calendarLoading = false;
-        if (failure.isAuthenticationFailure()) {
-            handleAccountRestoreFailure(failure);
-            return;
-        }
-        if ("PAIR_REQUIRED".equals(failure.code)
-            || (currentArchiveCalendarPairId != null
-                && ("ARCHIVE_FORBIDDEN".equals(failure.code) || failure.status == 404))) {
-            pairLoaded = false;
-            calendarRequestGeneration += 1;
-            currentCalendar = null;
-            currentArchiveCalendarPairId = null;
-            calendarLoading = false;
-            calendarError = false;
-            pendingCalendarItem = null;
-            pendingCalendarDate = null;
-            calendarMessage = "好友或旧空间状态已变化，正在刷新…";
-            invalidateTodayCalendar();
-            showMainTab("calendar", false);
-            mainHandler.post(() -> ensureCalendarLoaded(true));
-            return;
-        }
-        if ("CALENDAR_VERSION_CONFLICT".equals(failure.code)) {
-            currentCalendar = null;
-            calendarError = false;
-            calendarMessage = "日历已被对方更新，正在获取最新版本…";
-            showMainTab("calendar", false);
-            Toast.makeText(this, "检测到同时修改，已刷新日历，请确认后重试", Toast.LENGTH_LONG).show();
-            mainHandler.post(() -> {
-                if (currentArchiveCalendarPairId != null) loadArchiveCalendar(currentArchiveCalendarPairId, calendarMonth);
-                else loadActiveCalendar(calendarMonth, false);
-            });
-            return;
-        }
-        calendarError = currentCalendar == null;
-        calendarMessage = failure.getMessage();
-        showMainTab("calendar", false);
-    }
-
-    private void failCalendarResponse(String message) {
-        calendarLoading = false;
-        calendarError = true;
-        currentCalendar = null;
-        calendarMessage = message;
-        showMainTab("calendar", false);
-    }
-
-    private void ensureTodayCalendarLoaded(boolean force) {
-        AccountModels.Session session = accountSession;
-        if (!isAccountModeActive() || session == null) {
-            invalidateTodayCalendar();
-            applyTodayStateToHome();
-            return;
-        }
-        String date = LocalDate.now().toString();
-        if (!date.equals(todayCalendarDate)) {
-            todayCalendarDate = date;
-            currentTodayCalendar = null;
-        }
-        if (!force && currentTodayCalendar != null && currentTodayCalendar.range.contains(date)
-            && currentPair != null && currentPair.pairId.equals(currentTodayCalendar.pairId)) {
-            applyTodayStateToHome();
-            return;
-        }
-        if (todayCalendarLoading) return;
-        if (!pairLoaded) {
-            todayCalendarLoading = true;
-            todayCalendarError = "";
-            applyTodayStateToHome();
-            String token = session.token;
-            long generation = ++todayCalendarRequestGeneration;
-            accountClient.getPair(token, new AccountClient.ResultCallback<AccountModels.PairState>() {
-                @Override public void onSuccess(AccountModels.PairState pairState) {
-                    runOnUiThread(() -> {
-                        if (generation != todayCalendarRequestGeneration || !isCurrentSession(token)) return;
-                        todayCalendarLoading = false;
-                        applyPairSnapshot(pairState);
-                        if (currentPair == null) applyTodayStateToHome();
-                        else loadTodayCalendar(date);
-                    });
-                }
-
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> handleTodayCalendarFailure(failure, generation));
-                }
-            });
-            return;
-        }
-        if (currentPair == null) {
-            invalidateTodayCalendar();
-            applyTodayStateToHome();
-            return;
-        }
-        loadTodayCalendar(date);
-    }
-
-    private void loadTodayCalendar(String date) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        if (!isAccountModeActive() || session == null || pair == null || todayCalendarLoading) return;
-        todayCalendarDate = date;
-        todayCalendarLoading = true;
-        todayCalendarError = "";
-        applyTodayStateToHome();
-        String token = session.token;
-        String pairId = pair.pairId;
-        long generation = ++todayCalendarRequestGeneration;
-        accountClient.getTodayCalendar(token, date, new AccountClient.ResultCallback<AccountModels.CalendarSnapshot>() {
-            @Override public void onSuccess(AccountModels.CalendarSnapshot snapshot) {
-                runOnUiThread(() -> {
-                    if (generation != todayCalendarRequestGeneration || !isCurrentSession(token)
-                        || currentPair == null || !pairId.equals(currentPair.pairId)) return;
-                    todayCalendarLoading = false;
-                    if (snapshot.readOnly || !pairId.equals(snapshot.pairId)) {
-                        currentTodayCalendar = null;
-                        todayCalendarError = "今天计划响应无效，请重新加载。";
-                    } else {
-                        currentTodayCalendar = snapshot;
-                        todayCalendarError = "";
-                    }
-                    applyTodayStateToHome();
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handleTodayCalendarFailure(failure, generation));
-            }
-        });
-    }
-
-    private void handleTodayCalendarFailure(AccountClient.Failure failure, long generation) {
-        if (generation != todayCalendarRequestGeneration) return;
-        todayCalendarLoading = false;
-        if (failure.isAuthenticationFailure()) {
-            handleAccountRestoreFailure(failure);
-            return;
-        }
-        if ("PAIR_REQUIRED".equals(failure.code)) {
-            pairLoaded = false;
-            currentTodayCalendar = null;
-            todayCalendarError = "";
-            applyTodayStateToHome();
-            mainHandler.post(() -> ensureTodayCalendarLoaded(true));
-            return;
-        }
-        currentTodayCalendar = null;
-        todayCalendarError = failure.getMessage();
-        applyTodayStateToHome();
-    }
-
-    private void applyTodayStateToHome() {
-        if (homeScreen == null) return;
-        if (!isAccountModeActive() || currentPair == null) {
-            homeScreen.clearTodayState();
-            return;
-        }
-        homeScreen.setTodayState(currentTodayCalendar, todayCalendarDate, todayCalendarLoading, todayCalendarError);
-    }
-
-    private void invalidateTodayCalendar() {
-        todayCalendarRequestGeneration += 1;
-        currentTodayCalendar = null;
-        todayCalendarLoading = false;
-        todayCalendarError = "";
-        if (homeScreen != null) homeScreen.clearTodayState();
-    }
-
-    private void playCalendarPlan(AccountModels.CalendarPlan plan) {
-        if (plan == null) return;
-        BilibiliMedia media = BilibiliMedia.parse(plan.media.canonicalUrl);
-        if (media == null || media.embedUrl() == null) {
-            Toast.makeText(this, "这个计划的视频暂时无法播放", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (roomClient != null && authenticated) {
-            prepareLibraryMedia(media);
-            return;
-        }
-        pendingLibraryMedia = media;
-        createRoom(isAccountModeActive() && currentPair != null);
-    }
-
-    private boolean calendarMatches(
-        AccountModels.CalendarSnapshot value,
-        String pairId,
-        String month,
-        boolean readOnly
-    ) {
-        if (value == null || pairId == null || !pairId.equals(value.pairId) || value.readOnly != readOnly) return false;
-        return value.range.contains(month + "-01");
-    }
-
-    private boolean isCurrentCalendarRequest(long generation, String token, String pairId, String archivePairId) {
-        if (generation != calendarRequestGeneration || !isCurrentSession(token)) return false;
-        if (pairId != null) return currentPair != null && pairId.equals(currentPair.pairId) && currentArchiveCalendarPairId == null;
-        return archivePairId != null && archivePairId.equals(currentArchiveCalendarPairId);
-    }
-
-    private boolean isCurrentSession(String token) {
-        return accountSession != null && accountSession.token.equals(token) && isAccountModeActive();
-    }
-
-    private void applyPairSnapshot(AccountModels.PairState pairState) {
-        String previousPairId = currentPair == null ? null : currentPair.pairId;
-        String nextPairId = pairState.pair == null ? null : pairState.pair.pairId;
-        boolean changed = previousPairId == null ? nextPairId != null : !previousPairId.equals(nextPairId);
-        currentPairState = pairState;
-        currentPair = pairState.pair;
-        if (homeScreen != null && isAccountModeActive()) homeScreen.setPairState(currentPair);
-        pairLoaded = true;
-        pairLoading = false;
-        if (changed) {
-            resetSharedSpaceState();
-            if (previousPairId != null || nextPairId == null) clearRoomHistoryLifecycle();
-        }
-        if (currentArchivePairId != null && !hasArchive(pairState.archives, currentArchivePairId)) resetLibraryState();
-        if (currentArchiveCalendarPairId != null && !hasArchive(pairState.archives, currentArchiveCalendarPairId)) resetCalendarState();
-        if (currentWatchArchivePairId != null && !hasArchive(pairState.archives, currentWatchArchivePairId)) resetWatchHistoryState();
-        if (currentPair != null) maybeStartHistoryGrant();
-    }
-
-    private static boolean hasArchive(List<AccountModels.PairArchive> archives, String pairId) {
-        if (pairId == null) return false;
-        for (AccountModels.PairArchive archive : archives) {
-            if (pairId.equals(archive.pairId)) return true;
-        }
-        return false;
-    }
-    private void playLibraryItem(AccountModels.LibraryItem item) {
-        if (item == null) return;
-        BilibiliMedia media = BilibiliMedia.parse(item.canonicalUrl);
-        if (media == null || media.embedUrl() == null) {
-            Toast.makeText(this, "这个片库视频暂时无法播放，可先刷新视频信息", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (roomClient != null && authenticated) {
-            prepareLibraryMedia(media);
-            return;
-        }
-        pendingLibraryMedia = media;
-        createRoom(isAccountModeActive() && currentPair != null);
-    }
-
-    private void prepareLibraryMedia(BilibiliMedia media) {
-        if (media == null || !authenticated || roomClient == null) return;
-        showVideoScreen();
-        videoInput.setText(media.canonicalUrl);
-        loadVideoFromInput();
-    }
-
-    private void showRoomVideoSwitcher() {
-        if (accountSession == null || (pairLoaded && currentPair == null)) {
-            showPreparationPanel();
-            return;
-        }
-        showRoomLibraryPicker(true);
-    }
-
-    private void showRoomLibraryPicker() {
-        showRoomLibraryPicker(false);
-    }
-
-    private void showRoomLibraryPicker(boolean fallbackToManualLink) {
-        AccountModels.Session session = accountSession;
-        if (session == null) {
-            Toast.makeText(this, "登录后可使用共同片库", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (currentPair == null && !pairLoaded) {
-            libraryPickerButton.setEnabled(false);
-            libraryPickerButton.setText("正在读取好友状态…");
-            accountClient.getPair(session.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
-                @Override public void onSuccess(AccountModels.PairState pairState) {
-                    runOnUiThread(() -> {
-                        applyPairSnapshot(pairState);
-                        if (currentPair == null) {
-                            restoreLibraryPickerButton();
-                            if (fallbackToManualLink) showPreparationPanel();
-                            else Toast.makeText(MainActivity.this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
-                        } else {
-                            fetchRoomLibrary(session);
-                        }
-                    });
-                }
-
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> {
-                        restoreLibraryPickerButton();
-                        if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
-                        else Toast.makeText(MainActivity.this, failure.getMessage(), Toast.LENGTH_LONG).show();
-                    });
-                }
-            });
-            return;
-        }
-        if (currentPair == null) {
-            if (fallbackToManualLink) showPreparationPanel();
-            else Toast.makeText(this, "绑定好友后可使用共同片库", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (currentLibrary != null && !currentLibrary.readOnly && currentPair.pairId.equals(currentLibrary.pairId)) {
-            showRoomLibraryItems(currentLibrary);
-            return;
-        }
-        fetchRoomLibrary(session);
-    }
-
-    private void fetchRoomLibrary(AccountModels.Session session) {
-        libraryPickerButton.setEnabled(false);
-        libraryPickerButton.setText("正在读取片库…");
-        accountClient.getLibrary(session.token, "", "all", null, new AccountClient.ResultCallback<AccountModels.LibrarySnapshot>() {
-            @Override public void onSuccess(AccountModels.LibrarySnapshot snapshot) {
-                runOnUiThread(() -> {
-                    currentLibrary = snapshot;
-                    restoreLibraryPickerButton();
-                    showRoomLibraryItems(snapshot);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    restoreLibraryPickerButton();
-                    if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
-                    else Toast.makeText(MainActivity.this, failure.getMessage(), Toast.LENGTH_LONG).show();
-                });
-            }
-        });
-    }
-
-    private void restoreLibraryPickerButton() {
-        if (libraryPickerButton == null) return;
-        libraryPickerButton.setEnabled(true);
-        libraryPickerButton.setText("从共同片库选择");
-    }
-
-    private void showRoomLibraryItems(AccountModels.LibrarySnapshot snapshot) {
-        if (snapshot.items.isEmpty()) {
-            Toast.makeText(this, "共同片库还是空的，请先添加视频", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        boolean landscape = appFullscreen || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-        if (landscape) setImmersiveControlsVisible(true, false);
-        Dialog picker = RoomLibraryPickerDialog.show(this, breathTheme, snapshot, landscape, new RoomLibraryPickerDialog.Listener() {
-            @Override public void onSelect(AccountModels.LibraryItem item) {
-                playLibraryItem(item);
-            }
-
-            @Override public void onManualLink() {
-                showPreparationPanel();
-            }
-        });
-        picker.setOnDismissListener(dialog -> {
-            if (landscape) scheduleImmersiveControlsHide();
-        });
-    }
-
-    private void showEditProfileDialog() {
-        if (accountSession == null || pairLoading) return;
-        BreathComponents components = new BreathComponents(this, breathTheme);
-        LinearLayout content = components.column(0, 0, 0);
-        EditText input = components.textInput("1–24 个字符");
-        input.setSingleLine(true);
-        input.setText(accountSession.user.nickname);
-        input.setSelection(input.length());
-        content.addView(input, components.matchHeight(52));
-
-        LinearLayout actions = components.row();
-        Button cancel = components.button("取消", false);
-        Button save = components.button("保存昵称", true);
-        actions.addView(cancel, components.weight(1));
-        actions.addView(save, components.margin(components.weight(1), 8, 0, 0, 0));
-        content.addView(actions, components.margin(components.matchHeight(48), 0, 12, 0, 0));
-
-        Dialog dialog = BreathBottomSheet.create(
-            this,
-            breathTheme,
-            "04 / US · PROFILE",
-            "编辑昵称",
-            "昵称会显示在双人空间和之后进入的房间消息中。",
-            content
-        );
-        cancel.setOnClickListener(view -> dialog.dismiss());
-        save.setOnClickListener(view -> {
-            dialog.dismiss();
-            updateAccountNickname(input.getText().toString());
-        });
-        dialog.show();
-    }
-
-    private void updateAccountNickname(String value) {
-        AccountModels.Session session = accountSession;
-        if (session == null || pairLoading) return;
-        String nickname = value == null ? "" : value.trim().replaceAll("\\s+", " ");
-        int codePoints = nickname.codePointCount(0, nickname.length());
-        if (codePoints < 1 || codePoints > 24) {
-            Toast.makeText(this, "昵称需要为 1–24 个字符", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        pairLoading = true;
-        pairMessage = "正在保存个人资料…";
-        showMainTab("pair");
-        accountClient.updateProfile(session.token, nickname, new AccountClient.ResultCallback<AccountModels.User>() {
-            @Override public void onSuccess(AccountModels.User user) {
-                runOnUiThread(() -> {
-                    pairLoading = false;
-                    AccountModels.Session updated = new AccountModels.Session(session.token, session.expiresAt, user);
-                    if (!saveAccountSession(updated)) {
-                        pairMessage = "昵称已更新，但本机保存失败，请重新登录。";
-                        showMainTab("pair");
-                        return;
-                    }
-                    currentRoomNickname = user.nickname;
-                    pairMessage = authenticated
-                        ? "昵称已更新；对方将在你下次进入房间时看到新昵称。"
-                        : "昵称已更新。";
-                    showMainTab("pair");
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    pairLoading = false;
-                    pairMessage = failure.getMessage();
-                    if (failure.isAuthenticationFailure()) handleAccountRestoreFailure(failure);
-                    else showMainTab("pair");
-                });
-            }
-        });
-    }
-
-    private void createPairInvite() {
-        if (accountSession == null || pairLoading) return;
-        pairLoading = true;
-        pairMessage = "正在生成一次性邀请码…";
-        showMainTab("pair");
-        accountClient.createPairInvite(accountSession.token, new AccountClient.ResultCallback<AccountModels.PairInvite>() {
-            @Override public void onSuccess(AccountModels.PairInvite invite) {
-                runOnUiThread(() -> {
-                    currentPairInvite = invite;
-                    pairLoading = false;
-                    pairLoaded = true;
-                    pairMessage = "邀请码已生成，24 小时内有效。";
-                    showMainTab("pair");
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handlePairFailure(failure));
-            }
-        });
-    }
-
-    private void copyPairInvite() {
-        if (currentPairInvite == null) return;
-        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if (clipboard == null) return;
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("同看好友邀请码", currentPairInvite.code));
-        Toast.makeText(this, "邀请码已复制", Toast.LENGTH_SHORT).show();
-    }
-
-    private void acceptPairInvite(String code) {
-        if (accountSession == null || pairLoading) return;
-        String normalized = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
-        if (normalized.isEmpty()) {
-            pairMessage = "请输入好友发来的邀请码。";
-            showMainTab("pair");
-            return;
-        }
-        pairLoading = true;
-        pairMessage = "正在建立双人连接…";
-        showMainTab("pair");
-        accountClient.acceptPairInvite(accountSession.token, normalized, new AccountClient.ResultCallback<AccountModels.Pair>() {
-            @Override public void onSuccess(AccountModels.Pair pair) {
-                runOnUiThread(() -> {
-                    currentPair = pair;
-                    currentPairState = new AccountModels.PairState(pair, currentPairState.pendingArchives, currentPairState.archives);
-                    resetSharedSpaceState();
-                    currentPairInvite = null;
-                    pairLoading = false;
-                    pairLoaded = true;
-                    pairMessage = "绑定成功，现在可以一键邀请一起看。";
-                    showMainTab("pair");
-                    ensureWatchHistoryLoaded(true);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handlePairFailure(failure));
-            }
-        });
-    }
-
-    private void refreshPairState(boolean userInitiated) {
-        refreshPairState(userInitiated, null);
-    }
-
-    private void refreshPairState(boolean userInitiated, String successMessage) {
-        if (accountSession == null || pairLoading) return;
-        pairLoading = true;
-        if (successMessage != null) {
-            pairMessage = "正在同步好友和旧空间状态…";
-        } else if (userInitiated) {
-            pairMessage = "正在刷新绑定状态…";
-        }
-        showMainTab("pair");
-        accountClient.getPair(accountSession.token, new AccountClient.ResultCallback<AccountModels.PairState>() {
-            @Override public void onSuccess(AccountModels.PairState pairState) {
-                runOnUiThread(() -> {
-                    applyPairSnapshot(pairState);
-                    if (currentPair != null) currentPairInvite = null;
-                    pairMessage = successMessage != null
-                        ? successMessage
-                        : (userInitiated ? (currentPair == null ? "好友和旧空间状态已更新。" : "绑定状态已更新。") : "");
-                    showMainTab("pair");
-                    if (currentPair != null) ensureWatchHistoryLoaded(false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handlePairFailure(failure));
-            }
-        });
-    }
-
-    private void showUnbindRetentionChoice() {
-        AccountModels.Pair pair = currentPair;
-        if (accountSession == null || pair == null || pairLoading) return;
-        BreathComponents components = new BreathComponents(this, breathTheme);
-        LinearLayout content = components.column(0, 0, 0);
-
-        LinearLayout keepPanel = components.panel(14);
-        keepPanel.addView(components.section("保留只读旧空间"), components.matchWrap());
-        keepPanel.addView(components.body("解除后仍可查看与 " + pair.partner.nickname + " 的旧片库和日历，但不能继续修改。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
-        Button keep = components.button("解除并保留旧空间", true);
-        keepPanel.addView(keep, components.margin(components.matchHeight(50), 0, 12, 0, 0));
-        content.addView(keepPanel, components.matchWrap());
-
-        LinearLayout deletePanel = components.panel(14);
-        deletePanel.addView(components.section("删除我的访问权"), components.matchWrap());
-        deletePanel.addView(components.body("解除后你将无法查看旧空间；另一方的保留选择不会被你改变。"), components.margin(components.matchWrap(), 0, 5, 0, 0));
-        Button delete = components.dangerButton("解除并删除我的访问权");
-        deletePanel.addView(delete, components.margin(components.matchHeight(50), 0, 12, 0, 0));
-        content.addView(deletePanel, components.margin(components.matchWrap(), 0, 10, 0, 0));
-
-        Button cancel = components.textButton("暂不解除");
-        content.addView(cancel, components.margin(components.matchHeight(48), 0, 8, 0, 0));
-        Dialog dialog = BreathBottomSheet.create(
-            this,
-            breathTheme,
-            "04 / US · UNBIND",
-            "解除与 " + pair.partner.nickname + " 的好友绑定？",
-            "好友关系会立即解除并释放名额。你的旧空间选择确认后不能修改。",
-            content
-        );
-        keep.setOnClickListener(view -> {
-            dialog.dismiss();
-            submitPairRetention(pair.pairId, "keep", true);
-        });
-        delete.setOnClickListener(view -> {
-            dialog.dismiss();
-            submitPairRetention(pair.pairId, "delete", true);
-        });
-        cancel.setOnClickListener(view -> dialog.dismiss());
-        dialog.show();
-    }
-
-    private void showArchiveRetentionChoice(AccountModels.PairArchive archive) {
-        if (accountSession == null || archive == null || pairLoading) return;
-        showRetentionChoice(archive.pairId, archive.partner.nickname, false);
-    }
-
-    private void showRetentionChoice(String pairId, String partnerNickname, boolean unbind) {
-        String message = unbind
-            ? "请选择解除绑定后如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。"
-            : "请选择如何处理与 " + partnerNickname + " 的旧空间。选择确认后不能修改。";
-        BreathComponents components = new BreathComponents(this, breathTheme);
-        LinearLayout content = components.column(0, 0, 0);
-        Button keep = components.button("保留只读空间", true);
-        Button delete = components.dangerButton("删除我的访问权");
-        Button cancel = components.textButton("取消");
-        content.addView(keep, components.matchHeight(50));
-        content.addView(delete, components.margin(components.matchHeight(50), 0, 8, 0, 0));
-        content.addView(cancel, components.margin(components.matchHeight(46), 0, 8, 0, 0));
-        Dialog dialog = BreathBottomSheet.create(
-            this,
-            breathTheme,
-            "04 / US · ARCHIVE",
-            "选择旧空间处理方式",
-            message,
-            content
-        );
-        keep.setOnClickListener(view -> {
-            dialog.dismiss();
-            confirmRetentionChoice(pairId, partnerNickname, unbind, "keep");
-        });
-        delete.setOnClickListener(view -> {
-            dialog.dismiss();
-            confirmRetentionChoice(pairId, partnerNickname, unbind, "delete");
-        });
-        cancel.setOnClickListener(view -> dialog.dismiss());
-        dialog.show();
-    }
-
-    private void confirmRetentionChoice(String pairId, String partnerNickname, boolean unbind, String retention) {
-        boolean keep = "keep".equals(retention);
-        String title = keep ? "确认保留旧空间？" : "确认删除访问权？";
-        String effect = keep
-            ? "你之后仍可查看与 " + partnerNickname + " 的只读旧空间。"
-            : "你将无法再查看与 " + partnerNickname + " 的旧空间；只有双方都选择删除时，底层数据才会物理清理。";
-        String prefix = unbind ? "好友绑定会立即解除。" : "这个选择确认后不能修改。";
-        BreathComponents components = new BreathComponents(this, breathTheme);
-        LinearLayout content = components.column(0, 0, 0);
-        Button confirm = keep ? components.button("确认保留", true) : components.dangerButton("确认删除");
-        Button back = components.textButton("返回");
-        content.addView(confirm, components.matchHeight(50));
-        content.addView(back, components.margin(components.matchHeight(46), 0, 8, 0, 0));
-        Dialog dialog = BreathBottomSheet.create(
-            this,
-            breathTheme,
-            "04 / US · CONFIRM",
-            title,
-            prefix + effect,
-            content
-        );
-        confirm.setOnClickListener(view -> {
-            dialog.dismiss();
-            submitPairRetention(pairId, retention, unbind);
-        });
-        back.setOnClickListener(view -> dialog.dismiss());
-        dialog.show();
-    }
-
-    private void submitPairRetention(String pairId, String retention, boolean unbind) {
-        AccountModels.Session session = accountSession;
-        if (session == null || pairLoading) return;
-        pairLoading = true;
-        pairMessage = unbind ? "正在解除好友绑定…" : "正在保存旧空间选择…";
-        showMainTab("pair");
-        AccountClient.ResultCallback<AccountModels.PairMutationResult> callback = new AccountClient.ResultCallback<AccountModels.PairMutationResult>() {
-            @Override public void onSuccess(AccountModels.PairMutationResult result) {
-                runOnUiThread(() -> {
-                    applyConfirmedPairMutation(pairId, unbind, result);
-                    pairLoading = false;
-                    pairLoaded = true;
-                    String message;
-                    if (result.pairDeleted) {
-                        message = "双方都已选择删除，旧空间已经清理。";
-                    } else if ("keep".equals(retention)) {
-                        message = unbind ? "好友绑定已解除，旧空间已保留为只读。" : "旧空间已保留为只读。";
-                    } else {
-                        message = unbind ? "好友绑定已解除，你的旧空间访问权已删除。" : "你的旧空间访问权已删除。";
-                    }
-                    refreshPairState(false, message);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> handlePairMutationFailure(failure));
-            }
-        };
-        if (unbind) {
-            accountClient.unbindPair(session.token, pairId, retention, callback);
-        } else {
-            accountClient.decidePairArchive(session.token, pairId, retention, callback);
-        }
-    }
-
-    private void applyConfirmedPairMutation(
-        String pairId,
-        boolean unbind,
-        AccountModels.PairMutationResult result
-    ) {
-        AccountModels.PairState state = currentPairState == null
-            ? AccountModels.PairState.empty()
-            : currentPairState;
-        List<AccountModels.PairArchive> pendingArchives = archivesWithoutPair(state.pendingArchives, pairId);
-        List<AccountModels.PairArchive> archives = archivesWithoutPair(state.archives, pairId);
-        if (result.archive != null) archives.add(result.archive);
-
-        AccountModels.Pair activePair = unbind ? null : currentPair;
-        currentPair = activePair;
-        currentPairState = new AccountModels.PairState(activePair, pendingArchives, archives);
-        resetSharedSpaceState();
-        if (unbind) currentPairInvite = null;
-    }
-
-    private static List<AccountModels.PairArchive> archivesWithoutPair(
-        List<AccountModels.PairArchive> source,
-        String pairId
-    ) {
-        List<AccountModels.PairArchive> result = new ArrayList<>();
-        for (AccountModels.PairArchive archive : source) {
-            if (!archive.pairId.equals(pairId)) result.add(archive);
-        }
-        return result;
-    }
-
-    private void handlePairMutationFailure(AccountClient.Failure failure) {
-        pairLoading = false;
-        if (failure.isAuthenticationFailure()) {
-            handleAccountRestoreFailure(failure);
-            return;
-        }
-        if (failure.networkFailure || failure.status == 404 || failure.status == 409) {
-            pairLoaded = false;
-            pairMessage = "操作结果可能已经变化，正在重新读取服务器状态…";
-            showMainTab("pair");
-            refreshPairState(false, "已刷新服务器状态，请确认当前好友和旧空间结果。");
-            return;
-        }
-        handlePairFailure(failure);
-    }
-
-    private void handlePairFailure(AccountClient.Failure failure) {
-        pairLoading = false;
-        if (failure.isAuthenticationFailure()) {
-            handleAccountRestoreFailure(failure);
-            return;
-        }
-        pairMessage = failure.getMessage();
-        showMainTab("pair");
-    }
-
-    private void inviteBoundFriendToWatch() {
-        if (currentPair == null) {
-            pairMessage = "请先完成好友绑定。";
-            showMainTab("pair");
-            return;
-        }
-        String partnerName = currentPair.partner.nickname;
-        new AlertDialog.Builder(this)
-            .setTitle("邀请 " + partnerName + " 一起看")
-            .setMessage("创建后，房间会自动出现在对方 App 首页。通知只是额外提醒，即使未送达，对方仍可直接进入。")
-            .setNegativeButton("取消", null)
-            .setNeutralButton("只创建房间", (dialog, which) -> createRoom(false))
-            .setPositiveButton("创建并通知", (dialog, which) -> createRoom(true))
-            .show();
-    }
-
-    private void sendPairWatchInvite() {
-        AccountModels.Session session = accountSession;
-        if (session == null || currentRoomId == null || currentInviteKey == null) {
-            shareInvite();
-            return;
-        }
-        String url = PUBLIC_ORIGIN + "/room/" + currentRoomId + "#join=" + currentInviteKey;
-        long expiresAt = System.currentTimeMillis() + 10L * 60L * 1000L;
-        accountClient.sendWatchInvite(session.token, url, "一起看 B站视频", expiresAt,
-            new AccountClient.ResultCallback<AccountModels.WatchInviteResult>() {
-                @Override public void onSuccess(AccountModels.WatchInviteResult result) {
-                    runOnUiThread(() -> {
-                        if (result.fallbackRequired || result.delivered <= 0) {
-                            Toast.makeText(MainActivity.this, "通知未送达，但好友仍可在 App 首页进入房间", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        Toast.makeText(MainActivity.this, "已通知好友；对方也可从 App 首页直接进入", Toast.LENGTH_SHORT).show();
-                    });
-                }
-
-                @Override public void onFailure(AccountClient.Failure failure) {
-                    runOnUiThread(() -> {
-                        if (failure.isAuthenticationFailure()) {
-                            handleAccountRestoreFailure(failure);
-                            return;
-                        }
-                        Toast.makeText(MainActivity.this, "通知未送达，但好友仍可在 App 首页进入房间", Toast.LENGTH_LONG).show();
-                    });
-                }
-            });
-    }
-
-    private void refreshHistoryGrant() {
-        if (currentPair == null) maybeStartHistoryGrant();
-        else requestHistoryGrant(true);
-    }
-
-    private void maybeStartHistoryGrant() {
-        AccountModels.Session session = accountSession;
-        if (!isAccountModeActive() || session == null || !authenticated || !historyActiveRoomConfirmed
-            || currentRoomId == null || roomClient == null || !("host".equals(currentRole) || "guest".equals(currentRole))) return;
-        if (currentPair != null) {
-            requestHistoryGrant(false);
-            return;
-        }
-        if (pairLoaded || historyPairRequesting) return;
-        historyPairRequesting = true;
-        long generation = historyLifecycleGeneration;
-        String token = session.token;
-        accountClient.getPair(token, new AccountClient.ResultCallback<AccountModels.PairState>() {
-            @Override public void onSuccess(AccountModels.PairState pairState) {
-                runOnUiThread(() -> {
-                    if (generation != historyLifecycleGeneration || !isCurrentSession(token)) return;
-                    historyPairRequesting = false;
-                    applyPairSnapshot(pairState);
-                    if (currentPair != null) requestHistoryGrant(false);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (generation != historyLifecycleGeneration || !isCurrentSession(token)) return;
-                    historyPairRequesting = false;
-                    if (failure.isAuthenticationFailure()) {
-                        handleAccountRestoreFailure(failure);
-                        return;
-                    }
-                    mainHandler.removeCallbacks(historyGrantRefresh);
-                    mainHandler.postDelayed(historyGrantRefresh, HISTORY_GRANT_RETRY_MS);
-                });
-            }
-        });
-    }
-
-    private void requestHistoryGrant(boolean forceRefresh) {
-        AccountModels.Session session = accountSession;
-        AccountModels.Pair pair = currentPair;
-        RoomClient client = roomClient;
-        String roomId = currentRoomId;
-        String slot = currentRole;
-        if (!isAccountModeActive() || session == null || pair == null || client == null || !authenticated
-            || !historyActiveRoomConfirmed || roomId == null || !("host".equals(slot) || "guest".equals(slot)) || historyGrantRequesting) return;
-        long now = System.currentTimeMillis();
-        if (!forceRefresh && roomHistoryGrant != null && roomHistoryGrant.expiresAt > now
-            && roomHistoryGrant.matches(pair.pairId, roomId, slot)) {
-            client.bindHistory(roomHistoryGrant.grant);
-            scheduleHistoryGrant(roomHistoryGrant);
-            return;
-        }
-        historyGrantRequesting = true;
-        long generation = historyLifecycleGeneration;
-        String token = session.token;
-        String pairId = pair.pairId;
-        accountClient.issueHistoryGrant(token, roomId, slot, new AccountClient.ResultCallback<AccountModels.HistoryGrant>() {
-            @Override public void onSuccess(AccountModels.HistoryGrant grant) {
-                runOnUiThread(() -> {
-                    if (!isCurrentHistoryLifecycle(generation, token, pairId, roomId, slot)) return;
-                    historyGrantRequesting = false;
-                    if (!grant.matches(pairId, roomId, slot)) {
-                        mainHandler.removeCallbacks(historyGrantRefresh);
-                        mainHandler.postDelayed(historyGrantRefresh, HISTORY_GRANT_RETRY_MS);
-                        return;
-                    }
-                    roomHistoryGrant = grant;
-                    client.bindHistory(grant.grant);
-                    scheduleHistoryGrant(grant);
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (!isCurrentHistoryLifecycle(generation, token, pairId, roomId, slot)) return;
-                    historyGrantRequesting = false;
-                    if (failure.isAuthenticationFailure()) {
-                        handleAccountRestoreFailure(failure);
-                        return;
-                    }
-                    long retryDelay = HISTORY_GRANT_RETRY_MS;
-                    if (roomHistoryGrant != null) retryDelay = Math.min(retryDelay, Math.max(1_000L, roomHistoryGrant.expiresAt - System.currentTimeMillis()));
-                    mainHandler.removeCallbacks(historyGrantRefresh);
-                    mainHandler.postDelayed(historyGrantRefresh, retryDelay);
-                });
-            }
-        });
-    }
-
-    private void scheduleHistoryGrant(AccountModels.HistoryGrant grant) {
-        mainHandler.removeCallbacks(historyGrantRefresh);
-        mainHandler.removeCallbacks(historyGrantExpiry);
-        long now = System.currentTimeMillis();
-        mainHandler.postDelayed(historyGrantRefresh, historyScheduleDelay(grant.refreshAfter, now));
-        mainHandler.postDelayed(historyGrantExpiry, historyScheduleDelay(grant.expiresAt, now));
-    }
-
-    private void expireHistoryGrant() {
-        AccountModels.HistoryGrant grant = roomHistoryGrant;
-        if (grant == null) return;
-        long remaining = grant.expiresAt - System.currentTimeMillis();
-        if (remaining > 0) {
-            mainHandler.postDelayed(historyGrantExpiry, remaining);
-            return;
-        }
-        roomHistoryGrant = null;
-        historyGrantRequesting = false;
-        if (roomClient != null) roomClient.clearHistoryBinding();
-        if (isAccountModeActive() && authenticated && historyActiveRoomConfirmed) {
-            mainHandler.postDelayed(historyGrantRefresh, 1_000L);
-        }
-    }
-
-    private boolean isCurrentHistoryLifecycle(long generation, String token, String pairId, String roomId, String slot) {
-        return historyLifecycleStateMatches(
-            generation,
-            historyLifecycleGeneration,
-            isCurrentSession(token),
-            currentPair != null && pairId.equals(currentPair.pairId),
-            roomId.equals(currentRoomId),
-            slot.equals(currentRole),
-            historyActiveRoomConfirmed,
-            authenticated
-        );
-    }
-
-    static long historyScheduleDelay(long targetAt, long now) {
-        return Math.max(1_000L, targetAt - now);
-    }
-
-    static boolean historyLifecycleStateMatches(
-        long expectedGeneration,
-        long currentGeneration,
-        boolean currentSession,
-        boolean currentPair,
-        boolean currentRoom,
-        boolean currentSlot,
-        boolean activeRoomConfirmed,
-        boolean authenticated
-    ) {
-        return expectedGeneration == currentGeneration
-            && currentSession && currentPair && currentRoom && currentSlot
-            && activeRoomConfirmed && authenticated;
-    }
-
-    static boolean historyClientMatches(RoomClient callbackClient, RoomClient currentClient) {
-        return callbackClient != null && callbackClient == currentClient;
-    }
-
-    private void clearRoomHistoryLifecycle() {
-        historyLifecycleGeneration += 1;
-        mainHandler.removeCallbacks(historyGrantRefresh);
-        mainHandler.removeCallbacks(historyGrantExpiry);
-        roomHistoryGrant = null;
-        historyGrantRequesting = false;
-        historyPairRequesting = false;
-        historyActiveRoomConfirmed = false;
-        if (roomClient != null) {
-            roomClient.clearHistoryBinding();
-            roomClient.clearPlaybackReport();
-        }
-    }
-
-    private void showInviteFallback(String message) {
-        new AlertDialog.Builder(this)
-            .setTitle("改用邀请链接")
-            .setMessage(message)
-            .setNegativeButton("稍后", null)
-            .setNeutralButton("复制链接", (dialog, which) -> copyInviteLink())
-            .setPositiveButton("系统分享", (dialog, which) -> shareInvite())
-            .show();
-    }
-
-    private void publishActiveRoom(boolean showFallbackOnFailure) {
-        AccountModels.Session session = accountSession;
-        String url = currentInviteUrl();
-        String publishedRoomId = currentRoomId;
-        if (session == null || url == null || publishedRoomId == null || !"host".equals(currentRole) || !isAccountModeActive()) return;
-        long expiresAt = System.currentTimeMillis() + 10L * 60L * 1000L;
-        accountClient.publishActiveRoom(session.token, url, expiresAt, new AccountClient.ResultCallback<Void>() {
-            @Override public void onSuccess(Void ignored) {
-                runOnUiThread(() -> {
-                    if (!publishedRoomId.equals(currentRoomId) || !"host".equals(currentRole)) {
-                        accountClient.clearActiveRoom(session.token, new AccountClient.ResultCallback<Void>() {
-                            @Override public void onSuccess(Void cleared) {}
-                            @Override public void onFailure(AccountClient.Failure failure) {}
-                        });
-                        return;
-                    }
-                    Toast.makeText(
-                        MainActivity.this,
-                        "好友现在可以在 App 首页直接进入房间",
-                        Toast.LENGTH_SHORT
-                    ).show();
-                    historyActiveRoomConfirmed = true;
-                    maybeStartHistoryGrant();
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    if (failure.isAuthenticationFailure()) {
-                        handleAccountRestoreFailure(failure);
-                        return;
-                    }
-                    if (showFallbackOnFailure) {
-                        showInviteFallback("好友房间状态发布失败，房间仍可通过邀请链接加入。");
-                    }
-                });
-            }
-        });
-    }
-
-    private void startActiveRoomPolling() {
-        stopActiveRoomPolling();
-        if (!canPollActiveRoom()) {
-            activePairRoom = null;
-            homeScreen.setActiveRoom(null, false);
-            return;
-        }
-        mainHandler.post(activeRoomPoll);
-    }
-
-    private void stopActiveRoomPolling() {
-        mainHandler.removeCallbacks(activeRoomPoll);
-    }
-
-    private boolean canPollActiveRoom() {
-        return isAccountModeActive()
-            && mainNavigationView != null
-            && entryHost != null
-            && entryHost.getVisibility() == View.VISIBLE
-            && mainNavigationView.getView().getParent() == entryHost
-            && "home".equals(mainNavigationView.getCurrentPage())
-            && videoSection != null
-            && videoSection.getVisibility() != View.VISIBLE;
-    }
-
-    private void refreshActiveRoom() {
-        stopActiveRoomPolling();
-        AccountModels.Session session = accountSession;
-        if (session == null || !canPollActiveRoom()) return;
-        if (activeRoomLoading) {
-            mainHandler.postDelayed(activeRoomPoll, ACTIVE_ROOM_POLL_INTERVAL_MS);
-            return;
-        }
-        activeRoomLoading = true;
-        accountClient.getActiveRoom(session.token, new AccountClient.ResultCallback<AccountModels.ActiveRoom>() {
-            @Override public void onSuccess(AccountModels.ActiveRoom room) {
-                runOnUiThread(() -> {
-                    activeRoomLoading = false;
-                    activePairRoom = room;
-                    activeRoomJoining = false;
-                    homeScreen.setActiveRoom(room, false);
-                    scheduleActiveRoomPoll();
-                });
-            }
-
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> {
-                    activeRoomLoading = false;
-                    activeRoomJoining = false;
-                    activePairRoom = null;
-                    homeScreen.setActiveRoom(null, false);
-                    if (failure.isAuthenticationFailure()) {
-                        handleAccountRestoreFailure(failure);
-                        return;
-                    }
-                    if ("PAIR_REQUIRED".equals(failure.code)) return;
-                    scheduleActiveRoomPoll();
-                });
-            }
-        });
-    }
-
-    private void scheduleActiveRoomPoll() {
-        stopActiveRoomPolling();
-        if (canPollActiveRoom()) mainHandler.postDelayed(activeRoomPoll, ACTIVE_ROOM_POLL_INTERVAL_MS);
-    }
-
-    private void joinActiveRoom() {
-        AccountModels.ActiveRoom room = activePairRoom;
-        if (room == null || activeRoomJoining) return;
-        if (room.expiresAt <= System.currentTimeMillis()) {
-            activePairRoom = null;
-            homeScreen.setActiveRoom(null, false);
-            refreshActiveRoom();
-            return;
-        }
-        activeRoomJoining = true;
-        stopActiveRoomPolling();
-        homeScreen.setActiveRoom(room, true);
-        joinInvite(room.url);
-    }
-
-    private void clearPublishedActiveRoom() {
-        AccountModels.Session session = accountSession;
-        if (session == null || !isAccountModeActive() || !"host".equals(currentRole)) return;
-        accountClient.clearActiveRoom(session.token, new AccountClient.ResultCallback<Void>() {
-            @Override public void onSuccess(Void ignored) {}
-            @Override public void onFailure(AccountClient.Failure failure) {
-                if (failure.isAuthenticationFailure()) runOnUiThread(() -> handleAccountRestoreFailure(failure));
-            }
-        });
-    }
-
-    private void applyAccountStateToHome() {
-        if (!isAccountModeActive()) {
-            homeScreen.setAnonymousState(accountSession != null, accountSession == null ? null : accountSession.user.nickname);
-            return;
-        }
-        homeScreen.setAccountState(accountSession.user.nickname, accountSession.user.email);
-        homeScreen.setPairState(currentPair);
-        nicknameInput.setText(accountSession.user.nickname);
-        applyTodayStateToHome();
-    }
-
-    private boolean isAccountModeActive() {
-        return accountSession != null && !anonymousMode;
-    }
-
-    private void setAnonymousMode(boolean enabled) {
-        anonymousMode = accountSession != null && enabled;
-        preferences.edit().putBoolean("anonymousMode", anonymousMode).apply();
-        if (anonymousMode) {
-            clearRoomHistoryLifecycle();
-            stopActiveRoomPolling();
-            activePairRoom = null;
-            homeScreen.setActiveRoom(null, false);
-            resetCalendarState();
-        }
-    }
-
-    private void enterAnonymousMode() {
-        setAnonymousMode(true);
-        showEntryScreen();
-        Toast.makeText(this, accountSession == null ? "已进入匿名模式" : "已切换到匿名模式，账号仍安全保留", Toast.LENGTH_SHORT).show();
-    }
-
-    private void openAccountMode() {
-        if (accountSession == null) {
-            authScreen.prepareFreshLogin("登录后可使用共同片库和好友邀请");
-            showAuthScreen();
-            return;
-        }
-        setAnonymousMode(false);
-        showEntryScreen();
-        showMainTab("pair", true);
-    }
-
-    private void confirmSwitchAccount() {
-        showAccountExitConfirmation(
-            "04 / US · SWITCH",
-            "切换登录账号？",
-            "本机将退出当前账号，然后可以使用其他邮箱重新登录。匿名房间不受影响。",
-            "退出并切换"
-        );
-    }
-
-    private void confirmAccountLogout() {
-        showAccountExitConfirmation(
-            "04 / US · LOGOUT",
-            "退出同看账号？",
-            "退出后本机将清除登录状态，匿名房间仍然可以继续使用。",
-            "确认退出"
-        );
-    }
-
-    private void showAccountExitConfirmation(String code, String title, String description, String actionLabel) {
-        BreathComponents components = new BreathComponents(this, breathTheme);
-        LinearLayout content = components.column(0, 0, 0);
-        Button confirm = components.dangerButton(actionLabel);
-        Button cancel = components.textButton("取消");
-        content.addView(confirm, components.matchHeight(50));
-        content.addView(cancel, components.margin(components.matchHeight(46), 0, 8, 0, 0));
-        Dialog dialog = BreathBottomSheet.create(this, breathTheme, code, title, description, content);
-        confirm.setOnClickListener(view -> {
-            dialog.dismiss();
-            logoutAccount();
-        });
-        cancel.setOnClickListener(view -> dialog.dismiss());
-        dialog.show();
-    }
-
-    private void logoutAccount() {
-        AccountModels.Session session = accountSession;
-        String pushToken = registeredPushToken != null ? registeredPushToken : FcmPushTokenProvider.cachedToken(this);
-        if (session != null && pushToken != null && !pushToken.isEmpty() && accountClient.isConfigured()) {
-            accountClient.unregisterDevice(session.token, pushToken, pushTokenProvider.providerId(), new AccountClient.ResultCallback<Void>() {
-                @Override public void onSuccess(Void ignored) {}
-                @Override public void onFailure(AccountClient.Failure failure) {}
-            });
-        }
-        clearAccountSession();
-        authScreen.prepareFreshLogin("已退出账号，请重新输入邮箱登录");
-        showAuthScreen();
-        if (session == null || !accountClient.isConfigured()) return;
-        accountClient.logout(session.token, new AccountClient.ResultCallback<Void>() {
-            @Override public void onSuccess(Void ignored) {}
-            @Override public void onFailure(AccountClient.Failure failure) {
-                runOnUiThread(() -> Toast.makeText(
-                    MainActivity.this,
-                    "本机已退出；服务器会话将在过期后自动失效",
-                    Toast.LENGTH_LONG
-                ).show());
-            }
-        });
-    }
-
-    private void showAuthScreen() {
-        stopActiveRoomPolling();
-        activePairRoom = null;
-        homeScreen.setActiveRoom(null, false);
-        appFullscreen = false;
-        setImmersiveControlsVisible(false, false);
-        if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(View.GONE);
-        applyImmersiveMode(false);
-        videoSection.setVisibility(View.GONE);
-        entryHost.setVisibility(View.VISIBLE);
-        if (authScreen.getView().getParent() instanceof ViewGroup) {
-            ((ViewGroup) authScreen.getView().getParent()).removeView(authScreen.getView());
-        }
-        entryHost.removeAllViews();
-        entryHost.addView(authScreen.getView(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        applyTheme();
-    }
-
     private void showEntryScreen() {
         appFullscreen = false;
-        setPortraitComposerBottomMargin(0);
         setImmersiveControlsVisible(false, false);
         if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(View.GONE);
         applyImmersiveMode(false);
+        entryScroll.setVisibility(View.VISIBLE);
         videoSection.setVisibility(View.GONE);
-        entryHost.setVisibility(View.VISIBLE);
-        if (mainNavigationView.getView().getParent() instanceof ViewGroup) {
-            ((ViewGroup) mainNavigationView.getView().getParent()).removeView(mainNavigationView.getView());
-        }
-        entryHost.removeAllViews();
-        entryHost.addView(mainNavigationView.getView(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         boolean hasLastRoom = preferences.getString("roomId", null) != null
             && preferences.getString("key", null) != null
             && preferences.getString("role", null) != null;
         continueButton.setVisibility(hasLastRoom ? View.VISIBLE : View.GONE);
-        applyAccountStateToHome();
-        showMainTab("home");
         applyTheme();
-    }
-
-    private void showMainTab(String page) {
-        showMainTab(page, false);
-    }
-
-    private void showMainTabFromNavigation(String page) {
-        if (mainNavigationView != null
-            && "calendar".equals(mainNavigationView.getCurrentPage())
-            && !"calendar".equals(page)
-            && calendarLoading) {
-            calendarRequestGeneration += 1;
-            calendarLoading = false;
-            calendarError = false;
-            currentCalendar = null;
-            pendingCalendarItem = null;
-            pendingCalendarDate = null;
-        }
-        showMainTab(page, true);
-    }
-
-    private void showMainTab(String page, boolean refreshPairOnEntry) {
-        String target = page;
-        View content;
-        switch (page) {
-            case "library":
-                content = libraryPage();
-                break;
-            case "calendar":
-                content = calendarPage();
-                break;
-            case "pair":
-                if (!isAccountModeActive()) {
-                    content = mainNavigationView.placeholder("04 / US", "我们的空间", "登录后可进入唯一好友绑定、共同历史和观看统计。匿名房间仍然可以继续使用。");
-                } else {
-                    content = pairPage();
-                }
-                break;
-            case "home":
-            default:
-                target = "home";
-                content = homeScreen.getView();
-                boolean hasLastRoom = preferences.getString("roomId", null) != null
-                    && preferences.getString("key", null) != null
-                    && preferences.getString("role", null) != null;
-                continueButton.setVisibility(hasLastRoom ? View.VISIBLE : View.GONE);
-                applyTodayStateToHome();
-                break;
-        }
-        mainNavigationView.select(target);
-        mainNavigationView.showContent(content);
-        mainNavigationView.applyTheme();
-        if (refreshPairOnEntry && "pair".equals(target) && isAccountModeActive() && !pairLoading) {
-            mainHandler.post(() -> refreshPairState(false));
-        }
-        if ("pair".equals(target) && isAccountModeActive() && currentPair != null && !watchHistoryLoading) {
-            mainHandler.post(() -> ensureWatchHistoryLoaded(false));
-        }
-        if (refreshPairOnEntry && "library".equals(target) && isAccountModeActive() && !libraryLoading) {
-            mainHandler.post(() -> ensureLibraryLoaded(false));
-        }
-        if (refreshPairOnEntry && "calendar".equals(target) && isAccountModeActive() && !calendarLoading) {
-            mainHandler.post(() -> ensureCalendarLoaded(false));
-        }
-        if ("home".equals(target)) {
-            startActiveRoomPolling();
-            if (isAccountModeActive()) mainHandler.post(() -> ensureTodayCalendarLoaded(false));
-        } else {
-            stopActiveRoomPolling();
-        }
     }
 
     private void showVideoScreen() {
-        stopActiveRoomPolling();
-        entryHost.setVisibility(View.GONE);
+        entryScroll.setVisibility(View.GONE);
         videoSection.setVisibility(View.VISIBLE);
         if (roomMedia == null && loadedMedia == null) showPreparationPanel();
-        syncPlayerInteractionLayerVisibility();
-        syncVideoFooterVisibility();
         updatePlayerAspectRatio();
         applyTheme();
-        rootContainer.post(this::updatePortraitComposerPosition);
     }
 
     private void showPreparationPanel() {
         if (appFullscreen) toggleAppFullscreen();
-        entryHost.setVisibility(View.GONE);
+        entryScroll.setVisibility(View.GONE);
         videoSection.setVisibility(View.VISIBLE);
         preparationPanel.setVisibility(View.VISIBLE);
         playerContainer.setVisibility(roomMedia == null && loadedMedia == null ? View.GONE : View.VISIBLE);
-        syncPlayerInteractionLayerVisibility();
-        syncVideoFooterVisibility();
+        videoFooter.setVisibility(playerContainer.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE);
         videoInput.requestFocus();
-    }
-
-    private void syncVideoFooterVisibility() {
-        if (videoFooter == null || playerContainer == null || videoSection == null) return;
-        boolean shouldShow = !appFullscreen
-            && videoSection.getVisibility() == View.VISIBLE
-            && playerContainer.getVisibility() == View.VISIBLE;
-        videoFooter.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
-        syncPortraitComposerVisibility();
-        if (shouldShow && rootContainer != null) rootContainer.post(this::updatePortraitComposerPosition);
-    }
-
-    private void syncPlayerInteractionLayerVisibility() {
-        if (immersiveTapLayer == null || playerContainer == null || videoSection == null) return;
-        boolean shouldIntercept = videoSection.getVisibility() == View.VISIBLE
-            && playerContainer.getVisibility() == View.VISIBLE;
-        immersiveTapLayer.setVisibility(shouldIntercept ? View.VISIBLE : View.GONE);
     }
 
     private void setConnectionStatus(String value) {
@@ -4286,7 +1148,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     private void setPreparationControlsEnabled(boolean enabled) {
         loadVideoButton.setEnabled(enabled);
         videoInput.setEnabled(enabled);
-        if (libraryPickerButton != null) libraryPickerButton.setEnabled(enabled);
         if (enabled) {
             loadVideoButton.setText("准备视频");
             cancelPreparationButton.setVisibility(View.GONE);
@@ -4363,7 +1224,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void toggleOrientation() {
-        capturePlaybackBeforeOrientationChange();
         boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         if (landscape) {
             if (appFullscreen) toggleAppFullscreen();
@@ -4380,59 +1240,25 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         boolean landscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE;
-        setPortraitComposerBottomMargin(0);
         orientationButton.setText(landscape ? "竖屏" : "横屏");
         setButtonIcon(orientationButton, R.drawable.ic_rotate);
         rootContainer.post(() -> {
             if (appFullscreen) updateFullscreenPlayerLayout();
             else updatePlayerAspectRatio();
             applySafeAreaInsets();
-            updatePortraitComposerPosition();
-            restorePlaybackAfterOrientationChange();
         });
-    }
-
-    private void capturePlaybackBeforeOrientationChange() {
-        orientationWasPlaying = playerReady && !playerPaused && !playerEnded && !playerBuffering;
-        ignoreOrientationPauseUntilMs = orientationWasPlaying
-            ? System.currentTimeMillis() + 1200
-            : 0;
-    }
-
-    private void restorePlaybackAfterOrientationChange() {
-        if (!orientationWasPlaying) return;
-        mainHandler.postDelayed(() -> {
-            if (orientationWasPlaying && playerReady && !playerEnded) {
-                evaluatePlayer("window.__tongkanSetPlaying && window.__tongkanSetPlaying(true);");
-            }
-            orientationWasPlaying = false;
-            ignoreOrientationPauseUntilMs = 0;
-        }, 450);
     }
 
     private void toggleAppFullscreen() {
         appFullscreen = !appFullscreen;
-        setPortraitComposerBottomMargin(0);
         mainHandler.removeCallbacks(hideImmersiveControls);
-        mainHandler.removeCallbacks(hideImmersiveAdjustmentHud);
-        if (appFullscreen) {
-            immersiveGestureController.beginSession();
-            if (!preferences.getBoolean("immersiveGestureHintShown", false)) {
-                preferences.edit().putBoolean("immersiveGestureHintShown", true).apply();
-                Toast.makeText(this, "左侧上下滑动调亮度 · 右侧上下滑动调音量", Toast.LENGTH_LONG).show();
-            }
-        } else {
-            immersiveGestureController.restoreBrightness();
-            if (immersiveChatOverlay != null) immersiveChatOverlay.hide();
-            if (immersiveAdjustmentHud != null) immersiveAdjustmentHud.setVisibility(View.GONE);
-        }
         videoHeader.setVisibility(appFullscreen ? View.GONE : View.VISIBLE);
-        syncVideoFooterVisibility();
+        videoFooter.setVisibility(appFullscreen ? View.GONE : (playerContainer.getVisibility() == View.VISIBLE ? View.VISIBLE : View.GONE));
         preparationPanel.setVisibility(appFullscreen ? View.GONE : (roomMedia == null && loadedMedia == null ? View.VISIBLE : View.GONE));
         videoSection.setPadding(appFullscreen ? 0 : dp(16), appFullscreen ? 0 : dp(12), appFullscreen ? 0 : dp(16), appFullscreen ? 0 : dp(12));
         fullscreenButton.setText(appFullscreen ? "退出全屏" : "全屏");
         setButtonIcon(fullscreenButton, appFullscreen ? R.drawable.ic_exit_fullscreen : R.drawable.ic_fullscreen);
-        syncPlayerInteractionLayerVisibility();
+        if (immersiveTapLayer != null) immersiveTapLayer.setVisibility(appFullscreen ? View.VISIBLE : View.GONE);
         updateFullscreenPlayerLayout();
         applyImmersiveMode(appFullscreen);
         applySafeAreaInsets();
@@ -4440,9 +1266,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void applyImmersiveMode(boolean enabled) {
-        getWindow().setSoftInputMode(enabled
-            ? WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-            : WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         if (enabled) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
             getWindow().getDecorView().setSystemUiVisibility(
@@ -4468,7 +1291,6 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
         htmlFullscreenView = null;
         htmlFullscreenContainer.setVisibility(View.GONE);
         if (rootLayout != null) rootLayout.setVisibility(View.VISIBLE);
-        syncPortraitComposerVisibility();
         if (htmlFullscreenCallback != null) htmlFullscreenCallback.onCustomViewHidden();
         htmlFullscreenCallback = null;
         applyImmersiveMode(appFullscreen);
@@ -4480,27 +1302,12 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
             hideHtmlFullscreen();
             return;
         }
-        if (appFullscreen && immersiveChatOverlay != null && immersiveChatOverlay.isShowing()) {
-            immersiveChatOverlay.hide();
-            return;
-        }
         if (appFullscreen) {
             exitImmersiveViewing();
             return;
         }
         if (videoSection.getVisibility() == View.VISIBLE) {
             confirmLeaveRoom();
-            return;
-        }
-        if (entryHost.getVisibility() == View.VISIBLE && mainNavigationView.getView().getParent() == entryHost) {
-            if (!"home".equals(mainNavigationView.getCurrentPage())) {
-                showMainTab("home");
-            } else if (accountSession == null) {
-                authScreen.prepareFreshLogin("登录后可使用共同片库和好友邀请");
-                showAuthScreen();
-            } else {
-                super.onBackPressed();
-            }
             return;
         }
         super.onBackPressed();
@@ -4516,20 +1323,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void leaveRoom() {
-        clearPublishedActiveRoom();
-        clearRoomHistoryLifecycle();
         if (roomClient != null) roomClient.close();
         roomClient = null;
         authenticated = false;
-        ownMemberId = null;
-        setChatEnabled(false);
-        clearChatMessages();
         currentRoomId = null;
         currentKey = null;
         currentRole = null;
         currentInviteKey = null;
         latestAnchor = null;
-        resetBufferingEpisode();
         roomMedia = null;
         loadedMedia = null;
         playerReady = false;
@@ -4540,40 +1341,27 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private void toggleTheme() {
-        breathTheme.toggle();
-        darkMode = breathTheme.isDark();
+        darkMode = !darkMode;
+        preferences.edit().putBoolean("darkMode", darkMode).apply();
         applyTheme();
     }
 
     private void applyTheme() {
-        darkMode = breathTheme.isDark();
-        int background = breathTheme.background();
-        int surface = breathTheme.panel();
-        int primaryText = breathTheme.ink();
-        int secondaryText = breathTheme.muted();
-        int border = breathTheme.line();
+        int background = darkMode ? Color.rgb(11, 12, 13) : Color.rgb(243, 243, 240);
+        int surface = darkMode ? Color.rgb(23, 24, 25) : Color.WHITE;
+        int primaryText = darkMode ? Color.rgb(244, 244, 242) : Color.rgb(23, 24, 23);
+        int secondaryText = darkMode ? Color.rgb(165, 166, 170) : Color.rgb(112, 114, 109);
+        int border = darkMode ? Color.rgb(48, 50, 54) : Color.rgb(217, 217, 210);
         rootContainer.setBackgroundColor(background);
         rootLayout.setBackgroundColor(background);
         applyThemeRecursive(rootContainer, background, surface, primaryText, secondaryText, border);
-        authScreen.applyTheme();
-        homeScreen.applyTheme();
-        libraryScreen.applyTheme();
-        calendarScreen.applyTheme();
-        mainNavigationView.applyTheme();
-        if (entryHost.getVisibility() == View.VISIBLE && "calendar".equals(mainNavigationView.getCurrentPage())) {
-            showMainTab("calendar", false);
-        }
-        if (portraitChatView != null) portraitChatView.setDarkMode(darkMode);
-        if (immersiveChatOverlay != null) immersiveChatOverlay.setDarkMode(true);
-        if (videoThemeButton != null) {
-            videoThemeButton.setText(darkMode ? "浅色" : "深色");
-            setButtonIcon(videoThemeButton, darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
-            tintButtonDrawables(videoThemeButton, primaryText);
-        }
+        entryThemeButton.setImageResource(darkMode ? R.drawable.ic_theme_sun : R.drawable.ic_theme_moon);
+        entryThemeButton.setContentDescription(darkMode ? "切换浅色主题" : "切换深色主题");
         String danmakuLabel = danmakuVisible ? "弹幕 开" : "弹幕 关";
         danmakuButton.setText(danmakuLabel);
         if (immersiveDanmakuButton != null) immersiveDanmakuButton.setText(danmakuLabel);
-        breathTheme.applySystemBars(this, appFullscreen || htmlFullscreenView != null);
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
         applyImmersiveMode(appFullscreen || htmlFullscreenView != null);
     }
 
@@ -4639,7 +1427,7 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private StateListDrawable textButtonBackground(int border) {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[] {android.R.attr.state_pressed}, rounded(breathTheme.accentSoft(), Color.TRANSPARENT, 0));
+        states.addState(new int[] {android.R.attr.state_pressed}, rounded(darkMode ? Color.rgb(35, 36, 38) : Color.rgb(232, 232, 227), Color.TRANSPARENT, 0));
         states.addState(new int[] {}, rounded(Color.TRANSPARENT, Color.TRANSPARENT, 0));
         return states;
     }
@@ -4694,20 +1482,14 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
 
     private void startLoadingTimeout(long generation) {
         mainHandler.postDelayed(() -> {
-            if (!loadingVideo || generation != loadingGeneration) return;
-            if (preparingLocalVideo) {
+            if (loadingVideo && preparingLocalVideo && generation == loadingGeneration) {
                 playerHint.setText("视频加载得有点慢，请再等一下");
                 cancelPreparationButton.setVisibility(View.VISIBLE);
-            } else {
-                playerHint.setText("B站播放器加载较慢，请稍候");
             }
         }, 8000);
         mainHandler.postDelayed(() -> {
-            if (!loadingVideo || generation != loadingGeneration) return;
-            if (preparingLocalVideo) {
+            if (loadingVideo && preparingLocalVideo && generation == loadingGeneration) {
                 failVideoPreparation("视频准备超时，请重新加载或更换链接");
-            } else {
-                playerHint.setText("播放器响应较慢，可点击换视频重试");
             }
         }, 20000);
     }
@@ -4762,9 +1544,13 @@ public final class MainActivity extends Activity implements RoomClient.Listener,
     }
 
     private StateListDrawable buttonBackground(boolean primary) {
-        int normal = primary ? breathTheme.cta() : breathTheme.panel();
-        int pressed = primary ? breathTheme.accent() : breathTheme.accentSoft();
-        int border = primary ? Color.TRANSPARENT : breathTheme.line();
+        int normal = primary
+            ? (darkMode ? Color.rgb(241, 241, 239) : Color.rgb(32, 33, 31))
+            : (darkMode ? Color.rgb(23, 24, 25) : Color.WHITE);
+        int pressed = primary
+            ? (darkMode ? Color.rgb(216, 217, 220) : Color.rgb(56, 58, 54))
+            : (darkMode ? Color.rgb(48, 50, 54) : Color.rgb(229, 229, 224));
+        int border = primary ? Color.TRANSPARENT : (darkMode ? Color.rgb(48, 50, 54) : Color.rgb(217, 217, 210));
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[] {android.R.attr.state_pressed}, rounded(pressed, border, 12));
         states.addState(new int[] {}, rounded(normal, border, 12));

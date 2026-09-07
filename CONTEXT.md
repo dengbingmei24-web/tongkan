@@ -1,210 +1,396 @@
-# Tongkan - Current Development Context
+# Tongkan - Development Context Snapshot
 
-> Current cross-conversation snapshot. Historical conversation logs are archived at `docs/archive/context/CONTEXT_HISTORY_2026-08.md`.
+> Purpose: Cross-conversation state transfer. Read at start, update at end.
+> Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-09-02T10:20:19+08:00
-current_version: 1.0.0-alpha10.3 remains the production baseline; Alpha 10.4 is locally integrated and not deployed
-target_version: 1.0.0-alpha10.4 Preview integration and live validation
-status: TK-005 Alpha 10.4 history/statistics implementation is reviewer-approved and locally integrated on `codex/TK-005-history-statistics`. All authorized T406 non-APK gates pass and the user approved committing the five evidence documents locally while excluding `合作方-透明.png`; only Android APK build remains separately gated. T405/T407/T409, migration 0008, Service Binding/Secrets, Preview/production deployment, Live QA, APK build/publish, push and public release remain unauthorized. Alpha 10.3 production remains unchanged and its two-device matrix is deferred, not passed.
+last_updated: 2026-09-07T15:15:06+08:00
+current_version: 1.0.0-alpha.9.2 rollback workspace (versionCode 11; anonymous Bilibili sync only)
+target_version: Stabilize from Alpha 9.2 again before reintroducing account, pair space, calendar, history/statistics, or ZIP0 work
+status: At the user's request, the workspace files were restored from Git commit `4312b10` (`release: Android 1.0.0-alpha.9.2`) without moving the current branch pointer, then committed on branch `codex/TK-005-history-statistics` as an Alpha 9.2 rollback baseline. Current code now matches the Alpha 9.2 anonymous-room baseline at the file level; later Alpha 10 account/pair/library/calendar/history and TK-006 ZIP0 source files are removed from the visible project tree except for protected local/tool files. The pre-rollback dirty workspace was backed up at `C:\Users\DENGBI~1\AppData\Local\Temp\tongkan-pre-alpha9.2-rollback-20260907-145549`. Existing APK `release/tongkan-android-1.0-alpha9.2.apk` remains available with SHA-256 `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`. No push, deployment, migration, new APK build, or public release occurred.
 ---
 
-## Current Baseline
+## Mandatory Conversation Lifecycle
 
-- Review branch: `codex/TK-005-history-statistics`; planning baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5` and runtime integration through `c2c5373` are local on top of Alpha 10.3 baseline `8aee2c1b2047db7f059e91530cdef4b9d2419199`. The branch has not been pushed; the pre-existing untracked `合作方-透明.png` remains untouched and outside all project changes.
-- Approved isolated tips: W1 Account `9b4dc12`, W2 Signaling `8eec1a3`, W3 Android/QA `a4bf5ad`; they were integrated in W1 → W2 → W3 order without conflicts. Reviewer fixes are `7146338` and `5fd5f47`, with W2 evidence update `eaa12dc`; all three temporary worktrees are clean. Safety stashes `safety-before-alpha10.3-commit-20260821-145157`, `safety-before-alpha10.3-continue-20260821-143911`, `safety-before-alpha10.3-physical-acceptance-20260821-141925`, `safety-before-breath-tech-html-ui-20260821`, `safety-before-tk004-t404-20260820`, `safety-before-tk004-cherry-pick-20260819-review-docs`, `safety-before-calendar-live-contract-fix-20260821-112108`, `safety-before-calendar-preview-docs-20260821-112820`, `safety-before-calendar-preview-qa-commit-20260821-113558`, `safety-before-alpha10.3-production-release-20260821-114248` and `safety-after-alpha10.3-production-build-20260821-115923` remain preserved and must not be dropped.
-- Accepted P0 baseline: portrait composer stays above the keyboard, continuous deletion works, keyboard/App send share one path, one local bubble is created, input clears and no composer remains after transitions.
-- Integrated P1 scope: unilateral unbind/archive Account code, Android bound/pending/archive UI, hardened QA contracts, FCM-ready invitation flow and the existing Beta playback/chat controls.
-- Production Account Worker: version `17a59403-98bb-4652-9ad1-32a5ff5882db`, 100% traffic, `AUTH_TEST_MODE=false`; production D1 migrations are current through `0007_calendar_plans.sql`.
-- Current delivery candidate APK: `release/tongkan-android-1.0.0-alpha10.3.apk` (versionCode 41, production API + FCM, Debug-signed, empty Preview token), SHA-256 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`.
-- Alpha 10.4 planning safety stash `safety-before-alpha10.4-planning-20260901-104911` includes and preserves the unrelated untracked partner asset; it must not be dropped.
-- TK-005 implementation safety stash `safety-before-tk005-implementation-20260901-114254` preserves the full frozen planning workspace and partner asset before branch creation; it must not be dropped.
-- TK-005 reviewer-closure safety stash `safety-before-tk005-review-close-20260901` preserves the three task-contract path edits. Additional pre-integration backup: `C:\Users\dengbingmei\AppData\Local\Temp\tongkan-tk005-root-preintegration-20260901.patch`; both remain available for rollback.
-- TK-005 T406 safety stash `safety-before-tk005-t406-20260901` preserves and restores the unrelated partner image before non-APK gates; it remains available for rollback.
-- Previous Alpha 10.2.4 APK remains local as the pre-calendar production comparison build.
-- Previous Preview APK remains local for isolated QA only: `release/tongkan-android-1.0.0-alpha10.2-preview.apk`.
+- Start: read `AGENTS.md`, then `CONTEXT.md`, then `PROJECT_CONTEXT.md`; consult relevant entries in `DECISIONS.md` before product, architecture, protocol, UI, or release changes.
+- Locate task-specific documents through the mapping in `PROJECT_CONTEXT.md` instead of guessing from filenames.
+- End: update `CONTEXT.md` even when no code changed, including `last_updated`, current status, active work, completed work, known issues, next steps, and the conversation log as applicable.
+- Record any newly confirmed long-term product, design, protocol, architecture, storage, or release choice in `DECISIONS.md`.
+- Update `PROJECT_CONTEXT.md` only when stable project structure, product boundaries, architecture, or document ownership changes.
+- Never leave a conversation without synchronizing the latest development state into this system.
 
-## Recently Completed
+## Completed
 
-- Completed all authorized T406 non-APK gates on 2026-09-01: workspace typecheck; 210 routine tests; temporary Signaling live integration plus the Web seven-scenario self-test; 12-case Extension bridge; Protocol/Web/Extension/Account/Signaling builds; dependency inventory; 127 tracked Markdown files with 46 local links; 451 tracked-path credential scan; and diff checks. Account tests and Workers builds first failed only because the sandbox blocked Wrangler registry/log paths, then passed unchanged outside the sandbox. A redundant standalone Web self-test run after its temporary server had exited returned `phase=error`; the authoritative integrated invocation passed.
-- Completed and reviewed TK-005 W1 Account/D1, W2 Signaling/Protocol and W3 Android/QA, then integrated them locally in dependency order without conflicts. Account migration `0008_watch_history.sql`, trusted grants/ingest, strict overlap timing, Android history/monthly/calendar/archive UI and the safe-by-default History QA contract are now present on the review branch.
-- Added reviewer fixes: independent low-frequency `history.bind` rate limiting that does not consume playback-report quota or extend room activity; Android history pagination now follows `startedAt DESC, id DESC`, stale RoomClient callbacks are ignored, transient authorization retries recover, and removed archive access closes the old view.
-- Authorized local gates pass: Protocol typecheck/13 tests/build; Account typecheck/13 files and 93 tests including real local D1/dry-run; Signaling typecheck/8 files and 67 tests/dry-run; Android unit tests/Lint; History QA parser, 14 cases/13 tags ValidateOnly, JSON and diff checks. No APK, Preview/production request, migration, deployment, push or publication occurred.
-- With explicit user approval, committed the frozen TK-005 planning/product/design package as local baseline `9473dcdba18341169ad3e7e0ac976f9140cf65b5`; excluded `合作方-透明.png` and performed no push, deployment, migration, APK build or publication. The W1/W2/W3 contracts now pin this baseline for isolated implementation.
-- Accepted D-092 from the user's “继续开发” authorization: froze the 60-second visibility threshold, unknown/hidden completion, UTC + device offset, no plan association/auto-complete and pair-level keep/delete with no per-item management; authorized a local planning commit and up to three isolated agents while keeping deployment, APK and push separately gated.
-- Completed the Draft TK-005 Alpha 10.4 planning package under `specs/TK-005-history-statistics/`: trusted room grants, strict Signaling overlap timing, sourceRevision/interval idempotency, D1 source/interval/session model, history/monthly/calendar/archive APIs, implementation plan, quickstart, requirements checklist and disjoint W1 Account/W2 Signaling/W3 Android+QA contracts. OpenAPI structural/reference checks, required-file inventory, whitespace checks and cross-document consistency pass; no runtime code or environment changed.
-- Adjusted the bottom navigation selected state after user feedback: replaced the wide high-saturation accent bar with a centered 24dp × 2dp dark underline, preserving selected icon/text contrast and the existing navigation behavior. Rebuilt and copied `release/tongkan-android-1.0.0-alpha10.3-breath-tech-nav-v3.apk`.
-- Corrected the first UI pass after the user reported no visible change. The old quote-based room card was replaced with state-aware `PAIR / EMPTY`, `ROOM / READY` and `LOCAL FIRST` cards; logged-in unbound users now see a friend-focused card, while anonymous and bound users keep working room actions. Rebuilt and copied `release/tongkan-android-1.0.0-alpha10.3-breath-tech-home-v2.apk`.
-- Reviewed the external `breath-tech-screens.html`, archived it under `design/alpha10-ui/`, and adapted its usable visual language to native Android rather than embedding the JavaScript gallery. Added reusable scroll-safe Breath Tech bottom sheets; aligned Auth/Home; converted Calendar, Library and prominent Account/Friend actions; removed fake home metrics; preserved all backend, D1, signaling, protocol and player contracts. Android 55/55, Lint and Debug APK build pass; local APK SHA-256 is `1396D11E6EA37454C82E8E0F993FAA6BF7CEC76B1BA17E498CEB0DD7D42BED92`.
-- User confirmed the current Breath Tech/nav-v3 real-device visual acceptance. The nav-v3 preview APK was kept as visual evidence only because it lacked production Account configuration; the current UI source was rebuilt with production parameters at `C:\tmp\android-build\project-alpha10.3-breath-tech-production-20260821-142603`. Android 55/55, Lint 0 errors/26 warnings, assemble, source SHA parity, v2 Debug signature, production API presence, Preview-host absence and empty test token all pass. The exact output is now the canonical `release/tongkan-android-1.0.0-alpha10.3.apk` with SHA-256 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`.
-- With explicit user approval, exported production D1 to `%LOCALAPPDATA%\Temp\tongkan-production-backup-alpha10.3-20260821-114825\tongkan-account-before-0007.sql` before migration; the 17,555-byte backup SHA-256 is `141C28AE635FC9BDC250B4C933AB37FD8ACF7E313787AC00142FBF0BFCCF11ED`.
-- Applied production migration `0007_calendar_plans.sql`; no migrations remain pending. Verified both calendar tables and complete existing-pair backfill (`pairs=1`, `states=1`, `plans=0`).
-- Deployed production Account Worker version `17a59403-98bb-4652-9ad1-32a5ff5882db` at 100%. The Pages health endpoint returns HTTP 200/`testMode=false`; Calendar, Library and active-room endpoints return HTTP 401 `AUTH_REQUIRED` without a session.
-- Built `release/tongkan-android-1.0.0-alpha10.3.apk` from isolated `C:\tmp\android-build\project-alpha10.3-production-20260821-115457`: Android 55/55, Lint 0 errors/25 warnings and assemble pass. APK metadata is versionCode 41/versionName 1.0.0-alpha10.3, v2 Debug signature verifies, production API is present, Preview hosts are absent and `ACCOUNT_TEST_ACCESS_TOKEN` is empty.
-- Continued the reviewer closeout without changing runtime code: read the required Context/Project/constitution/decision/QA sources, created and restored `safety-before-alpha10.3-continue-20260821-143911` including untracked files, reconfirmed the canonical APK SHA-256, and passed `git diff --check`; no deployment, build, commit or push occurred.
-- With explicit user approval, applied Preview D1 migration `0007_calendar_plans.sql` to `tongkan-account-preview`, verified `pair_calendar_state` and `calendar_plans`, deployed Preview Account Worker version `439139cb-ab48-4f72-a3f5-3012d6c37477`, and confirmed `/health` returns HTTP 200 with `testMode=true`.
-- Completed the disposable Calendar Preview Live contract: all 16 cases passed, including 20/20 revision races, A/B consistency, mutation boundaries, keep/pending/delete/third-account archive rules and both-delete D1 cascade evidence (`pair=0 state=0 plans=0`). One-time fixtures were removed (`users=0 pairs=0`) and the Preview test access key was rotated after QA.
-- Live execution exposed and fixed a PowerShell case-insensitive parameter/local-variable collision in `qa/calendar/run-preview.ps1` and corrected the QA-only response path from `media.url` to the frozen `media.canonicalUrl` contract. Runner AST, JSON checks, 16/16 ValidateOnly and `git diff --check` pass.
-- Completed TK-004 T404 integrated validation: `pnpm typecheck`, 149 regular tests, localhost/seven-scenario integration, full build, dependency freshness, Account/Signaling Wrangler dry-runs, Calendar 16-case offline ValidateOnly, Android 55/55 with Lint 0 errors/25 warnings and Debug assemble, ten-file Android SHA parity, `git diff --check`, 110-file Markdown links and a 413-path credential scan all passed.
-- Stabilized the Windows Account test command with `vitest run --no-file-parallelism` because parallel D1 test files intermittently collide on the Wrangler registry with `EBUSY`; real local D1 coverage and the 20-round concurrent revision race remain enabled.
-- Completed TK-004 T405 documentation closure: synchronized the account PRD, Now/Next/Later roadmap, Alpha 10 selected design, release QA, unreleased changelog, tasks and Context, and accepted D-090 for the independent calendar revision/media snapshot/state/archive boundaries. Alpha 10.4 remains the owner of actual viewing-history markers.
-- With explicit user approval, committed the TK-004 local integration/documentation baseline with message `chore: close TK-004 calendar integration`; no push, migration, deployment or APK publication occurred.
-- With explicit user approval, stashed all tracked and untracked reviewer documents, cherry-picked the eight approved W1/W2/W3 commits without conflicts, restored the documents with `stash apply`, and retained the safety stash. No deployment, migration, APK publication, push or extra merge occurred.
-- With explicit user approval, committed the complete Alpha 10.2.4/TK-003 workspace as clean TK-004 baseline `a5324c5e5b15eb4798e0e3af159175477fd15647` on `codex/TK-004-calendar`; the safety stash `safety-before-alpha10.3-calendar-20260819-143040` remains available.
-- W1 Account/D1 is APPROVED at `51f6791`: additive migration 0007, independent calendar revision, month/date/today/archive reads, CRUD/status, media snapshots, pair initialization, 20-round D1 race, archive and cascade coverage. Review fixed empty-string `startTime` so only `HH:mm` or `null` is accepted; Calendar 5/5, Account 68/68, typecheck, protocol build and Wrangler dry-run pass.
-- W2 Android is APPROVED at `89c213a`: native month calendar and date details, plan create/edit/complete/cancel, library scheduling, Home “今天想看”, existing room/invitation reuse, revision recovery and lifecycle cleanup. A clean ASCII build passed 55/55 JVM tests, Lint 0 errors/25 existing warnings and Debug assemble; no release APK was produced.
-- W3 QA is APPROVED at `46ea3c3`: 16-case offline/Preview contract, protected-host allowlist, input/CRUD/sorting/today/race/archive/cascade coverage. AST, JSON and `-ValidateOnly` pass without secret access, HTTP client creation or network traffic.
-- Added formal reviewer verdicts under `specs/TK-004-calendar/reviews/`; all three approved tips are locally integrated, while Preview Live and production actions remain separately gated.
+- [x] Committed the Alpha 9.2 rollback baseline on `codex/TK-005-history-statistics` after excluding protected local/tool files
 
-- Completed the TK-004 Alpha 10.3 calendar specification package under `specs/TK-004-calendar/`: user stories, data model, OpenAPI, research, plan, tasks, requirements checklist, quickstart and disjoint W1 Account/W2 Android/W3 QA contracts.
-- Created and restored `safety-before-alpha10.3-calendar-20260819-143040` with all tracked and untracked Alpha 10.2.4 changes preserved before calendar planning.
-- User physically confirmed that Alpha 10.2.4 can successfully unbind a friend.
-- Added `docs/product/ROADMAP.md` as the Now / Next / Later priority source: Now closes the real two-device daily-use loop, Next considers calendar plans and a home-page today list, and Later keeps history/statistics plus 1.0 hardening as non-committed directions. Unsupported functions and dates are explicitly marked TBD.
-- With explicit user approval, exported a private production D1 backup outside Git, applied `0006_active_pair_rooms.sql`, deployed production Account Worker `519be06a-5d10-4f8e-ba69-a00e7216493e`, and verified 100% traffic plus Pages health/authorization boundaries.
-- Built `release/tongkan-android-1.0.0-alpha10.2.4.apk` in `C:\tmp\android-build\project-alpha10.2.4-production`: versionCode 40/versionName verified, 46/46 JVM tests passed, Lint reported 0 errors/25 warnings, production API and FCM were present, Preview token was empty, and source/release hashes matched.
-- Completed Alpha 10.2.4 implementation: explicit unbind keep/delete/cancel buttons, encrypted pair-only active-room publish/read/clear APIs, Android 10-second home discovery/direct guest join, host-leave cleanup and FCM-as-optional-reminder behavior.
-- Added a real local D1 publish/read/upsert/clear integration test. Account 59/59, workspace 140 tests, typecheck, full build, Android unit/Lint/assemble and `git diff --check` all pass.
-- Applied `0006_active_pair_rooms.sql` to Preview D1 and deployed Preview Worker version `5238a35c-09d7-478e-961f-5554e697af9b`. Through the protected `tongkan-account-preview-gateway.pages.dev` gateway, disposable A/B/C accounts passed creator-hidden, partner-visible, third-account rejection, one-row upsert, ciphertext-only storage, host delete, expiry cleanup and unbind cleanup; all temporary sessions/users were removed.
-- Fixed the five production reports: logged-in users can enter anonymous mode without discarding the saved session and return from Home; logout/switch resets the full login form; unbind is a single keep/delete choice; library playback prioritizes the bound-friend push invitation with explicit copy/share fallback; library items support rename and JPEG cover thumbnails.
-- Added Account item PATCH `title` validation (1-160 characters) using the existing column. Metadata refresh preserves non-placeholder custom titles while still updating cid, cover, owner and duration; no D1 migration was added.
-- Passed Account 53/53, Android 44/44, workspace 134 tests, typecheck, full build, live signaling integration, diff check and Android Lint with 0 errors/23 warnings.
-- Deployed Preview Worker `093b89a5-2bcd-42fe-b7a6-9e8c04c0bd8c` and production Worker `62bc7034-2599-4519-bf3b-dd119e68dd67`; production health is 200/testMode=false, unauthenticated library is 401, and remote D1 reports no migrations to apply.
-- Built and verified `release/tongkan-android-1.0.0-alpha10.2.3.apk` in `C:\tmp\android-build\project-alpha10.2.3-production`; versionCode 39/versionName, production API + FCM, empty Preview token and matching hashes passed. SHA-256 is `C081BC427C8E1650374E48C711C937D2F620883EEA9F0E4E492A3A8BE89EE681`.
-- With explicit user approval, deployed the Account Worker hotfix to production as version `1198e7ba-ff25-4aca-8369-105e2e1efa19`; deployment listing confirms 100% traffic. Production Pages health returned 200/`testMode=false`, and unauthenticated `/api/library` returned 401 `AUTH_REQUIRED`. Production D1, signaling and Pages configuration were unchanged.
-- Reproduced `https://b23.tv/XM569Iw` in local Workers Runtime: before the fix it returned per-item `B23_RESOLUTION_FAILED` and logged Cloudflare `Illegal invocation`; after binding default fetch through `globalThis`, the same request added `BV1SBbS6hEHa` page 1 with ready metadata and revision 1.
-- Hardened B23 resolution to stop at the first safe resolved redirect, accept a bounded safe Bilibili video URL from a 200 HTML response, and preserve trusted-host/HTTPS/redirect limits. Android now combines a multiline Bilibili share caption with its following URL and submits canonical URLs.
-- Account 51/51, Android 42/42 with Lint 0 errors/23 warnings, workspace 132 tests, typecheck, full build and diff check passed. Preview Worker version `4d3a1955-bf92-49dc-965b-cdee4489debb` was uploaded; production Worker/D1 were not changed.
-- Built production-configured candidate `release/tongkan-android-1.0.0-alpha10.2.2.apk` in `C:\tmp\android-build\project-alpha10.2.2-production`; package/versionCode 38/versionName, production API + FCM, empty Preview token and source/release hash match were verified. SHA-256 is `F48C5CC4C06A1A6BC1B17EC3D8AC90E6466E85B2644E953DD6B7C00036499FB2`.
-- Completed Alpha 10.2.1 five-item P0/P1: bottom-sheet add flow, client-side per-row recognition, per-row server results with corrected B23 wording, category thumbnail sections, and portrait bottom/landscape side room-library drawers that preserve the video surface.
-- Built `release/tongkan-android-1.0.0-alpha10.2.1.apk` in `C:\tmp\android-build\project-alpha10.2.1-production`: 41/41 Android tests, Lint 0 errors/23 warnings, production Account API and FCM configured, Preview token empty, package/versionCode 37/versionName verified, SHA-256 frozen as `9C3CBA2031D6B4C3E3457E84EF6E0519AEE4642D1F06748592AA90E85E360A5B`.
-- Re-ran workspace typecheck and 129 tests; all passed. Decision D-087, PRD, Alpha 10 design, QA, changelog and TK-003 T044-T049 were synchronized; production backend and migrations were not changed.
+- [x] Accepted D-052: portrait adds extra safe-area breathing room and landscape becomes a full-screen tap-to-show player overlay without persistent online/room/sidebar UI
+- [x] Created `design/alpha9-ui/preview-v3.html` with visible and hidden immersive landscape control states
 
-- Completed T041: workspace typecheck, 129 tests including 11 local D1 integrations, live WebSocket integration, all builds, dependency freshness, 15-case QA validation, diff check, 95-file Markdown link validation and a 379-path credential scan passed.
-- Exported a private pre-migration production D1 backup outside the repository, then applied `0004_pair_archives.sql` and `0005_shared_library.sql`; no remote migrations remain and all four archive/library tables were verified.
-- Deployed production Account Worker version `1dc75739-52bf-4db1-828e-6b11e70906c0`; production health returned `testMode=false` and unauthenticated `/api/library` returned 401.
-- Built `release/tongkan-android-1.0.0-alpha10.2.apk`: 39/39 Android tests, Lint 0 errors/19 warnings, production Account API and FCM configured, Preview token empty/not present, package/version verified and SHA-256 frozen as `E678D2943BD16D4470BF80ED9116EF82E6FC81856923C06B0F345157B58CA76D`.
-- Completed T042/T043 documentation and delivery; Decision D-086 records production rollout with physical dual-device acceptance deferred.
-- Froze TK-003 specs/OpenAPI and integrated W1 Account/D1, W3 QA and W2 Android from isolated worktrees.
-- Account shared-library validation passed 48/48 tests, including 20 stale-revision D1 races, archive authorization and cascade cleanup; typecheck also passed.
-- QA contract JSON, PowerShell AST and 15-case ValidateOnly passed without reading secrets or sending network requests.
-- Completed T040 reviewer validation in `C:\tmp\android-build\project-alpha10.2-preview`: 39/39 JVM tests passed, Lint reported 0 errors and 19 warnings, `assembleDebug` succeeded, and `aapt` verified package `com.tongkan.mobile`, versionCode 36 and versionName `1.0.0-alpha10.2`.
-- Applied `0005_shared_library.sql` to Preview D1 `tongkan-account-preview`; the migration ledger is clean and `pair_library_state`, `library_categories` and `library_items` were verified by a read-only query.
-- Deployed TK-003 Account Preview Worker version `fbae269d-5909-40fd-bbfa-b79318e319b9`; production D1, Worker, Secrets and Pages bindings were not modified.
-- Completed T039 with disposable A/B/C accounts: all 15 Live contract cases passed, all 20 revision races produced exactly one 200 and one 409, archive/rebind authorization passed, and direct D1 cascade counts were all zero. Temporary QA Worker/Pages routes, credentials and fixture rows were deleted afterward.
-- Live QA exposed and fixed three PowerShell runner defects (single-item array expansion, case-insensitive variable shadowing and missing optional batch error access) and aligned the TK-003 contract with existing `AUTH_REQUIRED`/HTTP 415 account semantics.
+- [x] Accepted D-051: quiet viewing-tool visual hierarchy with a local date-based daily classic-film quote on the entry page
+- [x] Generated and visually checked Alpha 9.2 V2 previews for light entry, light viewing, dark viewing and dark landscape
 
-- Reviewed W1 Account, W2 Android and W3 QA with three parallel agents; all initial findings were fixed and revalidated before integration.
-- Account passed typecheck/build and 41/41 tests, including nine real local D1 integration tests and twenty concurrent-unbind rounds.
-- Android passed unit tests, Lint and Debug APK build while preserving nickname, chat, top-level composer, unread red dot, brightness and volume behavior.
-- QA passed JSON parsing, PowerShell AST and 13-case ValidateOnly; preview-host allowlisting, third-account authorization and dependency expansion are enforced.
-- Applied migration `0004_pair_archives.sql` to `tongkan-account-preview` and deployed preview Worker version `4eaaf9e9-0152-46cc-bd6a-c49d58b22999`.
-- Completed documentation governance: only four Markdown entry files remain at root, topic documents are indexed under `docs/`, D-085 records the long-term rule, and the full prior Context is preserved in `docs/archive/context/`.
-- Regenerated the dependency inventory and passed dependency freshness, 83-file Markdown link validation, Web typecheck/build, residual-path scans and `git diff --check`.
+- [x] Generated a code-derived Alpha 9.1 two-screen UI preview at `design/alpha9-ui/current-alpha9.1-code-preview.png` showing the safe-area entry page and centered 16:9 viewing page
+
+- [x] Cloudflare Durable Objects signaling (tongkan-personal.pages.dev)
+- [x] React Web room page (create/join/Bilibili sync/screen share)
+- [x] Chrome/Edge Manifest V3 extension (Bilibili player injection, dual sync)
+- [x] Auto-reconnect (Web)
+- [x] Chat + screen share basic pipeline
+- [x] Android Alpha 1 (versionCode 1)
+- [x] Android Alpha 2: IPv4/IPv6 rotation, detailed errors, Origin header, timeout (versionCode 2)
+- [x] Android Alpha 3: java-websocket 1.5.7->1.6.0, NPE fix, try-catch, DNS diagnostics (versionCode 3)
+- [x] Local debugging connected successfully (Alpha 4-local)
+- [x] Alpha 4~6: setDoOutput fix, WebView crash fix, b23.tv short link, NPE diagnostics
+- [x] Alpha 7: Replaced java-websocket with OkHttp 4.12.0, removed custom DNS, simplified error handling
+- [x] Alpha 7 restored as the active development and installation baseline on 2026-08-07
+- [x] Clean Alpha 7 unit-test and Debug APK build passed (15 tests)
+- [x] Android follow-up development PRD discussion draft created
+- [x] Installed and validated the third-party ui-ux-pro-max skill for UI/UX design support
+- [x] Defined a two-stage UI process: design direction now, visual micro-polish after core stability
+- [x] Generated three UI design systems with ui-ux-pro-max and adapted them for Tongkan
+- [x] Created and browser-validated an interactive Alpha 9 HTML preview
+- [x] Created and browser-validated the local playlist interactive preview with list, sort, batch add, viewing sheet, switching overlay, and completion states
+- [x] Corrected the rejected green-tinted dark theme to neutral black/charcoal; green remains only for online and success semantics
+- [x] Created PROJECT_CONTEXT.md as the stable product map, repository directory guide, architecture overview, task routing, and document source-of-truth index
+- [x] Created DECISIONS.md with 19 accepted product, design, Android, protocol, and playlist decisions plus a supersession policy
+- [x] Connected AGENTS.md, README.md, CONTEXT.md, PROJECT_CONTEXT.md, and DECISIONS.md into a fixed new-conversation reading and maintenance workflow
+- [x] Alpha 8 direct-page experiment built previously, then rolled back; artifact retained only for comparison
+- [x] Recovered the generated Alpha 9 reaction preview to `design/alpha9-ui/reaction-sticker-preview-v1.png` for reliable local display
+- [x] Replaced the oversized reaction picker concept with a compact 5×2 popup above the “互动” button and exported `design/alpha9-ui/preview-reaction-compact-v2.png`
+- [x] Confirmed black-and-white outlined dumpling art direction and generated `design/alpha9-ui/reaction-sticker-art-direction-a-v2.png` with light and dark visibility tests
+
+- [x] Completed isolated Bilibili playback verification across mobile direct, desktop direct, mobile Embed, and desktop Embed routes using av170001 and BV1Qxuc62E1y
+- [x] Accepted D-049: desktop User-Agent plus top-level player.bilibili.com Embed is the Alpha 9 Android player route
+- [x] Implemented Alpha 9 first usable native flow: room entry -> video preparation -> viewing, with local validation before media-change broadcast
+- [x] Implemented default light and selectable neutral black/charcoal dark themes with 12dp controls and pressed-state color feedback
+- [x] Implemented B站 danmaku preference, six synchronized playback rates, manual landscape, App immersive fullscreen, and HTML player fullscreen handling
+- [x] Implemented 8-second slow loading hint, 20-second preparation timeout, cancel preparation, and automatic system share after room creation
+- [x] Passed 15 Android unit tests, Android Lint, and Debug APK build for Alpha 9
+- [x] Built `release/tongkan-android-1.0-alpha9.apk` (1,383,668 bytes, SHA-256 `B530C274A5B11F1C6D3CB9635957FE9B2BC35194907C5F3C9FDBED42926956D9`)
+
+- [x] Processed first Alpha 9 physical-device screenshots and identified safe-area overlap, default button elevation, full-height WebView, hidden native controls, Bilibili click-through navigation, and inaccessible landscape control
+- [x] Implemented D-050: centered 16:9 watch stage, system inset handling, zero-elevation buttons, blocked Bilibili internal navigation, and explicit landscape immersive viewing
+- [x] Real Embed control probe passed: URL remained on player.html, top click-through overlay hidden, danmaku toggled true -> false, and playback rate changed to 1.5×
+- [x] Passed 15 unit tests, Android Lint, and Debug build for Alpha 9.1
+- [x] Built `release/tongkan-android-1.0-alpha9.1.apk` (1,385,392 bytes, SHA-256 `1AFC421B94F0CB970D23A4396CB274F07B025B3AA94AE3085021CB3A97960885`)
+- [x] Implemented D-051/D-052 natively for Alpha 9.2: open entry layout, daily local movie quote, light/dark visual tokens, compact watch header/tools, extra safe-area spacing and full-screen landscape overlay controls
+- [x] Completed immersive player state integration: synchronized play/pause icons, portrait/landscape progress and time, loading/buffering visibility rules and three-second auto-hide during active playback
+- [x] Passed 15 unit tests, Android Lint with 0 errors (7 non-blocking warnings), Java compilation and Debug APK assembly for Alpha 9.2
+- [x] Built `release/tongkan-android-1.0-alpha9.2.apk` (1,400,318 bytes, SHA-256 `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`)
+- [x] User confirmed Alpha 9.2 passed physical-device testing on 2026-08-10
+- [x] Added CHANGELOG, release guide, D-053 immutable GitHub version policy and tag-triggered Android Release workflow
+- [x] Revalidated release source: typecheck passed; 80 Web/protocol tests passed; workspace build passed; 15 Android tests, Lint and Debug assembly passed
 
 ## In Progress
 
-- TK-005 local implementation, reviewer fixes and global documentation closure are complete on the review branch; the branch remains unpushed and the unrelated partner image remains untracked.
-- T405 remains open: local/Preview Account Service Binding and actual history Secrets are not configured; production configuration remains unchanged.
-- T406 non-APK gates are complete; only Android APK build remains unrun because APK work is separately gated. The five evidence documents are approved for a local commit in this turn; no push is authorized.
-- T407/T409 remain closed gates: no Preview/production migration, deployment, Live QA, APK build/publish, push or public release is authorized.
-- Alpha 10.3 shared-calendar and daily-use two-device matrix remains deferred, not passed; Alpha 10.4 work does not change that status.
+- [x] Collected first Alpha 7 UX feedback: opening directly into the video interface feels unattractive and out of sequence
+- [x] Confirmed desired flow: room entry -> create/join -> video loading -> viewing
+- [x] Confirmed fullscreen viewing is required because the current video remains in a fixed small area
+- [x] Confirmed milestone split: Alpha 9 core viewing experience; Alpha 10 complete persistent local playlist
+- [x] Confirmed Alpha 9 final wording, loading flow, user-facing errors, room lifecycle, buffering, synchronization, and completion behavior
+- [x] Confirmed playlist scope: a persistent local Android watchlist; the peer only follows selected media changes
+- [x] Confirmed playlist video-switch completion: enter viewing screen at 0 seconds and remain paused until manual play
+- [x] Confirmed playlist completion behavior: no automatic next video; show Play next and Return to playlist actions
+- [x] Confirmed playlist sorting: explicit edit mode, long-press drag with feedback, automatic order saving, and move/delete fallback actions
+- [x] Confirmed playlist entry and batch add: shown after room entry, bottom sheet during viewing, multiline paste, duplicate detection, and background metadata loading
+- [ ] Define playlist metadata cards, sorting, and synchronized video-change overlay
+- [ ] Collect feedback on playlist card density, watched-state label, bottom-sheet height, and switching overlay
+- [x] Confirmed successful video preparation automatically enters the viewing screen
+- [x] Confirmed button feedback: press color, bounded ripple, loading label/spinner, duplicate-click prevention, and visible success/failure result
+- [x] Confirmed room-entry essentials: visible nickname, create-room action, and invite-link join
+- [x] Confirmed either room member may select video before the peer arrives; local viewing does not wait for peer readiness
+- [x] Confirmed pasted video links require an explicit Prepare Video button press before room media changes
+- [x] Confirmed invite links use a manual Paste action followed by an explicit Join Room press; no startup clipboard read
+- [x] Confirmed successful room creation automatically opens the Android share sheet once, with a persistent re-share action on the preparation page
+- [x] Confirmed the last non-empty nickname is persisted, auto-filled, always visible/editable, and required for create/join
+- [x] Confirmed cold launch returns to room entry, while current-session background/configuration interruptions restore the active room until explicit leave
+- [x] Confirmed layered Back behavior, overflow-menu Leave Room, confirmation before disconnect, and contextual reconnect action
+- [x] Confirmed peer offline keeps local playback running, while local disconnection pauses and auto-reconnects before offering manual retry
+- [x] Confirmed user-readable error categories, direct recovery actions, preserved link/room state, and collapsed technical details
+- [x] Confirmed room-entry control order and hierarchy
+- [x] Used ui-ux-pro-max to generate and adapt three visual directions
+- [x] User selected C: clean tool-oriented direction
+- [x] Defined the selected C direction's base palette, spacing, buttons, inputs, and icon rules
+- [x] Confirmed both light and dark themes, with light as default and no automatic viewing-page switch
+- [x] Confirmed restrained corner radii: buttons/inputs 12dp, cards 16dp, pills only for short statuses
+- [x] Confirmed theme switch placement: top-right on entry, loading, and viewing screens
+- [x] Frozen immersive fullscreen behavior: current orientation by default, manual landscape, layered Back, black stage, and three-second control auto-hide
+- [x] Added Alpha 9 requirements for visible Bilibili danmaku with a native toggle and for synchronized playback-speed selection
+- [x] Frozen danmaku default/on-device persistence and six synchronized playback-speed options
+- [x] Confirmed preset non-text room reaction danmaku as Alpha 9 P1, non-blocking for the core APK
+- [x] Confirmed Bilibili danmaku and room-reaction visibility are independent persisted local controls
+- [x] Generated a first visual concept preview for the ten-expression reaction picker and fullscreen overlay
+- [x] Confirmed safe media switching: local prepare and bridge verification must succeed before broadcasting a new room media
+- [x] Confirmed video-preparation timing: 8-second slow hint, optional cancel, 20-second recoverable failure, no fake percentage
+- [x] Confirmed four video error categories with direct recovery actions and collapsed technical details
+- [x] Confirmed peer-initiated media switches are automatic, independently loaded, locally retried, and synchronized to the current room anchor after readiness
+- [x] Confirmed sustained buffering over 2 seconds pauses both viewers, recovery requires manual play, and 15-second stalls show recovery actions
+- [x] Confirmed drift correction thresholds: ignore below 0.3 seconds, smooth speed correction through 1.5 seconds, hard seek above 1.5 seconds with a brief status message
+- [x] Confirmed end-of-video overlay with synchronized replay or selecting another video, with no automatic replay or next video
+- [x] Confirmed room create/join loading feedback, automatic share after navigation, invite error categories, and late-join automatic current-media loading
+- [x] Confirmed waiting/join/leave/rejoin presence feedback, uninterrupted local playback on peer absence, and reusable invitation while the room remains active
+- [x] Confirmed 10-minute empty-room expiry, local-only leave behavior, and no force-dissolve feature in Alpha 9
+- [x] Confirmed the reaction picker placement: compact two-row popup above the control-bar interaction button, never at the top of the video
+- [x] Confirmed reaction motion: short right-side glide, three upper/middle lanes, 48dp portrait / 56dp fullscreen, 2.5 seconds, peer nickname, and haptic send feedback
+- [x] Collected feedback and froze the reaction-pack visual style as black-and-white outlined dumplings with yellow/red/blue accents
+- [x] Real-device tested the implemented fullscreen and landscape overlay behavior
+- [x] Re-evaluated the Bilibili player approach through isolated probes and retained the trusted embedded-player route
+
+## Active Tasks
+
+1. Commit the accumulated Alpha 9.2 Android source, design and project-context documents.
+2. Push local master, including the four existing local commits, to GitHub.
+3. Create and push the immutable tag `v1.0.0-alpha.9.2`.
+4. Verify GitHub Actions creates the prerelease with APK and SHA-256 assets.
+5. Update repository description/topics and record the final release URL.
 
 ## Known Issues
 
-1. The daily-use APK is Debug-signed; stable public distribution requires a long-term Release signing key and signed release build.
-2. Real two-device shared-library behavior, FCM delivery and the complete Beta matrix remain physically unverified; automated tests cannot replace them.
-3. The Preview gateway and an isolated, newly rotated Preview test key still exist for future QA; the production APK does not use or contain them. Remove or rotate them before abandoning Preview testing.
-4. TK-004 W1/W2/W3, reviewer closure, the Calendar Preview QA checkpoint and the Alpha 10.3 production/APK/UI delta are committed in the current local HEAD; the branch has not been pushed.
-5. Recent commits use automatic Git identity `unknown <dengbingmei@game.ntes>`; configure a GitHub noreply identity before future public commits if desired.
-6. Basic friend unbinding is physically confirmed. The keep/delete retention matrix and App-home room discovery still require two-device production acceptance, currently deferred by the user.
-7. Calendar migration 0007 and Worker routes are active on Preview and production, but authenticated two-device Calendar behavior and the Android daily-use matrix have not received physical-device validation.
-8. Breath Tech visual acceptance passed for the current source; future UI source changes require another check in both themes, large-font mode, keyboard-open states and narrow screens.
-9. Alpha 10.4 migration `0008_watch_history.sql` and runtime code are local only; Preview/production D1, Service Binding, Secrets, Live QA, APK and two-device evidence do not exist yet.
-10. Account B站 metadata lookup is best-effort but not cached; repeated ingest/session metadata misses may repeat the external query. This is non-blocking for local integration and should be reassessed before Preview.
-11. T406 is partial only because Android APK build is unauthorized. Full workspace typecheck, 210 tests, integration/self-test, Extension bridge, non-APK build, dependency, Markdown link, credential and diff gates pass.
+1. The exact bottom interaction area is undecided: reaction-only, collapsible text chat, or both.
+2. A repeatable two-device regression matrix for create/join, media switching, speed, seek and reconnect should be completed before Beta.
+3. The accepted 2-second buffering debounce and one-report-per-buffering-episode guard remain unimplemented.
+4. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
+5. Android Release signing is not configured; Alpha artifacts use Debug signing.
+6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
+
+## Architecture Decisions
+
+- Room fixed at 2 people (host + guest), no multi-group
+- No registration/login, temporary keys
+- Android: Bilibili sync control only (no screen share, voice, chat)
+- Server syncs control state only, no video stream relay
+- Native Android remains Java + WebView; no Kotlin, Compose, or new architecture dependencies
+- Alpha 7 is the safe rollback baseline
+- Player experiments must be isolated and real-device verified before replacing the baseline
+- UI changes must be based on the user's actual usage experience, not assumptions
+- Confirmed UI flow: room entry screen -> video loading screen -> viewing screen
+- Room-entry screen keeps the nickname field visible
+- Confirmed entry order: nickname -> primary create-room button -> separator -> invite input -> join button
+- Entering fullscreen must not force landscape; landscape is a user-selected action
+- Fullscreen viewing is a P0 product requirement for the next UI iteration
+- UX structure and the visual design system are decided before Alpha 9 implementation
+- Animations and pixel-level visual polish wait until the core playback flow is stable
+- ui-ux-pro-max provides design guidance and audits; implementation remains native Java without Compose
+- Theme selection persists locally and must not reconnect the room or reload the current video
+- Dark theme uses neutral black and charcoal surfaces; green is restricted to small online/success indicators
+- Local playlist persists on the Android device across rooms and restarts; only the selected media is synchronized through existing media-change commands
+
+## Android APK Build Environment
+
+```
+JDK:  C:\tmp\android-build\jdk17\jdk-17.0.14+7  (Microsoft JDK 17)
+SDK:  C:\tmp\android-build\android-sdk  (platform 35, build-tools 35.0.0)
+Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 validation copy; ASCII path avoids Gradle errors)
+```
+
+## Active Alpha 9.2 Build Artifact
+
+- APK: `release\tongkan-android-1.0-alpha9.2.apk`
+- Size: 1,400,318 bytes (1.34 MiB)
+- SHA-256: `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`
+- Validation: `testDebugUnitTest lintDebug assembleDebug` passed on 2026-08-07
+- Unit tests: 15 passed, 0 failed; Lint: 0 errors, 7 non-blocking warnings
+- Signing: Android Debug signing; manual installation only
+
+## Alpha 7 Rollback Artifact
+
+- APK: `release\tongkan-android-1.0-alpha7.apk`
+- Size: 1,374,384 bytes
+- SHA-256: `5CA2707D44E1795ED2A4DEB1BF1E45F8E2D95DDABCB0F0ECF66B307B6D60C266`
+- Validation: `clean testDebugUnitTest assembleDebug` passed on 2026-08-07
+- Unit tests: 15 passed, 0 failed
+
+## Archived Experimental Artifact
+
+- Alpha 8 APK: `release\tongkan-android-1.0-alpha8.apk`
+- Alpha 8 is not the current version and should only be used for comparison if needed
+- Do not continue Alpha 8 implementation without first reviewing the user's real-device experience
 
 ## Next Steps
 
-1. Keep T405/T407/T409 separately gated; before Preview, reassess uncached B站 metadata and request explicit authorization for Service Binding/Secrets, migration 0008, Account/Signaling deployment and History Live QA.
-2. Before Preview, reassess the uncached B站 metadata lookup and then request explicit authorization for T405/T407: Preview Service Binding/Secrets, migration 0008, Account/Signaling deployment and History Live QA.
-3. Only after Preview evidence, request separate authorization for production migration/deployment, Alpha 10.4 APK build/publish, push or broader release; keep the Alpha 10.3 physical matrix deferred.
+1. Push the prepared Alpha 9.2 source and documentation to GitHub master.
+2. Push tag `v1.0.0-alpha.9.2` and verify the automated prerelease assets.
+3. Keep older commits/tags/releases unchanged for rollback; never replace a published APK in place.
+4. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
+5. Configure a long-term Android Release signing key before the first Beta or stable release.
 
-## Primary References
+## Key Files
 
-- AI execution rules: `AGENTS.md`
-- Stable project map: `PROJECT_CONTEXT.md`
-- Documentation index: `docs/README.md`
-- Long-term decisions: `docs/decisions/DECISIONS.md`
-- Product PRDs: `docs/product/`
-- Product roadmap: `docs/product/ROADMAP.md`
-- Release QA: `docs/quality/QA_CHECKLIST.md`
-- TK-001 specification: `specs/TK-001-unilateral-unbind/`
-- TK-004 calendar specification: `specs/TK-004-calendar/`
-- TK-005 history/statistics locally integrated specification: `specs/TK-005-history-statistics/`
-- Multi-session workflow: `docs/development/MULTI_SESSION_WORKFLOW.md`
+| Purpose | File |
+|---|---|
+| Android follow-up PRD | ANDROID_FOLLOWUP_PRD.md |
+| Alpha 9 interactive UI preview | design/alpha9-ui/preview.html |
+| Local playlist interactive preview | design/alpha9-ui/playlist-preview.html |
+| Alpha 9 design direction notes | design/alpha9-ui/DESIGN_DIRECTIONS.md |
+| Selected Alpha 9 design specification | design/alpha9-ui/SELECTED_DESIGN.md |
+| Installed UI/UX skill | C:\Users\dengbingmei\.codex\skills\ui-ux-pro-max\SKILL.md |
+| Main product PRD | PRD.md |
+| Android Bilibili URL parsing/embed URL | apps/android/.../BilibiliMedia.java |
+| Android WebView/player bridge and UI | apps/android/.../MainActivity.java |
+| Android WebSocket/API | apps/android/.../RoomClient.java (OkHttp 4.12.0) |
+| Android build config | apps/android/app/build.gradle |
+| Protocol messages | apps/android/.../RoomProtocol.java |
+| Player bridge script | apps/android/app/src/main/assets/bilibili-player-bridge.js |
+| Signaling Worker | apps/signaling/src/worker.ts |
+| Room session logic | apps/signaling/src/room-session.ts |
+| Shared types | packages/protocol/src/types.ts |
+| QA checklist | QA_CHECKLIST.md |
+| Active APK | release/tongkan-android-1.0-alpha7.apk |
 
-## Recent Conversation Log
+## Follow-up PRD Direction
 
-- 2026-09-02: User approved a local commit containing only the five T406 evidence documents, continuing to exclude `合作方-透明.png`; no push, migration, deployment, Live QA, APK build/publish or public release was authorized.
-- 2026-09-01: User kept T405/T407/T409 separately gated and authorized continuing T406 non-APK local checks. Full typecheck, 210 tests, Signaling integration with Web seven-scenario self-test, Extension bridge, all non-APK builds, dependency inventory, 127-Markdown/46-link validation, 451-path credential scan and diff checks passed. Sandbox-only Wrangler failures were rerun unchanged outside the sandbox. Android APK build, migration, deployment, Live QA, push and publication were not performed; the partner image remains untracked.
-- 2026-09-01: Continued TK-005 reviewer closure without overwriting the three existing task-contract path edits or the untracked partner image. Integrated status is synchronized across tasks, contracts, spec, Account PRD, roadmap, selected design, QA, CHANGELOG and Context; T405/T407/T409 remain unauthorized and T406 remains partial. No push, Preview/production request, migration, deployment, APK build/publish or public release occurred.
-- 2026-09-01: User explicitly approved committing the TK-005 planning baseline while excluding `合作方-透明.png` and forbidding push, deployment, APK build or publication. Verified the clean tracked workspace, created local commit `9473dcdba18341169ad3e7e0ac976f9140cf65b5`, and pinned the W1/W2/W3 task contracts to that baseline; no runtime or environment action occurred.
-- 2026-09-01: User said “继续开发 你可以自己调用智能体”. Accepted D-092 and froze all five TK-005 first-slice defaults, created review branch `codex/TK-005-history-statistics`, and created/restored safety stash `safety-before-tk005-implementation-20260901-114254`. The authorization covers a local planning commit, isolated worktrees, agents, code and local tests; it does not cover migration, deployment, APK build/publish, push or public release.
-- 2026-09-01: Completed the Draft TK-005 history/statistics planning package and synchronized Context, roadmap and account PRD. The recommended architecture uses Account-issued room grants, Signaling-owned strict overlap timing, signed idempotent Account ingest, UTC interval storage, “我们” history/monthly UI and Calendar actual-watch markers. PD-001..PD-005 remain unaccepted; no implementation branch, migration, deployment, APK build, push or publication occurred.
-- 2026-09-01: User declined the remaining Alpha 10.3 acceptance for now and asked to continue development planning. Accepted D-091: the physical matrix remains deferred, not passed, while TK-005 Alpha 10.4 history/statistics moves into reviewer specification. Created/restored `safety-before-alpha10.4-planning-20260901-104911`; no implementation, migration, deployment, APK build, push or publication occurred.
-- 2026-08-21: With explicit user approval, committed the Alpha 10.3 production/APK/UI/documentation workspace as the current local HEAD (`chore: close Alpha 10.3 production baseline`). `合作方-透明.png` was excluded and remains untracked; no push, deployment, APK publication or new build occurred.
-- 2026-08-21: User authorized committing the current Alpha 10.3 workspace, explicitly excluding `合作方-透明.png` and forbidding push, deployment and APK publication. Created/restored `safety-before-alpha10.3-commit-20260821-145157`; commit preparation is limited to the Alpha 10.3 project files.
-- 2026-08-21: User said “真机验收通过，继续”. Per the immediately preceding scope, this reconfirms Breath Tech/nav-v3 visual acceptance; no separate case-by-case Calendar/daily-use matrix evidence was supplied. Created/restored `safety-before-alpha10.3-continue-20260821-143911`, reconfirmed the canonical APK SHA-256 and ran non-destructive release closeout checks; no runtime code, deployment, build, commit or push changed.
-- 2026-08-21: User confirmed Breath Tech/nav-v3 real-device visual acceptance. The visual-only nav-v3 APK lacked production Account configuration, so the current UI source was rebuilt with production parameters, verified 55/55, Lint 0/26, source parity, v2 signature, production API and empty test token, then promoted to `release/tongkan-android-1.0.0-alpha10.3.apk` with SHA-256 `356301A7AD1A350F9E335DC64912F5835A2E72A59E6AF64FBA9EA73BC8704647`. Two-device calendar/daily-use acceptance remains next; no commit or push occurred.
-- 2026-08-21: User reported that the selected bottom-navigation bar was visually ugly. Replaced the wide blue-purple bar with a centered dark 24dp × 2dp underline, rebuilt Android 55/55 with Lint and Debug assemble, and produced the nav-v3 preview APK.
-- 2026-08-21: User provided a screenshot showing the old quote-based homepage and reported no visible change. Confirmed the screenshot matched the pre-redesign candidate, then replaced HomeScreen with state-aware cards aligned to the external HTML (PAIR / EMPTY, ROOM / READY, LOCAL FIRST), rebuilt Android 55/55 with Lint and Debug assemble, and produced the home-v2 preview APK.
-- 2026-08-21: User supplied an external Breath Tech high-fidelity HTML and asked to assess feasibility and implement it. Confirmed it is a JavaScript design gallery, not directly shippable UI; archived it as a reference and adapted the design to native Java Views. Added reusable scroll-safe bottom sheets, aligned Auth/Home with real state, converted Calendar/Library/account/friend management flows, and passed Android 55/55, Lint and Debug build, then copied a separately named `breath-tech-preview` APK for physical UI review. Production services and the existing named release APK were not changed; real-device visual acceptance remains next.
-- 2026-08-21: User authorized completing the Alpha 10.3 production backend and APK. Passed Account 68/68, production dry-run and Calendar ValidateOnly; exported and hashed a private production D1 backup, applied migration 0007, verified pair-state backfill, deployed production Worker `17a59403-98bb-4652-9ad1-32a5ff5882db`, and passed health/auth smokes. Bumped Android to versionCode 41/versionName 1.0.0-alpha10.3 and built the production-config Debug APK with 55/55, Lint 0/25, verified v2 signature, empty Preview token and SHA-256 `6A053C6FBFBA48B041344CCC48EF9EB3EC0F901F4F810D465F694C87FBF652FE`. No push or public publication occurred.
-- 2026-08-21: User explicitly approved committing the current Calendar Preview QA workspace while forbidding push, deployment and APK work. Recorded the runner variable-collision fix, frozen `media.canonicalUrl` contract correction, Preview deployment/Live evidence and synchronized Context/QA/product/operations/release/task status in one local checkpoint; excluded and preserved the unrelated untracked `合作方-透明.png`.
-- 2026-08-21: User explicitly approved Preview migration 0007, Preview Account Worker deployment and Calendar Live QA, while forbidding production and APK actions. Applied migration 0007 to `tongkan-account-preview`, deployed Preview Worker `439139cb-ab48-4f72-a3f5-3012d6c37477`, and passed all 16 Live cases including 20/20 races, archive authorization and D1 cascade evidence. Fixed the PowerShell variable collision and QA-only `media.canonicalUrl` path, removed disposable fixtures, rotated the Preview key, and left production/APK untouched.
-- 2026-08-20: User requested continued progress after the TK-004 local checkpoint. Ran the non-destructive Preview preflight: Calendar 16/16 ValidateOnly, Account typecheck and Wrangler dry-run passed. No remote request, migration, Worker deployment, APK build or push occurred; Preview migration/Worker remains separately gated.
+The discussion draft in `ANDROID_FOLLOWUP_PRD.md` defines:
 
-- 2026-08-20: Continued the TK-004 reviewer closeout without overwriting existing changes. Preserved `safety-before-tk004-t404-20260820`; completed full integrated T404 validation, serialized Account test files to prevent Windows Wrangler registry `EBUSY`, synchronized PRD/roadmap/design/QA/changelog/tasks/Context plus D-090, and committed the local TK-004 closure checkpoint. Alpha 10.3 remains local and unreleased: no Preview/production migration 0007, Worker deployment, release APK, push or extra merge occurred.
-- 2026-08-19: User explicitly authorized local integration of the three approved TK-004 branches. Created and preserved `safety-before-tk004-cherry-pick-20260819-review-docs`, cherry-picked eight W1/W2/W3 commits without conflicts, restored all reviewer documents, and advanced `codex/TK-004-calendar` to `1780acc`. Full workspace typecheck and 149 tests plus W3 offline ValidateOnly pass; current Account/Protocol, Android and QA trees match the approved tips. Preview/production migration, Worker deployment, APK publication, push and additional merge were not performed. Permission review blocked fresh integrated signaling/full dry-run and Android reruns, so the existing approved dry-run/Android gate evidence remains authoritative.
-- 2026-08-19: User explicitly approved committing the current workspace as the TK-004 baseline. Created clean baseline `a5324c5e5b15eb4798e0e3af159175477fd15647`, completed and reviewed isolated W1 Account/D1, W2 Android and W3 QA branches, fixed W1 empty `startTime` handling and W2 cross-date/lifecycle issues, and recorded APPROVED verdicts. Account 68/68, Android 55/55 with Lint 0 errors/25 warnings and Debug build, plus W3 16-case ValidateOnly all pass. No isolated commits were integrated; no Preview/production migration, Worker deployment, release APK, push or merge occurred.
+- Alpha 7 as the stable rollback baseline
+- A feedback-first development process
+- Separate milestones for player validation, room workflow, viewing UI, and stability
+- P0/P1/P2 priority recommendations
+- A simple user experience feedback template
+- Open decisions that must be discussed before implementation
+- Confirmed first UX decisions: staged room/video screens and P0 fullscreen viewing
+- Confirmed nickname remains visible on the entry screen
+- Confirmed fullscreen does not auto-rotate; landscape is manually selectable
+- Interactive preview now covers all three staged screens and fullscreen/manual landscape behavior
+- Selected Alpha 9 visual direction: C / clean utility
+- Entry, loading, and viewing screens support both light and dark themes
+- Default theme is light; theme selection is user-controlled and persisted
+- Theme changes must not reconnect the room or reload the video
+- Selected corner system: 12dp controls, 16dp cards, pills only for compact statuses
+- Acceptance criteria for room flow, playback, UI, and long-duration stability
 
-- 2026-08-19: User deferred the remaining Alpha 10.2.4 two-device P0 checks because testing is not convenient and authorized continuing other feature development. Selected the already-confirmed Next direction, TK-004 Alpha 10.3 shared calendar, and completed its spec/data/OpenAPI/plan/tasks/checklist plus disjoint Account/Android/QA contracts. A full tracked+untracked safety stash was created and restored. Per D-079, code implementation is blocked until the current deployed TK-003 workspace receives explicit commit authorization and becomes a clean baseline; no code, migration, deployment or APK changed.
-- 2026-08-19: User asked how to redesign Tongkan's UI with external design software. Reviewed the current Alpha 10 Breath Tech Android/Web design baselines, existing HTML prototypes and screenshots, and prepared a project-specific Figma-first workflow covering required screens, component/state delivery, Android implementation constraints and alternative tools. No product scope, code, build, APK, deployment or accepted visual decision changed.
-- 2026-08-19: Reviewed the current Context and Now roadmap for the user's daily task list. Today's priority remains Alpha 10.2.4 two-device physical acceptance: both unbind retention paths, App-home room discovery/direct join, room lifecycle fallbacks, login/mode switching and shared-library persistence. No code, build, deployment or roadmap scope changed.
-- 2026-08-19: User confirmed that friend unbinding now succeeds and requested a product roadmap based only on confirmed goals, evidence and constraints. Added a Now / Next / Later roadmap without fixed delivery dates: Now prioritizes the physical daily-use loop, Next proposes calendar plans and a home-page today list, and Later keeps history/statistics plus 1.0 hardening as non-committed directions; unsupported features and dates are marked TBD.
-- 2026-08-17: P0.13 physical chat matrix passed and was committed/pushed as the safe baseline.
-- 2026-08-17: TK-001 three-agent review/revision/integration completed; preview migration and Worker deploy succeeded; production remained unchanged.
-- 2026-08-17: P1.0 dual-device APK was frozen and opened for later physical testing.
-- 2026-08-17: User postponed physical testing until after work and authorized the previously accepted documentation-governance migration.
-- 2026-08-17: Completed the two-stage documentation migration, compacted current Context, archived full history, updated all known references and passed documentation/Web validation; frozen APK and production services were unchanged.
-- 2026-08-17: Audited all current Context, PRD, TK-001 Spec Kit tasks, QA and security records. Confirmed the real remaining order is two-device P1.0 acceptance → TK-001 online/production acceptance → branch publication → Alpha 10.2 shared library → Alpha 10.3 calendar → Alpha 10.4 history/statistics → Beta/1.0 hardening; several unchecked TK-001 worker boxes are stale documentation because their code is already integrated. No code, APK, push or deployment changed.
-- 2026-08-17: User chose Alpha 10.2 shared library as the next feature and requested multi-agent execution. Proposed TK-003 because TK-002 is already used: reviewer owns spec/contracts/integration; W1 owns Account Worker/D1; W2 owns Android client/UI; W3 owns QA/black-box acceptance. No worker was started yet because the baseline is not clean and old worktrees remain attached.
+## Alpha 7 Changes Summary
 
-- 2026-08-17: TK-003 shared library specs were frozen, three isolated workers implemented Account/D1, Android and QA, and all commits were reviewed and integrated locally. Account 48/48 and QA 15-case ValidateOnly passed; Preview rollout and integrated APK remain next.
+- `networkErrorMessage`: string-match -> `instanceof` checks
+- WebSocket dependency: `com.squareup.okhttp3:okhttp:4.12.0`
+- `RoomClient.java`: OkHttp WebSocket implementation
+- Removed custom DNS and java-websocket-specific NPE handling
+- `MainActivity.java`: `super.onCreate(null)`, safety catches, WebView restore protection
+- Version: versionCode 7, versionName `1.0.0-alpha.7`
 
-- 2026-08-18: User asked for the next development step. Priority remains TK-003 Preview migration/deployment and live QA first, followed by integrated Alpha 10.2 Android build and dual-device acceptance; production rollout stays separately gated.
+## Crash Root Cause Analysis
 
-- 2026-08-18: Applied TK-003 migration `0005_shared_library.sql` to Preview D1 and verified all three shared-library tables. Deployed Account Preview Worker version `fbae269d-5909-40fd-bbfa-b79318e319b9`; production remained unchanged. Next is W3 Live Preview QA.
+See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mortems.
 
-- 2026-08-18: User asked what to do after the Preview backend deployment. The next gated task remains T039: run TK-003 Live Preview QA before building the integrated Alpha 10.2 Android APK.
+## Conversation Log
 
-- 2026-08-18: Completed T039 Preview Live QA using disposable A/B/C accounts and a temporary protected Pages/Worker route because `workers.dev` is unreachable locally. Official QA passed 15/15 cases and 20/20 races; keep/pending/delete/third-party, rebind isolation and D1 cascade counts passed. All temporary routes, credentials and fixture rows were removed; production remained unchanged. Next is T040 integrated Android build.
+- 2026-08-03~05: Android Alpha 1 initial development
+- 2026-08-06 (1): Alpha 2 - IPv4/IPv6 rotation, detailed errors, timeout
+- 2026-08-06 (2): Alpha 3 - NPE fix, java-websocket 1.6.0
+- 2026-08-06 (3): AGENTS.md + CONTEXT.md mechanism, skill routing, local server
+- 2026-08-06 (4): Local debug, WebView crash fix, b23.tv, OkHttp migration -> Alpha 7
+- 2026-08-07 (1): Alpha 8 direct mobile Bilibili page experiment built
+- 2026-08-07 (2): Made CONTEXT.md updates mandatory at the end of every conversation
+- 2026-08-07 (3): Returned to Alpha 7, rebuilt APK, and drafted the Android follow-up PRD for user-experience discussion
+- 2026-08-07 (4): User reported that the App opens directly into an unattractive video screen and cannot play fullscreen; staged entry flow and fullscreen were recorded as Alpha 9 P0 candidates
+- 2026-08-07 (5): User confirmed nickname stays visible and fullscreen must not auto-rotate; landscape will be an explicit user choice
+- 2026-08-07 (6): User approved the proposed room-entry order: nickname, create room, separator, invite link, join room
+- 2026-08-07 (7): Installed ui-ux-pro-max and agreed to design UX structure and visual direction before Alpha 9, while leaving micro-polish until core functionality stabilizes
+- 2026-08-07 (8): Generated three adapted visual directions and a validated interactive HTML preview for Alpha 9 design selection
+- 2026-08-07 (9): User selected C / clean utility as the Alpha 9 UI direction; base design tokens were recorded
+- 2026-08-07 (10): User requested selectable light/dark themes with light default and tighter corner radii; preview and design tokens were updated
+- 2026-08-07 (11): Verified the completed light/dark previews, default-light behavior, and 12dp control radius; native theme-switch placement remains the next UX decision
+- 2026-08-07 (12): User approved the top-right theme switch on all three screens; the interactive prototype and Alpha 9 specifications were updated
+- 2026-08-07 (13): User confirmed automatic entry after video preparation and reported weak button feedback; press/loading feedback is now under discussion
+- 2026-08-07 (14): User approved the three-stage button feedback specification for later Alpha 9 native implementation
+- 2026-08-07 (15): User requested a multi-video playlist with thumbnails, titles, ordering, selectable switching, and a visible synchronized video-change state; product scope discussion started
+- 2026-08-07 (16): User selected a persistent local Android watchlist for the first playlist version; shared room editing is deferred
+- 2026-08-07 (17): User confirmed playlist switches enter the viewing screen at 0 seconds and remain paused until manual play
+- 2026-08-07 (18): User confirmed playlist playback does not automatically advance; completion offers Play next and Return to playlist
+- 2026-08-07 (19): User approved playlist sorting mode with explicit edit state, long-press drag, automatic saving, and fallback move actions
+- 2026-08-07 (20): User approved playlist entry points and batch-add flow: no entry-screen clutter, full list after joining, viewing bottom sheet, multiline paste, and duplicate detection
+- 2026-08-07 (21): Created and validated an interactive local-playlist preview covering light list, sorting, batch add, dark viewing sheet, switching overlay, and completion actions
+- 2026-08-07 (22): User rejected the green-tinted dark theme; both previews and specifications were changed to neutral black/charcoal with green limited to semantic status indicators
+- 2026-08-07 (23): Built a complete product context management system with a stable project map, directory/document routing, long-term decision log, mandatory AI read order, and README navigation
+- 2026-08-07 (24): User clarified that the updated `ANDROID_FOLLOWUP_PRD.md` makes Alpha 9 the next development version; Alpha 7 remains the current stable baseline and Alpha 8 remains archived
+- 2026-08-07 (25): User asked to continue Alpha 9 development discussion; scope freeze begins with deciding whether the persistent local playlist ships in Alpha 9 or a later milestone
+- 2026-08-07 (26): User accepted the milestone split: Alpha 9 delivers the core room and viewing experience, while the complete persistent local playlist moves to Alpha 10
+- 2026-08-07 (27): User accepted that either room member can select video without waiting for the peer; each client enters viewing when locally ready, and late joiners sync the current media
+- 2026-08-07 (28): User accepted explicit video preparation: pasting validates the link and enables the button, but loading and room media changes only begin after tapping Prepare Video
+- 2026-08-07 (29): User accepted manual invitation handling: the App does not read the clipboard on startup; Paste fills the invite field and Join Room remains a separate explicit action
+- 2026-08-07 (30): User requested automatic sharing after room creation; Alpha 9 will open the Android share sheet once on successful creation and retain a manual re-share action
+- 2026-08-07 (31): User accepted nickname persistence: Alpha 9 remembers the last non-empty nickname but keeps the field visible and editable on every room-entry screen
+- 2026-08-07 (32): User accepted room lifecycle behavior: cold launch starts at room entry, current-session interruptions restore the room and page, and explicit leave clears the session
+- 2026-08-07 (33): User accepted layered navigation: Back exits fullscreen, then returns viewing to preparation without disconnecting; leaving from preparation or the overflow menu requires confirmation
+- 2026-08-07 (34): User accepted disconnect handling: peer offline does not pause local playback, while local room disconnection pauses immediately, auto-reconnects, and shows manual retry only after failure
+- 2026-08-07 (35): User accepted error UX with plain-language categories and direct recovery actions while preserving technical diagnostics under a collapsed View Details section
+- 2026-08-07 (36): User accepted fullscreen control behavior: black stage, tap-to-toggle controls, three-second auto-hide while playing, persistent controls during interaction or errors, and restored orientation on exit
+- 2026-08-07 (37): User added Alpha 9 requirements for a danmaku option that preserves Bilibili comments and for a playback-speed feature; existing rate sync can be reused, while danmaku bridging remains to be implemented
+- 2026-08-07 (38): User accepted danmaku as a default-on per-device persisted preference and accepted six room-synchronized speed options with new rooms starting at 1.0×
+- 2026-08-07 (39): User requested preset non-text reactions visible to both viewers; feasibility review found that the existing chat broadcast and rate limit can support an ephemeral room reaction overlay without persistent room state
+- 2026-08-07 (40): User accepted room reaction danmaku as an Alpha 9 P1 feature with 8–12 built-in non-text reactions, real-time broadcast, no history or offline replay, and no ability to block the core APK
+- 2026-08-07 (41): User accepted independent local controls for Bilibili danmaku and room reactions; reactions remain visible with fullscreen controls hidden and use immediate local rendering plus server-message deduplication
+- 2026-08-07 (42): Generated the first visual preview of the ten-expression clean-utility reaction pack, its light picker panel, and dark fullscreen overlay; awaiting user design feedback
+- 2026-08-07 (43): User could not see the inline generation result; recovered its PNG from the Codex task record into the project and displayed it using an absolute local path
+- 2026-08-07 (44): User said the large picker over the video obstructs viewing; changed it to a compact 5×2 popup directly above the “互动” control, updated PRD/design/decision documents, and exported a revised preview
+- 2026-08-07 (45): User explicitly accepted the compact reaction picker preview; its placement, 5×2 layout, close behavior, and control-bar visibility rules are frozen for Alpha 9 P1 implementation
+- 2026-08-07 (46): Began the next design discussion for reaction overlay motion; comparing full-screen danmaku traversal, a recommended short right-side glide, and a button-origin floating bubble, with exact size and timing awaiting user confirmation
+- 2026-08-07 (47): User accepted the recommended short right-side glide: 48dp portrait / 56dp fullscreen, about 120dp travel with slight upward drift, 2.5-second lifetime, three upper/middle lanes, peer nickname labels, and button scale/color/haptic feedback
+- 2026-08-07 (48): Began selecting the final art direction for the ten custom reaction assets; comparing minimal outlined dumplings, colorful flat emoji, and glossy 3D styles, with the minimal outlined system recommended
+- 2026-08-07 (49): User accepted art direction A; recorded D-038 and generated `reaction-sticker-art-direction-a-v2.png`, showing the final ten black-and-white outlined dumpling expressions and dark-video visibility test
+- 2026-08-07 (50): User accepted the new reaction concept and asked what remains; reorganized the roadmap so Alpha 9 core UI/player/lifecycle implementation and QA come before non-blocking P1 reaction asset production, followed by Alpha 10 playlist work
+- 2026-08-07 (51): Began the final Alpha 9 loading/error-state discussion with a proposed safe media-change flow: load and verify the new video locally first, broadcast the room media change only after success, and leave the peer on the existing video if preparation fails
+- 2026-08-07 (52): User accepted safe media switching; recorded D-039 so failed local preparation preserves the room’s current video and only successful local bridge readiness triggers the synchronized switch
+- 2026-08-07 (53): Prepared the next loading-timing proposal for discussion: immediate spinner and “正在准备视频”, a slower-loading hint after 8 seconds, a 20-second failure threshold, no fake percentage, an optional cancel action, and a brief success check before synchronized switching
+- 2026-08-07 (54): User accepted the loading timing; recorded D-040 with the 8-second slow hint, cancel action, 20-second recoverable failure, no percentage, and 0.4-second success feedback
+- 2026-08-07 (55): Prepared the next discussion around four user-facing video errors: invalid link, network/timeout, player bridge failure, and unavailable or restricted video, each with a direct recovery action and collapsed technical details
+- 2026-08-07 (56): User accepted the four-category error matrix; recorded D-041 and froze exact natural-language copy, recovery actions, room-disconnect separation, state preservation, and collapsed diagnostics
+- 2026-08-07 (57): Prepared the next discussion for receiving a peer-initiated video switch: automatic switch overlay, independent local loading, no wait between devices, and local retry if the receiver fails to load the room’s new current media
+- 2026-08-07 (58): User accepted peer-initiated automatic switching; recorded D-042 with immediate pause/overlay, independent loading, no confirmation, local-only retry, and room-anchor catch-up after readiness
+- 2026-08-07 (59): Prepared the next discussion for playback buffering: ignore very short stalls, optionally pause both viewers after a sustained stall, show which viewer is loading, and require an explicit resume after recovery
+- 2026-08-07 (60): User accepted synchronized buffering pauses; recorded D-043 with a 2-second debounce, one pause per buffering episode, manual resume after recovery, and 15-second recovery actions
+- 2026-08-07 (61): Code review confirmed the existing bridge already ignores drift below 0.3 seconds, temporarily adjusts speed for 0.3–1.5-second drift, and hard-seeks above 1.5 seconds; prepared this behavior for user confirmation
+- 2026-08-07 (62): User accepted the existing drift correction thresholds; recorded D-044 and added the brief “已重新同步” message only for hard seeks above 1.5 seconds
+- 2026-08-07 (63): Prepared the next discussion for end-of-video behavior: stay in the room, show a completion overlay, offer synchronized replay or return to video preparation, and never auto-play or auto-select another video in Alpha 9
+- 2026-08-07 (64): User accepted the Alpha 9 end-of-video screen; recorded D-045 with synchronized replay, local return to video preparation, peer selecting status, and no auto replay/recommendation/next-video behavior
+- 2026-08-07 (65): Prepared the next discussion for room creation/join feedback, automatic share timing, expired/full-room invite errors, and late joiners automatically loading existing room media
+- 2026-08-07 (66): User accepted room creation/join and late-join behavior; recorded D-046 with navigation-before-share, 8/15-second timing, categorized invite errors, and automatic loading of existing room media
+- 2026-08-07 (67): Prepared the next discussion for room presence feedback: waiting alone, peer join notification, peer leave without stopping local playback, rejoin resynchronization, and whether the invitation remains reusable
+- 2026-08-07 (68): User accepted room presence and invite reuse; recorded D-047 with non-blocking waiting state, two-second member notifications, uninterrupted playback on peer absence, and automatic resync on rejoin
+- 2026-08-07 (69): Code review confirmed the signaling room currently expires 10 minutes after both member connections are gone; prepared the empty-room lifetime and leave-confirmation behavior for user discussion
+- 2026-08-07 (70): User accepted the existing 10-minute empty-room expiry; recorded D-048 with local-only leave, reusable credentials during the grace period, expired-invite copy, and no force-dissolve feature
+- 2026-08-07 (71): User asked for a categorized count of remaining decisions before development; began consolidating required Alpha 9 freezes, implementation-time choices, P1 reaction work, and later Alpha 10 playlist decisions
+- 2026-08-07 (72): Consolidated the remaining inventory: one Alpha 9 core player decision, one non-blocking P1 release gate, five Alpha 10 playlist decisions, and two later Beta/1.0 milestone decisions; marked Alpha 9 wording/loading/error discussion complete and cleaned stale PRD decision statuses
+- 2026-08-07 (73): Ran isolated real-page playback probes. Mobile direct pages exposed hidden/fragile video and no usable danmaku; mobile Embed played cleanly but lacked danmaku; desktop direct had full DOM but captcha risk; desktop Embed played both AV and BV fixtures with top-level video, bridge events, and native danmaku.
+- 2026-08-07 (74): User requested a first usable Alpha 9 by about 18:00 and promoted light/dark theme switching into P0. Scope was reduced to core usability; reactions, playlist, complex error cards, buffering debounce, and visual micro-polish were deferred.
+- 2026-08-07 (75): Implemented and built the first usable Alpha 9 Debug APK. Fifteen unit tests, Lint, and assembleDebug passed; no ADB device was connected, so installation and dual-device QA remain next.
+- 2026-08-07 (76): User confirmed the computer cannot connect to the phone and will transfer, install, and test the Alpha 9 APK independently, then return with real-device experience feedback.
+- 2026-08-07 (77): Opened Windows File Explorer with `release/tongkan-android-1.0-alpha9.apk` selected so the user can transfer it to the phone.
+- 2026-08-07 (78): User returned first physical-device screenshots: entry flow and theme worked, but the UI overlapped the phone cutout, shadows looked unnatural, the player filled the portrait screen, tapping video navigated away, native controls were inaccessible, and landscape could not be reached. User proposed room status above the player and a future chat/interaction area below.
+- 2026-08-07 (79): Built Alpha 9.1 with safe-area insets, zero-elevation buttons, centered 16:9 player, online count, blocked Bilibili navigation, hidden click-through overlays, restored controls, and explicit landscape immersive viewing. Real Embed control probe and Android checks passed.
 
-- 2026-08-18: Completed T040 Android reviewer build in the ASCII build directory. 39/39 JVM tests passed, Lint completed with 0 errors and 19 warnings, assembleDebug succeeded, and aapt verified com.tongkan.mobile versionCode 36 / 1.0.0-alpha10.2. Copied the Preview-only APK to release with SHA-256 1C7800B618A4A43D543A6161D6737ACAF15F375A2D872BE00FD5DDBB96B7B1A9; production remained unchanged.
+- 2026-08-07 (80): Re-verified `release/tongkan-android-1.0-alpha9.1.apk` and opened Windows File Explorer with the APK selected for manual transfer and physical-device installation.
 
-- 2026-08-18: User asked how to physically test the Alpha 10.2 Preview APK. Prepared a two-device shared-library acceptance sequence covering login/binding, cross-device add/refresh, categories/status/search/order, optimistic conflict recovery, immediate watch, in-room media switching, restart persistence and optional archive read-only behavior; no code, deployment or production state changed.
+- 2026-08-07 (81): User asked to see the current UI. Generated and visually checked a code-derived Alpha 9.1 preview covering the room entry and viewing screens; clarified that it is a layout simulation rather than a physical-device screenshot.
 
-- 2026-08-18: User has no available second tester and chose not to run the Alpha 10.2 dual-device checklist now. Agreed that the Preview APK can be used immediately and development can continue, but physical two-device synchronization/FCM/Beta acceptance remains deferred and must not be reported as passed; production rollout still requires separate approval.
+- 2026-08-07 (82): User requested visual optimization before further testing. Invoked ui-ux-pro-max, reviewed its mobile professional rules, searched watch-party/minimal utility patterns, touch/safe-area guidance, neutral palettes and media-control icons, and audited the current code-derived preview against the two physical-device screenshots. No new visual decision is accepted yet; recommended direction is pending user confirmation.
 
-- 2026-08-18: User authorized T041, documentation closure and conversion to a long-term daily-use version. T041 passed all workspace gates; a private production D1 backup was created outside Git, migrations 0004/0005 were applied, production Account Worker version 1dc75739-52bf-4db1-828e-6b11e70906c0 was deployed and verified, and the production-configured FCM-enabled APK was built without the Preview token. T042/T043 documentation and delivery completed; physical two-device acceptance remains deferred under D-086.
+- 2026-08-07 (83): User accepted the recommended visual redesign and added a daily rotating classic-film quote as the entry headline. Recorded D-051, updated the Android follow-up PRD and selected design specification, built `design/alpha9-ui/preview-v2.html`, exported four high-fidelity screenshots, and corrected preview-tool width/scale issues until the 430px portrait and landscape layouts rendered without clipping.
 
-- 2026-08-18: User reported that a pasted B23 share did not appear and requested a Bilibili-inspired shared-library redesign plus easier room-time selection/switching. Inspection confirmed the input was extracted, but `https://b23.tv/kN7epIW` currently returns HTTP 200 JSON code -404 (`啥都木有`), while the backend only exposes generic `B23_RESOLUTION_FAILED`. Proposed Alpha 10.2.1: per-item parse/error states, a bottom-sheet add flow with preview rows, category-based thumbnail sections inspired by Bilibili favorites, and portrait/landscape in-room library drawers that keep video visible. No code or long-term decision changed pending user confirmation.
+- 2026-08-07 (84): User requested more portrait top clearance and rejected the landscape sidebar. Recorded D-052, updated the PRD/design spec, and built `preview-v3.html` with full-screen video, tap-to-show controls, three-second auto-hide behavior, no persistent online status, and a controls-hidden state. Screenshot export was rejected because the local browser escalation approval quota was exhausted, so PNG generation remains pending explicit approval.
 
-- 2026-08-18: User confirmed the five Alpha 10.2.1 P0/P1 items. Implemented the Android add-sheet preview/results, corrected B23 failure wording, category thumbnail sections and portrait/landscape room pickers; Decision D-087 and product/design/QA/spec docs were updated. Production-configured versionCode 37 APK passed 41/41 Android tests, Lint 0 errors/23 warnings, workspace typecheck and 129 tests; backend production state was unchanged.
-- 2026-08-18: User reported that valid B23 additions still failed in the Alpha 10.2.1 APK. The screenshot link `https://b23.tv/XM569Iw` currently redirects to `BV1SBbS6hEHa`, disproving the earlier assumption that this failure was source unavailability. Local Workers Runtime reproduced Cloudflare `Illegal invocation` because the resolver invoked the stored global fetch with the wrong receiver. Fixed fetch binding, added bounded redirect/HTML fallbacks, normalized multiline Android share input, passed Account 51/51, Android 42/42, workspace 132 tests/typecheck/build, uploaded Preview Worker version `4d3a1955-bf92-49dc-965b-cdee4489debb`, and built verified versionCode 38 candidate APK. Production Worker remains unchanged pending explicit approval.
-- 2026-08-18: User explicitly authorized production Account Worker deployment. Dry-run confirmed production D1 binding and `AUTH_TEST_MODE=false`; deployed hotfix version `1198e7ba-ff25-4aca-8369-105e2e1efa19`, verified it receives 100% traffic, then confirmed the Pages health endpoint returns 200/`testMode=false` and unauthenticated library access returns 401 `AUTH_REQUIRED`. No migration, signaling deployment or Pages configuration change occurred. Alpha 10.2.2 APK is ready for the exact physical B23 retest.
+- 2026-08-07 (85): User explicitly authorized V3 screenshot export. Four Chrome headless export requests were submitted, but the escalation approval gateway returned HTTP 502 Bad Gateway for each request before execution. No PNG was generated or overwritten; `preview-v3.html` remains the source of truth and export should be retried only after the user is informed of this new gateway failure.
 
-- 2026-08-19: User reported five daily-use failures and authorized production Account Worker deployment. Implemented saved-session anonymous mode and account switching, single-step unbind, bound-friend invite plus explicit fallback, library rename and JPEG thumbnails; all gates passed, Preview/Production Workers were deployed, and Alpha 10.2.3 APK was built for physical verification.
-- 2026-08-19: Physical Alpha 10.2.3 evidence showed the unbind explanation dialog only displays Cancel because setMessage and setItems conflict on the device theme. Replaced it locally with explicit keep/delete/cancel buttons. User confirmed active bound-friend room discovery as the next P0: host publishes a short-lived pair-only room and partner joins from App without link sharing; implementation remains in progress. The custom Codex provider also rejected prompt_cache_retention during remote compaction, so C:\Users\dengbingmei\.codex\config.toml now disables remote_compaction_v2; restart is required.
-- 2026-08-19: Completed Alpha 10.2.4 Preview gate. Added real D1 active-room integration coverage; Account 59/59 and workspace 140 tests plus typecheck/build/diff checks passed. Applied Preview migration 0006, deployed Worker `5238a35c-09d7-478e-961f-5554e697af9b`, corrected QA allowlists to the actual protected Preview gateway, and passed disposable A/B/C black-box checks for visibility, replacement, encryption, delete, expiry and unbind cleanup. Production migration/Worker/APK remain unchanged pending explicit migration approval.
-- 2026-08-19: User explicitly approved production D1 migration 0006, Account Worker deployment and Alpha 10.2.4 APK build. Exported a private D1 backup outside Git, applied migration 0006, deployed Worker `519be06a-5d10-4f8e-ba69-a00e7216493e` at 100%, verified Pages health 200/testMode=false and unauthenticated library/active-room 401, then built production-configured versionCode 40 APK with 46/46 tests, Lint 0 errors/25 warnings and SHA-256 `64D6530D50E127528CA0BD57E9F2F04C37E20EAB25E9F174BDB11C0581A09BA6`.
+- 2026-08-07 (86): User asked to open the V3 prototype. A default-browser Start-Process request was submitted after the user had been informed of the gateway issue, but the approval service again returned HTTP 502 before execution. The prototype was not opened automatically; manual opening from `design/alpha9-ui/preview-v3.html` is the available path.
+
+- 2026-08-07 (87): User reviewed the prototype and requested a final product audit followed by APK output if no major issue remained. Audit identified the release blocker that V3 exists only in HTML and is not yet in MainActivity; rebuilding now would still show Alpha 9.1. Initial git/diff inspection ran, but additional MainActivity/manifest/style reads were rejected by the approval gateway with HTTP 502. No native changes or APK build occurred.
+
+- 2026-08-07 (88): User explicitly authorized continuing native Alpha 9.2 implementation and build. A resumed read-only MainActivity inspection was attempted immediately, but the approval gateway again returned HTTP 502 before execution. Work cannot safely proceed until the gateway recovers; no source or artifact changed.
+
+- 2026-08-07 (89): Resumed successfully after the gateway recovered, completed the Alpha 9.2 native V3 UI and immersive player integration, synchronized playback icons/progress/buffering behavior, raised Android to versionCode 11 / 1.0.0-alpha.9.2, passed 15 unit tests plus Lint and assembleDebug, and produced `release/tongkan-android-1.0-alpha9.2.apk` (1,400,318 bytes; SHA-256 `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`). Real-device and dual-device QA remain next.
+
+- 2026-08-07 (90): Opened Windows File Explorer with `release/tongkan-android-1.0-alpha9.2.apk` selected for manual transfer to the phone and physical-device installation.
+
+- 2026-08-10 (91): User confirmed Alpha 9.2 passed physical-device testing and requested the GitHub repository be updated for sustainable future releases. Prepared D-053, README/Android documentation, CHANGELOG, RELEASING guide, ignore rules and an automated tag-triggered Android GitHub Release workflow. Verified typecheck, 80 Web/protocol tests, full workspace build, 15 Android tests, Lint and Debug APK assembly. Git commit, push, tag and Release verification are in progress.
+
+- 2026-09-07 (92): User selected the conservative Alpha 9.2 rollback option. A first full-directory backup attempt was stopped before project overwrite because it was copying large ignored cache directories. Created lightweight safety backup `C:\Users\DENGBI~1\AppData\Local\Temp\tongkan-pre-alpha9.2-rollback-20260907-145549` containing `git-status-short.txt`, `working-tree.patch`, `untracked-files.txt`, and copied untracked files. Restored repository files from commit `4312b10` at file level while leaving the branch pointer on `codex/TK-005-history-statistics`; `git status` therefore shows the rollback as many modified/deleted files relative to the newer branch. Verified Android `versionName "1.0.0-alpha.9.2"`, `versionCode 11`, and existing APK SHA-256 `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`. No tests or build were run in this rollback pass.
+
+- 2026-09-07 (93): User requested committing the prepared Alpha 9.2 rollback. Staged tracked rollback changes plus the Alpha 9.2 `apps/android/app/src/main/res/drawable/ic_more.xml` file, explicitly left `合作方-透明.png` and `.codex-*` local/tool files untracked, and committed the rollback baseline. No push, deployment, migration, APK build, or public release occurred.
+
+---
+
+Maintenance rules:
+- Mandatory: update `CONTEXT.md` before ending every conversation, regardless of whether code changed
+- Mark completed with [x], new with [ ]
+- Critical decisions in Known Issues or Architecture Decisions
+- Build artifacts (APK path, SHA-256) in corresponding Completed entries
+- Update the follow-up PRD whenever a product decision is agreed with the user

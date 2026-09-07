@@ -31,9 +31,6 @@ public final class RoomClient {
         void onAuthenticated(String ownMemberId, JSONObject snapshot);
         void onSnapshot(JSONObject snapshot);
         void onAnchor(PlaybackAnchor anchor, String actorNickname);
-        default void onChatMessage(String messageId, String memberId, String nickname, String text, long serverSentAtMs) {}
-        default void onHistoryBound(RoomClient client, long expiresAt) {}
-        default void onHistoryDisabled(RoomClient client, String code, String message) {}
         void onError(String message);
     }
 
@@ -49,41 +46,8 @@ public final class RoomClient {
         }
     }
 
-    static final class PlaybackReportState {
-        final long sequence;
-        final double position;
-        final boolean paused;
-        final int readyState;
-        final boolean buffering;
-        final BilibiliMedia media;
-        final boolean ended;
-        final Double durationSeconds;
-
-        PlaybackReportState(long sequence, double position, boolean paused, int readyState, boolean buffering, BilibiliMedia media, boolean ended, Double durationSeconds) {
-            this.sequence = Math.max(0, sequence);
-            this.position = Math.max(0, position);
-            this.paused = paused;
-            this.readyState = Math.max(0, Math.min(4, readyState));
-            this.buffering = buffering;
-            this.media = media;
-            this.ended = ended;
-            this.durationSeconds = durationSeconds == null || !Double.isFinite(durationSeconds) || durationSeconds <= 0 ? null : durationSeconds;
-        }
-
-        static boolean shouldSendImmediately(PlaybackReportState previous, PlaybackReportState next) {
-            if (previous == null) return true;
-            if (previous.sequence != next.sequence || previous.paused != next.paused || previous.readyState != next.readyState
-                || previous.buffering != next.buffering || previous.ended != next.ended) return true;
-            if (previous.media == null || next.media == null) return previous.media != next.media;
-            if (!previous.media.sameIdentity(next.media)) return true;
-            return (previous.durationSeconds == null) != (next.durationSeconds == null);
-        }
-    }
-
     private static final String HTTP_ORIGIN = "https://tongkan-personal.pages.dev";
     private static final String WS_ORIGIN = "wss://tongkan-personal.pages.dev";
-    private static final int MAX_CHAT_CODE_POINTS = 120;
-    static final long PLAYBACK_REPORT_INTERVAL_MS = 5_000L;
 
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -96,17 +60,12 @@ public final class RoomClient {
     private final Listener listener;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private volatile WebSocket socket;
-    private volatile boolean authenticated;
     private volatile boolean shouldReconnect;
     private volatile int reconnectAttempt;
     private volatile long serverOffsetMs;
     private volatile String lastNetworkError = "";
     private ScheduledFuture<?> reconnectFuture;
     private ScheduledFuture<?> pingFuture;
-    private ScheduledFuture<?> playbackReportFuture;
-    private volatile String historyGrant;
-    private PlaybackReportState playbackReportState;
-    private volatile boolean playbackReportsActive = true;
 
     public RoomClient(String roomId, String key, String nickname, Listener listener) {
         this.roomId = roomId;
@@ -123,13 +82,8 @@ public final class RoomClient {
 
     public synchronized void close() {
         shouldReconnect = false;
-        authenticated = false;
         cancelFuture(reconnectFuture);
         cancelFuture(pingFuture);
-        cancelFuture(playbackReportFuture);
-        playbackReportFuture = null;
-        playbackReportState = null;
-        historyGrant = null;
         WebSocket current = socket;
         socket = null;
         if (current != null) current.close(1000, "client closed");
@@ -152,137 +106,19 @@ public final class RoomClient {
         }
     }
 
-    public void sendReport(
-        long sequence,
-        double position,
-        boolean paused,
-        int readyState,
-        boolean buffering,
-        BilibiliMedia media,
-        boolean ended,
-        Double durationSeconds
-    ) {
-        PlaybackReportState next = new PlaybackReportState(
-            sequence, position, paused, readyState, buffering, media, ended, durationSeconds);
-        boolean immediate;
-        synchronized (this) {
-            immediate = PlaybackReportState.shouldSendImmediately(playbackReportState, next);
-            playbackReportState = next;
-            if (playbackReportsActive && authenticated) startPlaybackReports();
-        }
-        if (immediate && playbackReportsActive && authenticated) sendPlaybackReport(next);
-    }
-
     public void sendReport(long sequence, double position, boolean paused, int readyState, boolean buffering, BilibiliMedia media) {
-        sendReport(sequence, position, paused, readyState, buffering, media, false, null);
-    }
-
-    public synchronized void bindHistory(String grant) {
-        historyGrant = grant;
-        if (authenticated) sendHistoryBind();
-    }
-
-    public synchronized void clearHistoryBinding() {
-        boolean wasBound = historyGrant != null;
-        historyGrant = null;
-        if (wasBound && authenticated && playbackReportState != null) sendPlaybackReport(playbackReportState);
-    }
-
-    public synchronized void setPlaybackReportsActive(boolean active) {
-        if (playbackReportsActive == active) return;
-        playbackReportsActive = active;
-        if (!active) {
-            PlaybackReportState current = playbackReportState;
-            if (authenticated && current != null) sendPlaybackReport(current);
-            cancelFuture(playbackReportFuture);
-            playbackReportFuture = null;
-            return;
-        }
-        if (authenticated && playbackReportState != null) {
-            sendPlaybackReport(playbackReportState);
-            startPlaybackReports();
-        }
-    }
-
-    public synchronized void clearPlaybackReport() {
-        playbackReportState = null;
-        cancelFuture(playbackReportFuture);
-        playbackReportFuture = null;
-    }
-
-    private void sendPlaybackReport(PlaybackReportState state) {
         try {
-            send(playbackReportMessage(state, historyGrant != null, System.currentTimeMillis()));
+            send(RoomProtocol.playbackReport(
+                sequence, position, paused, readyState, buffering, media,
+                System.currentTimeMillis()
+            ));
         } catch (JSONException error) {
             listener.onError("无法上报播放器状态");
         }
     }
 
-    static JSONObject playbackReportMessage(PlaybackReportState state, boolean historyEnabled, long sentAtClientMs) throws JSONException {
-        if (!historyEnabled) {
-            return RoomProtocol.playbackReport(
-                state.sequence, state.position, state.paused, state.readyState, state.buffering, state.media, sentAtClientMs);
-        }
-        return RoomProtocol.playbackReport(
-            state.sequence, state.position, state.paused, state.readyState, state.buffering, state.media,
-            state.ended, state.durationSeconds, sentAtClientMs);
-    }
-
-    private synchronized void startPlaybackReports() {
-        if (!playbackReportsActive || !authenticated || playbackReportState == null || scheduler.isShutdown()) return;
-        if (playbackReportFuture != null && !playbackReportFuture.isDone()) return;
-        playbackReportFuture = scheduler.scheduleWithFixedDelay(() -> {
-            PlaybackReportState current;
-            synchronized (RoomClient.this) {
-                if (!playbackReportsActive || !authenticated) return;
-                current = playbackReportState;
-            }
-            if (current != null) sendPlaybackReport(current);
-        }, PLAYBACK_REPORT_INTERVAL_MS, PLAYBACK_REPORT_INTERVAL_MS, TimeUnit.MILLISECONDS);
-    }
-
-    private void sendHistoryBind() {
-        String current = historyGrant;
-        if (current == null) return;
-        try {
-            send(RoomProtocol.historyBind(current));
-        } catch (JSONException error) {
-            historyGrant = null;
-            listener.onHistoryDisabled(this, "INVALID_HISTORY_GRANT", "共同历史授权无效，房间仍可继续使用。");
-        }
-    }
-
-    public String sendChat(String rawText) {
-        String text = trimUnicode(rawText);
-        if (text.isEmpty()) {
-            listener.onError("消息不能为空");
-            return null;
-        }
-        if (text.codePointCount(0, text.length()) > MAX_CHAT_CODE_POINTS) {
-            listener.onError("消息不能超过 120 个字符");
-            return null;
-        }
-        WebSocket current = socket;
-        if (!authenticated || current == null) {
-            listener.onError("房间尚未连接，暂时无法发送消息");
-            return null;
-        }
-        String messageId = UUID.randomUUID().toString();
-        try {
-            if (!current.send(RoomProtocol.chatMessage(messageId, text).toString())) {
-                listener.onError("消息发送失败，请稍后重试");
-                return null;
-            }
-            return messageId;
-        } catch (JSONException error) {
-            listener.onError("无法生成消息");
-            return null;
-        }
-    }
-
     private synchronized void openSocket() {
         if (!shouldReconnect || scheduler.isShutdown()) return;
-        authenticated = false;
         listener.onConnectionState(reconnectAttempt == 0 ? "正在连接" : "正在重连");
 
         OkHttpClient client = new OkHttpClient.Builder()
@@ -325,11 +161,8 @@ public final class RoomClient {
                 synchronized (self) {
                     if (self.socket != ws) return;
                     self.socket = null;
-                    self.authenticated = false;
                     cancelFuture(pingFuture);
                     pingFuture = null;
-                    cancelFuture(playbackReportFuture);
-                    playbackReportFuture = null;
                     if (!shouldReconnect) {
                         listener.onConnectionState("已断开");
                         return;
@@ -349,9 +182,6 @@ public final class RoomClient {
                 synchronized (self) {
                     if (self.socket != ws) return;
                     self.socket = null;
-                    self.authenticated = false;
-                    cancelFuture(playbackReportFuture);
-                    playbackReportFuture = null;
                     lastNetworkError = networkErrorMessage(t);
                     listener.onConnectionState("连接中断，正在重连…");
                     scheduleReconnect();
@@ -360,7 +190,7 @@ public final class RoomClient {
         });
     }
 
-    void handleMessage(String raw) {
+    private void handleMessage(String raw) {
         try {
             JSONObject event = new JSONObject(raw);
             String type = event.optString("type");
@@ -375,11 +205,8 @@ public final class RoomClient {
                 JSONObject snapshot = event.getJSONObject("snapshot");
                 updateServerOffset(snapshot, receivedAt);
                 reconnectAttempt = 0;
-                authenticated = true;
                 listener.onConnectionState("已连接");
                 startPing();
-                sendHistoryBind();
-                startPlaybackReports();
                 listener.onAuthenticated(event.getJSONObject("member").getString("id"), snapshot);
                 return;
             }
@@ -393,37 +220,12 @@ public final class RoomClient {
                 listener.onAnchor(PlaybackAnchor.fromJson(event.getJSONObject("anchor")), event.optString("actorNickname", "对方"));
                 return;
             }
-            if ("chat.message".equals(type)) {
-                listener.onChatMessage(
-                    event.getString("messageId"),
-                    event.getString("memberId"),
-                    event.optString("nickname", "对方"),
-                    event.getString("text"),
-                    event.optLong("serverSentAtMs", receivedAt)
-                );
-                return;
-            }
-            if ("history.bound".equals(type)) {
-                long expiresAt = event.getLong("expiresAt");
-                if (expiresAt <= 0) throw new JSONException("Invalid history bound response");
-                listener.onHistoryBound(this, expiresAt);
-                return;
-            }
             if ("member.updated".equals(type)) {
                 JSONObject member = event.getJSONObject("member");
                 listener.onConnectionState(member.optBoolean("connected") ? "对方已加入" : "对方已离线");
                 return;
             }
-            if ("error".equals(type)) {
-                String code = event.optString("code");
-                String message = event.optString("message", "房间服务返回错误");
-                if ("INVALID_HISTORY_GRANT".equals(code) || "HISTORY_GRANT_EXPIRED".equals(code) || "HISTORY_BIND_CONFLICT".equals(code)) {
-                    clearHistoryBinding();
-                    listener.onHistoryDisabled(this, code, message);
-                    return;
-                }
-                listener.onError(message);
-            }
+            if ("error".equals(type)) listener.onError(event.optString("message", "房间服务返回错误"));
         } catch (JSONException error) {
             listener.onError("收到无法识别的房间消息");
         }
@@ -486,23 +288,6 @@ public final class RoomClient {
             while ((line = reader.readLine()) != null) result.append(line);
         }
         return result.toString();
-    }
-
-    private static String trimUnicode(String value) {
-        if (value == null || value.isEmpty()) return "";
-        int start = 0;
-        int end = value.length();
-        while (start < end) {
-            int codePoint = value.codePointAt(start);
-            if (!Character.isWhitespace(codePoint) && !Character.isSpaceChar(codePoint)) break;
-            start += Character.charCount(codePoint);
-        }
-        while (end > start) {
-            int codePoint = value.codePointBefore(end);
-            if (!Character.isWhitespace(codePoint) && !Character.isSpaceChar(codePoint)) break;
-            end -= Character.charCount(codePoint);
-        }
-        return value.substring(start, end);
     }
 
     static String networkErrorMessage(Throwable error) {

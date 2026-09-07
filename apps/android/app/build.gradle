@@ -2,24 +2,6 @@ plugins {
     id "com.android.application"
 }
 
-def accountApiBaseUrl = (project.findProperty("tongkanAccountApiBaseUrl") ?: project.findProperty("tongkanAccountApiOrigin") ?: "").toString()
-def accountTestAccessToken = (project.findProperty("tongkanAccountTestAccessToken") ?: "").toString()
-def allowAccountTestAccessToken = (project.findProperty("tongkanAllowAccountTestAccessToken") ?: "false").toString().toBoolean()
-def fcmApiKey = (project.findProperty("tongkanFcmApiKey") ?: "").toString()
-def fcmApplicationId = (project.findProperty("tongkanFcmApplicationId") ?: "").toString()
-def fcmProjectId = (project.findProperty("tongkanFcmProjectId") ?: "").toString()
-def fcmSenderId = (project.findProperty("tongkanFcmSenderId") ?: "").toString()
-def escapedAccountApiBaseUrl = accountApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
-def escapedAccountTestAccessToken = accountTestAccessToken.replace("\\", "\\\\").replace("\"", "\\\"")
-def escapedFcmApiKey = fcmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
-def escapedFcmApplicationId = fcmApplicationId.replace("\\", "\\\\").replace("\"", "\\\"")
-def escapedFcmProjectId = fcmProjectId.replace("\\", "\\\\").replace("\"", "\\\"")
-def escapedFcmSenderId = fcmSenderId.replace("\\", "\\\\").replace("\"", "\\\"")
-
-if (!accountTestAccessToken.isEmpty() && !allowAccountTestAccessToken) {
-    throw new GradleException("tongkanAccountTestAccessToken requires -PtongkanAllowAccountTestAccessToken=true and must never be used for production APKs.")
-}
-
 android {
     namespace "com.tongkan.mobile"
     compileSdk 35
@@ -28,14 +10,8 @@ android {
         applicationId "com.tongkan.mobile"
         minSdk 26
         targetSdk 35
-        versionCode 41
-        versionName "1.0.0-alpha10.3"
-        buildConfigField "String", "ACCOUNT_API_BASE_URL", "\"${escapedAccountApiBaseUrl}\""
-        buildConfigField "String", "ACCOUNT_TEST_ACCESS_TOKEN", "\"${escapedAccountTestAccessToken}\""
-        buildConfigField "String", "FCM_API_KEY", "\"${escapedFcmApiKey}\""
-        buildConfigField "String", "FCM_APPLICATION_ID", "\"${escapedFcmApplicationId}\""
-        buildConfigField "String", "FCM_PROJECT_ID", "\"${escapedFcmProjectId}\""
-        buildConfigField "String", "FCM_SENDER_ID", "\"${escapedFcmSenderId}\""
+        versionCode 11
+        versionName "1.0.0-alpha.9.2"
 
         testInstrumentationRunner "android.test.InstrumentationTestRunner"
     }
@@ -47,19 +23,15 @@ android {
         }
     }
 
-    buildFeatures {
-        buildConfig true
-    }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
 }
 
 dependencies {
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
-    implementation "com.google.firebase:firebase-messaging:25.0.1"
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.json:json:20240303"
 }

@@ -1,6 +1,6 @@
 # 同看 Android 1.0 Alpha 双真机验收记录
 
-本文件只记录本次实际验收的环境、结果与证据。通用验收项目以仓库根目录的 [`docs/quality/QA_CHECKLIST.md`](../docs/quality/QA_CHECKLIST.md) 为准。
+本文件只记录本次实际验收的环境、结果与证据。通用验收项目以仓库根目录的 [`QA_CHECKLIST.md`](../QA_CHECKLIST.md) 为准。
 
 ## 基本信息
 

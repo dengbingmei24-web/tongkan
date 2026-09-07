@@ -12,7 +12,7 @@
     "typecheck": "pnpm -r typecheck",
     "test:self": "pnpm --filter @tongkan/web test:self",
     "test:bridge": "pnpm --filter @tongkan/extension test:bridge",
-    "test:integration": "pnpm --filter @tongkan/protocol build && node scripts/run-integration-tests.mjs",
+    "test:integration": "node scripts/run-integration-tests.mjs",
     "deps:report": "node scripts/generate-dependency-inventory.mjs --write",
     "deps:check": "node scripts/generate-dependency-inventory.mjs --check",
     "release:prepare": "node scripts/prepare-production.mjs",
@@ -21,7 +21,6 @@
     "android:lint": "node scripts/run-android-gradle.mjs lintDebug",
     "android:build": "node scripts/run-android-gradle.mjs assembleDebug",
     "android:check": "node scripts/run-android-gradle.mjs testDebugUnitTest lintDebug assembleDebug",
-    "fcm:configure": "node scripts/run-fcm-configure.mjs",
     "dev:web": "pnpm --filter @tongkan/web dev",
     "dev:signaling": "pnpm --filter @tongkan/signaling dev"
   },

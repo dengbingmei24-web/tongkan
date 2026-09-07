@@ -1,9 +1,0 @@
-AUTH_TEST_MODE=true
-EMAIL_HMAC_SECRET=replace-with-random-secret
-AUTH_SECRET=replace-with-random-secret
-SESSION_SECRET=replace-with-random-secret
-HISTORY_GRANT_SECRET=
-HISTORY_INGEST_SECRET=
-SMTP_USERNAME=sender@qq.com
-SMTP_AUTHORIZATION_CODE=qq-mail-smtp-authorization-code
-SMTP_FROM=sender@qq.com
