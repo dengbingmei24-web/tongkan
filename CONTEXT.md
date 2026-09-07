@@ -4,10 +4,10 @@
 > Format: `last_updated` required, others as needed.
 
 ---
-last_updated: 2026-09-07T15:15:06+08:00
+last_updated: 2026-09-07T16:35:00+08:00
 current_version: 1.0.0-alpha.9.2 rollback workspace (versionCode 11; anonymous Bilibili sync only)
 target_version: Stabilize from Alpha 9.2 again before reintroducing account, pair space, calendar, history/statistics, or ZIP0 work
-status: At the user's request, the workspace files were restored from Git commit `4312b10` (`release: Android 1.0.0-alpha.9.2`) without moving the current branch pointer, then committed on branch `codex/TK-005-history-statistics` as an Alpha 9.2 rollback baseline. Current code now matches the Alpha 9.2 anonymous-room baseline at the file level; later Alpha 10 account/pair/library/calendar/history and TK-006 ZIP0 source files are removed from the visible project tree except for protected local/tool files. The pre-rollback dirty workspace was backed up at `C:\Users\DENGBI~1\AppData\Local\Temp\tongkan-pre-alpha9.2-rollback-20260907-145549`. Existing APK `release/tongkan-android-1.0-alpha9.2.apk` remains available with SHA-256 `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`. No push, deployment, migration, new APK build, or public release occurred.
+status: Preparing GitHub handoff because the user is leaving the current computer/work environment and GPT account. Current branch `codex/TK-005-history-statistics` is synchronized with `origin/codex/TK-005-history-statistics` at rollback commit `33f6655`; several local historical/worktree branches still need explicit GitHub push if the goal is preserving all development history. Working tree contains only `CONTEXT.md` modifications plus protected local/tool untracked files (`.codex-deploy-tk006-prod-20260904/`, `.codex-tmp-bridge.patch`, `.codex-tmp-zip0-gate.patch`, `合作方-透明.png`) that should not be uploaded. Recommended transfer path: commit the updated `CONTEXT.md`, push all local `codex/*` branches and tag `v1.0.0-alpha.9.2`, then separately attach APKs to GitHub Releases instead of committing binaries to the repo.
 ---
 
 ## Mandatory Conversation Lifecycle
@@ -20,6 +20,10 @@ status: At the user's request, the workspace files were restored from Git commit
 - Never leave a conversation without synchronizing the latest development state into this system.
 
 ## Completed
+
+- [x] Pushed Alpha 9.2 rollback commit `33f6655` to `origin/codex/TK-005-history-statistics`
+- [x] Deployed production Signaling Worker `tongkan-signaling` from the Alpha 9.2 rollback tree; Cloudflare Worker version `88d0a2d3-636f-4281-8a73-ba5df7f80032`
+- [x] Built Alpha 9.2 Web Pages static assets locally in `apps/web/dist`; Pages deployment remains blocked by the escalation approval channel
 
 - [x] Committed the Alpha 9.2 rollback baseline on `codex/TK-005-history-statistics` after excluding protected local/tool files
 
@@ -152,6 +156,8 @@ status: At the user's request, the workspace files were restored from Git commit
 4. Full four-category error cards, playback-completion overlay and hard-sync notice remain stabilization work.
 5. Android Release signing is not configured; Alpha artifacts use Debug signing.
 6. Alpha 10 persistent local playlist remains deferred until post-Alpha 9.2 usage feedback.
+7. Cloudflare Pages production rollback deployment is still pending because the escalation approval channel rejected the Pages deploy command after automatic-review rate limiting.
+8. A fresh Alpha 9.2 APK rebuild is still pending because non-escalated Gradle cannot establish loopback IPC and escalated Gradle execution was rejected by the approval channel; use the existing verified Alpha 9.2 APK until a normal local shell build can run.
 
 ## Architecture Decisions
 
@@ -208,10 +214,10 @@ Project: C:\tmp\android-build\project-alpha92-20260807  (latest Alpha 9.2 valida
 
 ## Next Steps
 
-1. Push the prepared Alpha 9.2 source and documentation to GitHub master.
-2. Push tag `v1.0.0-alpha.9.2` and verify the automated prerelease assets.
-3. Keep older commits/tags/releases unchanged for rollback; never replace a published APK in place.
-4. Collect normal-use feedback and decide whether the next milestone is Alpha 9.3 stabilization or Alpha 10 interaction/playlist work.
+1. Deploy `apps/web/dist` to Cloudflare Pages `tongkan-personal` once the escalation channel allows network deployment.
+2. Build a fresh Alpha 9.2 Debug APK in a normal local PowerShell or after escalated Gradle execution becomes available.
+3. Keep tag `v1.0.0-alpha.9.2` and older releases unchanged unless the user explicitly approves a new release tag/name.
+4. Collect normal-use feedback on the restored anonymous Bilibili sync baseline before reintroducing Alpha 10 features.
 5. Configure a long-term Android Release signing key before the first Beta or stable release.
 
 ## Key Files
@@ -386,6 +392,15 @@ See `.crash-analysis.md` and `.roomclient-loss-analysis.md` for detailed post-mo
 
 - 2026-09-07 (93): User requested committing the prepared Alpha 9.2 rollback. Staged tracked rollback changes plus the Alpha 9.2 `apps/android/app/src/main/res/drawable/ic_more.xml` file, explicitly left `合作方-透明.png` and `.codex-*` local/tool files untracked, and committed the rollback baseline. No push, deployment, migration, APK build, or public release occurred.
 
+- 2026-09-07 (94): User requested executing push, deployment, migration, APK build and release after the Alpha 9.2 rollback. Pushed commit `33f6655` to `origin/codex/TK-005-history-statistics`. Confirmed Alpha 9.2 rollback tree has no Account Worker/D1 migrations, only signaling Durable Object migrations in `apps/signaling/wrangler.toml`. Cloudflare deployment was not executed because the escalation approval channel rejected `pnpm deploy:cloudflare` after automatic-review rate limiting. APK rebuild did not complete: `pnpm android:build` failed on a Windows `node_modules` file lock, direct Gradle required network/loopback access and failed with `Unable to establish loopback connection`. Existing verified APK remains `release/tongkan-android-1.0-alpha9.2.apk`; no new GitHub Release or tag overwrite was performed.
+
+- 2026-09-07 (95): User explicitly accepted the risk and approved continuing Cloudflare deployment and Android APK build. Rechecked context and workspace before changing anything. `pnpm install` and `C:\tmp\android-build` preparation were rejected by the escalation approval channel, so a minimal ignored local workspace dependency link was created from current `packages/protocol` for Worker bundling and existing cached Wrangler was used. Production Signaling Worker `tongkan-signaling` deployed successfully as version `88d0a2d3-636f-4281-8a73-ba5df7f80032`. Current Alpha 9.2 Web assets built successfully into `apps/web/dist` using cached dependencies, but Cloudflare Pages deploy was rejected by the escalation approval channel. APK rebuild remains blocked: non-escalated Gradle fails on network/loopback restrictions, and escalated Gradle execution was rejected. Existing verified Alpha 9.2 APK remains the only deliverable APK.
+
+- 2026-09-07 (96): User chose to use the existing verified Alpha 9.2 APK instead of waiting for a fresh rebuild. Verified `release/tongkan-android-1.0-alpha9.2.apk` still exists and matches SHA-256 `96DD1A137A593827126893E34DFD8586411A2A869B72A36CF56DE9F1CBAF7A4C`. Attempted to open Windows Explorer with the APK selected, but GUI execution was rejected by the escalation approval channel; user can manually open the release folder.
+
+- 2026-09-07 (97): User clarified they need the version with the chat box. Verified existing APK candidates: `release/tongkan-android-1.0.0-alpha10.1-p1.0-dual-device.apk` SHA-256 `50C2AC0656592E5B402303558DAB19C26AEF55B47FF251EB5B001DD2F6932001`, and `release/tongkan-android-1.0.0-alpha10.1-p0.13-pair.apk` SHA-256 `429B43859D8633C07C9A7A443B2E80F0227545117C6E50B915E8B8F0CE10EC6A`. Recommended P1.0 as the later dual-device build that inherits P0.13 chat UI; warned it is no longer the conservative Alpha 9.2 rollback baseline.
+- 2026-09-07 (98): User said they are leaving this computer/work environment and the GPT account will no longer belong to them, and asked whether project work files can be placed on GitHub for continuation from another computer. Checked remote origin=https://github.com/dengbingmei24-web/tongkan.git, current branch codex/TK-005-history-statistics, local/remote status, release artifacts, and likely sensitive tracked files. Current branch is already pushed at 33f6655; remaining upload work is to commit this CONTEXT.md handoff update, push local historical/worktree codex/* branches and tag v1.0.0-alpha.9.2, and avoid uploading protected local/tool files or raw APK binaries into Git history. APK transfer should use GitHub Releases or manual file copy.
+
 ---
 
 Maintenance rules:
@@ -394,3 +409,5 @@ Maintenance rules:
 - Critical decisions in Known Issues or Architecture Decisions
 - Build artifacts (APK path, SHA-256) in corresponding Completed entries
 - Update the follow-up PRD whenever a product decision is agreed with the user
+
+
